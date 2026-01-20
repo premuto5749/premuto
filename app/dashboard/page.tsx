@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
+import { PivotTable } from '@/components/dashboard/PivotTable'
+import { TrendChart } from '@/components/dashboard/TrendChart'
 
 interface TestResult {
   id: string
@@ -36,10 +38,12 @@ interface TestRecord {
 export default function DashboardPage() {
   const searchParams = useSearchParams()
   const saved = searchParams.get('saved')
-  
+
   const [records, setRecords] = useState<TestRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedItem, setSelectedItem] = useState<string | null>(null)
+  const [isChartOpen, setIsChartOpen] = useState(false)
 
   useEffect(() => {
     fetchTestRecords()
@@ -63,16 +67,15 @@ export default function DashboardPage() {
     }
   }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'High':
-        return '🔴'
-      case 'Low':
-        return '🔵'
-      case 'Normal':
-        return '🟢'
-      default:
-        return '-'
+  const handleItemClick = (itemName: string) => {
+    setSelectedItem(itemName)
+    setIsChartOpen(true)
+  }
+
+  const handleChartClose = (open: boolean) => {
+    setIsChartOpen(open)
+    if (!open) {
+      setSelectedItem(null)
     }
   }
 
@@ -149,78 +152,14 @@ export default function DashboardPage() {
             </Button>
           </div>
 
-          {records.map((record) => (
-            <Card key={record.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle>
-                      {new Date(record.test_date).toLocaleDateString('ko-KR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </CardTitle>
-                    <CardDescription>
-                      {record.hospital_name && `${record.hospital_name} · `}
-                      {record.machine_type && record.machine_type}
-                      {!record.hospital_name && !record.machine_type && '검사 정보 없음'}
-                    </CardDescription>
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {record.test_results.length}개 항목
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {record.test_results.map((result) => (
-                    <div key={result.id} className="p-3 border rounded-lg">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-sm">
-                            {result.standard_items.name}
-                          </p>
-                          {result.standard_items.display_name_ko && (
-                            <p className="text-xs text-muted-foreground">
-                              {result.standard_items.display_name_ko}
-                            </p>
-                          )}
-                        </div>
-                        <span className="text-lg">
-                          {getStatusIcon(result.status)}
-                        </span>
-                      </div>
-                      <p className="text-lg font-semibold">
-                        {result.value} {result.unit}
-                      </p>
-                      {result.ref_text && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          참고: {result.ref_text} {result.unit}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <PivotTable records={records} onItemClick={handleItemClick} />
 
-          <Card className="bg-muted/50">
-            <CardHeader>
-              <CardTitle>Phase 6 예정</CardTitle>
-              <CardDescription>
-                시계열 그래프와 피벗 테이블 기능이 추가될 예정입니다
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="text-sm text-muted-foreground space-y-2">
-                <li>• 피벗 테이블: 날짜(가로) × 항목(세로) 레이아웃</li>
-                <li>• 시계열 그래프: 주요 항목 클릭 시 트렌드 차트</li>
-                <li>• 카테고리별 필터링: 췌장, 신장, 간, CBC</li>
-              </ul>
-            </CardContent>
-          </Card>
+          <TrendChart
+            records={records}
+            itemName={selectedItem}
+            open={isChartOpen}
+            onOpenChange={handleChartClose}
+          />
         </div>
       )}
     </div>
