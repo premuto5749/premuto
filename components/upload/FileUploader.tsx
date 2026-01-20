@@ -42,8 +42,7 @@ export function FileUploader({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg'],
-      'application/pdf': ['.pdf']
+      'image/*': ['.png', '.jpg', '.jpeg']
     },
     maxFiles: 1,
     maxSize: 10 * 1024 * 1024, // 10MB
@@ -113,13 +112,16 @@ export function FileUploader({
       ) : (
         <>
           <p className="text-lg font-medium mb-2">
-            검사지 이미지 또는 PDF를 업로드하세요
+            검사지 이미지를 업로드하세요
           </p>
           <p className="text-sm text-muted-foreground mb-4">
             클릭하거나 드래그앤드롭으로 파일을 선택할 수 있습니다
           </p>
           <p className="text-xs text-muted-foreground">
-            지원 형식: JPG, PNG, PDF (최대 10MB)
+            지원 형식: JPG, PNG (최대 10MB)
+          </p>
+          <p className="text-xs text-amber-600 mt-2">
+            💡 PDF는 이미지로 변환 후 업로드해주세요
           </p>
         </>
       )}
