@@ -1,0 +1,23 @@
+{
+  "allowedTools": [
+    "Edit",
+    "Bash(ls *)",
+    "Bash(cat *)",
+    "Bash(grep *)",
+    "Bash(find *)",
+    "Bash(git status)",
+    "Bash(git diff *)",
+    "Bash(git log *)",
+    "Bash(git show *)",
+    "Bash(git add *)",
+    "Bash(git commit *)",
+    "Bash(git rm *)",
+    "Bash(gh issue list *)",
+    "Bash(gh issue view *)",
+    "Bash(gh pr list *)",
+    "Bash(gh pr view *)",
+    "Bash(npm run lint)",
+    "Bash(npm run typecheck)",
+    "Bash(npm test)"
+  ]
+}
