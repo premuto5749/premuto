@@ -105,6 +105,7 @@ npm run lint
 
 - **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** - 7단계 구현 계획
 - **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** - Supabase 설정 가이드
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Vercel 배포 가이드
 
 ## 🗂️ 프로젝트 구조
 
