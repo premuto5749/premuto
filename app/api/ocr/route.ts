@@ -25,11 +25,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 파일 타입 체크
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
+    // 파일 타입 체크 (현재는 이미지만 지원)
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only JPG, PNG, and PDF are allowed.' },
+        { error: 'Invalid file type. Only JPG and PNG images are supported. PDF support coming soon.' },
         { status: 400 }
       )
     }
@@ -38,7 +38,20 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     const base64 = buffer.toString('base64')
-    const mimeType = file.type
+
+    // MIME type 정규화 (image/jpg → image/jpeg)
+    let mimeType = file.type
+    if (mimeType === 'image/jpg') {
+      mimeType = 'image/jpeg'
+    }
+
+    // 디버깅: 파일 정보 로그
+    console.log('📁 File info:', {
+      name: file.name,
+      originalType: file.type,
+      normalizedType: mimeType,
+      size: file.size
+    })
 
     // GPT-4o Vision API 호출
     const completion = await openai.chat.completions.create({
@@ -100,13 +113,16 @@ export async function POST(request: NextRequest) {
     })
 
     const content = completion.choices[0]?.message?.content
-    
+
     if (!content) {
+      console.error('❌ No response from OpenAI')
       return NextResponse.json(
         { error: 'No response from OCR service' },
         { status: 500 }
       )
     }
+
+    console.log('📝 OpenAI raw response:', content)
 
     // JSON 파싱
     let ocrResult
@@ -114,16 +130,21 @@ export async function POST(request: NextRequest) {
       // GPT가 ```json ... ``` 형태로 응답할 수 있으므로 정제
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
+        console.log('✅ Found JSON block in response')
         ocrResult = JSON.parse(jsonMatch[0])
       } else {
+        console.log('⚠️ No JSON block found, trying to parse whole content')
         ocrResult = JSON.parse(content)
       }
+      console.log('✅ Successfully parsed OCR result:', ocrResult)
     } catch (parseError) {
-      console.error('JSON parse error:', parseError)
+      console.error('❌ JSON parse error:', parseError)
+      console.error('📄 Raw content that failed to parse:', content)
       return NextResponse.json(
-        { 
+        {
           error: 'Failed to parse OCR result',
-          raw_content: content 
+          details: parseError instanceof Error ? parseError.message : 'Unknown error',
+          raw_content: content
         },
         { status: 500 }
       )
