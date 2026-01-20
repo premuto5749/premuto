@@ -25,11 +25,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 파일 타입 체크
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf']
+    // 파일 타입 체크 (현재는 이미지만 지원)
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only JPG, PNG, and PDF are allowed.' },
+        { error: 'Invalid file type. Only JPG and PNG images are supported. PDF support coming soon.' },
         { status: 400 }
       )
     }
