@@ -70,11 +70,27 @@ OCR 결과는 반드시 '표준 항목'으로 매핑되어야 한다.
 
 ## 7. 개발 명령어 (Development Commands)
 
-> **참고**: 이 프로젝트는 현재 초기 계획 단계입니다. 실제 개발이 시작되면 이 섹션을 업데이트하세요.
+### 개발 서버
+```bash
+npm run dev          # http://localhost:3000에서 개발 서버 실행
+npm run build        # 프로덕션 빌드
+npm start            # 프로덕션 서버 실행
+```
 
-프로젝트 설정이 완료되면 다음 명령어들을 추가할 예정:
-- 개발 서버 실행
-- 빌드 및 배포
-- 테스트 실행
-- 린트/타입 체크
-- Supabase 마이그레이션
+### 코드 품질
+```bash
+npm run lint         # ESLint 실행
+```
+
+### Supabase 설정
+Supabase 프로젝트 설정은 **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** 참고
+
+데이터베이스 마이그레이션:
+1. Supabase Dashboard → SQL Editor
+2. `supabase/migrations/001_initial_schema.sql` 내용 복사 및 실행
+
+또는 CLI 사용:
+```bash
+npx supabase db push              # 마이그레이션 적용
+npx supabase gen types typescript # TypeScript 타입 생성
+```

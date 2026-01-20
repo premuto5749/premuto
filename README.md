@@ -60,3 +60,67 @@
 - **Frontend**: Next.js 14, Tailwind CSS, Shadcn/ui
 - **Backend/DB**: Supabase (PostgreSQL)
 - **AI/OCR**: GPT-4o (Vision API)
+## 🚀 빠른 시작
+
+### 1. 의존성 설치
+
+```bash
+npm install
+```
+
+### 2. Supabase 설정
+
+**[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** 가이드를 참고하여 Supabase 프로젝트를 생성하고 데이터베이스를 설정하세요.
+
+간단 요약:
+1. Supabase 프로젝트 생성
+2. `.env.local` 파일에 API 키 설정
+3. SQL Editor에서 `supabase/migrations/001_initial_schema.sql` 실행
+
+### 3. 개발 서버 실행
+
+```bash
+npm run dev
+```
+
+브라우저에서 [http://localhost:3000](http://localhost:3000) 접속
+
+## 📋 개발 명령어
+
+```bash
+# 개발 서버 실행
+npm run dev
+
+# 프로덕션 빌드
+npm run build
+
+# 프로덕션 서버 실행
+npm start
+
+# 린트 검사
+npm run lint
+```
+
+## 📖 추가 문서
+
+- **[IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md)** - 7단계 구현 계획
+- **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** - Supabase 설정 가이드
+
+## 🗂️ 프로젝트 구조
+
+```
+mimo-health-log/
+├── app/                  # Next.js 페이지 (App Router)
+├── components/           # React 컴포넌트
+│   ├── ui/              # Shadcn/ui 기본 컴포넌트
+│   ├── upload/          # 파일 업로드 관련
+│   ├── staging/         # 검수 페이지
+│   └── dashboard/       # 시각화 대시보드
+├── lib/
+│   ├── supabase/        # Supabase 클라이언트
+│   ├── ocr/             # OCR 처리 로직
+│   └── utils.ts         # 유틸리티 함수
+├── types/               # TypeScript 타입 정의
+└── supabase/
+    └── migrations/      # 데이터베이스 마이그레이션
+```
