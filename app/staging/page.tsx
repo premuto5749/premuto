@@ -82,7 +82,7 @@ export default function StagingPage() {
 
     } catch (error) {
       console.error('Save error:', error)
-      alert('저장 중 오류가 발생했습니다. Phase 5에서 구현 예정입니다.')
+      alert(error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.')
     } finally {
       setSaving(false)
     }
@@ -224,7 +224,7 @@ export default function StagingPage() {
               ) : (
                 <>
                   <Save className="w-4 h-4 mr-2" />
-                  저장 (Phase 5 구현 예정)
+                  저장하기
                 </>
               )}
             </Button>
