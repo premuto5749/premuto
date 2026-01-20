@@ -113,13 +113,16 @@ export async function POST(request: NextRequest) {
     })
 
     const content = completion.choices[0]?.message?.content
-    
+
     if (!content) {
+      console.error('❌ No response from OpenAI')
       return NextResponse.json(
         { error: 'No response from OCR service' },
         { status: 500 }
       )
     }
+
+    console.log('📝 OpenAI raw response:', content)
 
     // JSON 파싱
     let ocrResult
@@ -127,16 +130,21 @@ export async function POST(request: NextRequest) {
       // GPT가 ```json ... ``` 형태로 응답할 수 있으므로 정제
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
+        console.log('✅ Found JSON block in response')
         ocrResult = JSON.parse(jsonMatch[0])
       } else {
+        console.log('⚠️ No JSON block found, trying to parse whole content')
         ocrResult = JSON.parse(content)
       }
+      console.log('✅ Successfully parsed OCR result:', ocrResult)
     } catch (parseError) {
-      console.error('JSON parse error:', parseError)
+      console.error('❌ JSON parse error:', parseError)
+      console.error('📄 Raw content that failed to parse:', content)
       return NextResponse.json(
-        { 
+        {
           error: 'Failed to parse OCR result',
-          raw_content: content 
+          details: parseError instanceof Error ? parseError.message : 'Unknown error',
+          raw_content: content
         },
         { status: 500 }
       )
