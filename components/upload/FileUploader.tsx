@@ -2,9 +2,15 @@
 
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, File, X } from 'lucide-react'
+import { Upload, File, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import * as pdfjsLib from 'pdfjs-dist'
+
+// PDF.js worker 설정
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+}
 
 interface FileUploaderProps {
   onFileSelect: (file: File) => void
@@ -13,40 +19,92 @@ interface FileUploaderProps {
   isProcessing?: boolean
 }
 
-export function FileUploader({ 
-  onFileSelect, 
-  onFileRemove, 
+export function FileUploader({
+  onFileSelect,
+  onFileRemove,
   selectedFile,
-  isProcessing = false 
+  isProcessing = false
 }: FileUploaderProps) {
   const [preview, setPreview] = useState<string | null>(null)
+  const [isConverting, setIsConverting] = useState(false)
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  // PDF를 이미지로 변환하는 함수
+  const convertPdfToImage = async (file: File): Promise<File> => {
+    const arrayBuffer = await file.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    const page = await pdf.getPage(1) // 첫 페이지만 사용
+
+    const viewport = page.getViewport({ scale: 2.0 }) // 고해상도
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')!
+
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+
+    await page.render({
+      canvasContext: context,
+      viewport: viewport
+    }).promise
+
+    // Canvas를 Blob으로 변환
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const imageFile = new File(
+            [blob],
+            file.name.replace('.pdf', '.png'),
+            { type: 'image/png' }
+          )
+          resolve(imageFile)
+        }
+      }, 'image/png', 0.95)
+    })
+  }
+
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
-    if (file) {
-      onFileSelect(file)
-      
+    if (!file) return
+
+    try {
+      let processedFile = file
+
+      // PDF 파일이면 이미지로 변환
+      if (file.type === 'application/pdf') {
+        setIsConverting(true)
+        console.log('📄 PDF 파일 감지, 이미지로 변환 중...')
+        processedFile = await convertPdfToImage(file)
+        console.log('✅ PDF → PNG 변환 완료')
+        setIsConverting(false)
+      }
+
+      onFileSelect(processedFile)
+
       // 이미지 미리보기 생성
-      if (file.type.startsWith('image/')) {
+      if (processedFile.type.startsWith('image/')) {
         const reader = new FileReader()
         reader.onloadend = () => {
           setPreview(reader.result as string)
         }
-        reader.readAsDataURL(file)
+        reader.readAsDataURL(processedFile)
       } else {
         setPreview(null)
       }
+    } catch (error) {
+      console.error('❌ PDF 변환 실패:', error)
+      setIsConverting(false)
+      alert('PDF 변환에 실패했습니다. 다른 파일을 시도해주세요.')
     }
   }, [onFileSelect])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg']
+      'image/*': ['.png', '.jpg', '.jpeg'],
+      'application/pdf': ['.pdf']
     },
     maxFiles: 1,
     maxSize: 10 * 1024 * 1024, // 10MB
-    disabled: isProcessing
+    disabled: isProcessing || isConverting
   })
 
   const handleRemove = () => {
@@ -95,6 +153,18 @@ export function FileUploader({
     )
   }
 
+  if (isConverting) {
+    return (
+      <Card className="p-12">
+        <div className="flex flex-col items-center justify-center">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+          <p className="text-lg font-medium mb-2">PDF를 이미지로 변환 중...</p>
+          <p className="text-sm text-muted-foreground">잠시만 기다려주세요</p>
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <div
       {...getRootProps()}
@@ -112,16 +182,16 @@ export function FileUploader({
       ) : (
         <>
           <p className="text-lg font-medium mb-2">
-            검사지 이미지를 업로드하세요
+            검사지 이미지 또는 PDF를 업로드하세요
           </p>
           <p className="text-sm text-muted-foreground mb-4">
             클릭하거나 드래그앤드롭으로 파일을 선택할 수 있습니다
           </p>
           <p className="text-xs text-muted-foreground">
-            지원 형식: JPG, PNG (최대 10MB)
+            지원 형식: JPG, PNG, PDF (최대 10MB)
           </p>
-          <p className="text-xs text-amber-600 mt-2">
-            💡 PDF는 이미지로 변환 후 업로드해주세요
+          <p className="text-xs text-green-600 mt-2">
+            ✅ PDF는 자동으로 이미지로 변환됩니다
           </p>
         </>
       )}
