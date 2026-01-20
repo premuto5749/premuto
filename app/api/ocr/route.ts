@@ -38,7 +38,20 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     const base64 = buffer.toString('base64')
-    const mimeType = file.type
+
+    // MIME type 정규화 (image/jpg → image/jpeg)
+    let mimeType = file.type
+    if (mimeType === 'image/jpg') {
+      mimeType = 'image/jpeg'
+    }
+
+    // 디버깅: 파일 정보 로그
+    console.log('📁 File info:', {
+      name: file.name,
+      originalType: file.type,
+      normalizedType: mimeType,
+      size: file.size
+    })
 
     // GPT-4o Vision API 호출
     const completion = await openai.chat.completions.create({
