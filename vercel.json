@@ -3,19 +3,6 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "outputDirectory": ".next",
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": {
-      "description": "Supabase project URL (https://your-project.supabase.co)",
-      "required": true
-    },
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": {
-      "description": "Supabase anonymous/public key",
-      "required": true
-    },
-    "OPENAI_API_KEY": {
-      "description": "OpenAI API key for GPT-4o Vision OCR",
-      "required": true
-    }
+  "outputDirectory": ".next"
   }
 }
