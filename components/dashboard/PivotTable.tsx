@@ -2,6 +2,8 @@
 
 import React, { useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { SimpleTooltip } from '@/components/ui/simple-tooltip'
+import { AlertCircle } from 'lucide-react'
 
 interface TestResult {
   id: string
@@ -36,20 +38,43 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
   const pivotData = useMemo(() => {
     // 모든 고유 항목 수집
     const allItems = new Set<string>()
-    const itemDetails = new Map<string, { name: string; ko: string; category: string }>()
-    
+    const itemDetails = new Map<string, { name: string; ko: string; category: string; hasMultipleRefRanges: boolean }>()
+
+    // 각 항목별로 고유한 참고치 개수 추적
+    const refRangesByItem = new Map<string, Set<string>>()
+
     records.forEach(record => {
       record.test_results.forEach(result => {
         const itemName = result.standard_items.name
         allItems.add(itemName)
+
         if (!itemDetails.has(itemName)) {
           itemDetails.set(itemName, {
             name: itemName,
             ko: result.standard_items.display_name_ko || itemName,
-            category: result.standard_items.category || 'Other'
+            category: result.standard_items.category || 'Other',
+            hasMultipleRefRanges: false
           })
         }
+
+        // 참고치 추적
+        if (result.ref_text) {
+          if (!refRangesByItem.has(itemName)) {
+            refRangesByItem.set(itemName, new Set())
+          }
+          refRangesByItem.get(itemName)!.add(result.ref_text)
+        }
       })
+    })
+
+    // 여러 참고치를 가진 항목 표시
+    refRangesByItem.forEach((refRanges, itemName) => {
+      if (refRanges.size > 1) {
+        const detail = itemDetails.get(itemName)
+        if (detail) {
+          detail.hasMultipleRefRanges = true
+        }
+      }
     })
 
     // 카테고리별로 항목 그룹화 및 정렬
@@ -104,6 +129,31 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
       default:
         return ''
     }
+  }
+
+  // 이전 검사와 참고치가 변경되었는지 확인
+  const hasRefRangeChanged = (currentRecord: TestRecord, itemName: string): { changed: boolean; previousRef: string | null } => {
+    const currentIndex = records.findIndex(r => r.id === currentRecord.id)
+    if (currentIndex <= 0) return { changed: false, previousRef: null }
+
+    const currentResult = currentRecord.test_results.find(r => r.standard_items.name === itemName)
+    if (!currentResult) return { changed: false, previousRef: null }
+
+    // 이전 검사 결과 찾기
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      const previousResult = records[i].test_results.find(r => r.standard_items.name === itemName)
+      if (previousResult) {
+        const currentRef = currentResult.ref_text || `${currentResult.ref_min}-${currentResult.ref_max}`
+        const previousRef = previousResult.ref_text || `${previousResult.ref_min}-${previousResult.ref_max}`
+
+        if (currentRef !== previousRef) {
+          return { changed: true, previousRef: previousResult.ref_text || previousRef }
+        }
+        return { changed: false, previousRef: null }
+      }
+    }
+
+    return { changed: false, previousRef: null }
   }
 
   if (records.length === 0) {
@@ -168,28 +218,58 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                         >
                           <div className="font-medium">{detail.name}</div>
                           <div className="text-xs text-muted-foreground">{detail.ko}</div>
+                          {detail.hasMultipleRefRanges && (
+                            <div className="text-xs text-orange-600 mt-1">
+                              여러 참고치 적용됨
+                            </div>
+                          )}
                         </td>
                         {records.map((record) => {
                           const result = pivotData.dateMap.get(record.test_date)?.get(itemName)
+                          const refChange = result ? hasRefRangeChanged(record, itemName) : { changed: false, previousRef: null }
+
                           return (
                             <td
                               key={`${record.id}-${itemName}`}
                               className={`p-3 text-center ${result ? getStatusColor(result.status) : ''}`}
                             >
                               {result ? (
-                                <div>
-                                  <div className="font-medium">
-                                    {getStatusIcon(result.status)} {result.value}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {result.unit}
-                                  </div>
-                                  {result.ref_text && (
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      {result.ref_text}
+                                <SimpleTooltip
+                                  content={
+                                    <div className="text-left space-y-1 max-w-xs">
+                                      <div className="font-semibold border-b pb-1">
+                                        {detail.name} ({detail.ko})
+                                      </div>
+                                      <div>검사일: {new Date(record.test_date).toLocaleDateString('ko-KR')}</div>
+                                      <div>결과값: {result.value} {result.unit}</div>
+                                      <div>
+                                        참고치: {result.ref_text || `${result.ref_min ?? '?'}-${result.ref_max ?? '?'}`}
+                                      </div>
+                                      <div>상태: {getStatusIcon(result.status)} {result.status}</div>
+                                      {record.hospital_name && (
+                                        <div>병원: {record.hospital_name}</div>
+                                      )}
+                                      {refChange.changed && (
+                                        <div className="text-orange-600 border-t pt-1 mt-1">
+                                          ⚠️ 참고치 변경됨 (이전: {refChange.previousRef})
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
+                                  }
+                                  side="top"
+                                >
+                                  <div className="cursor-help">
+                                    <div className="font-medium flex items-center justify-center gap-1">
+                                      {getStatusIcon(result.status)} {result.value}
+                                      {refChange.changed && (
+                                        <AlertCircle className="w-3 h-3 text-orange-600 inline" />
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {result.unit}
+                                    </div>
+                                  </div>
+                                </SimpleTooltip>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
