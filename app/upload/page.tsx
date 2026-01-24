@@ -61,9 +61,8 @@ export default function UploadPage() {
       // 배치 OCR 결과를 세션 스토리지에 저장
       sessionStorage.setItem('ocrBatchResult', JSON.stringify(result.data))
 
-      // TODO: Preview 페이지로 이동 (현재는 staging으로)
-      // 향후 /preview 페이지 구현 후 router.push('/preview')로 변경
-      router.push('/staging')
+      // Preview 페이지로 이동
+      router.push('/preview')
 
     } catch (err) {
       console.error('OCR Batch error:', err)
