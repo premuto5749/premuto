@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Upload, Loader2, CheckCircle2 } from 'lucide-react'
+import { Upload, Loader2, CheckCircle2, Edit, Save } from 'lucide-react'
 import Link from 'next/link'
 import { PivotTable } from '@/components/dashboard/PivotTable'
 import { TrendChart } from '@/components/dashboard/TrendChart'
@@ -44,6 +44,7 @@ function DashboardContent() {
   const [error, setError] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<string | null>(null)
   const [isChartOpen, setIsChartOpen] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
 
   useEffect(() => {
     fetchTestRecords()
@@ -76,6 +77,59 @@ function DashboardContent() {
     setIsChartOpen(open)
     if (!open) {
       setSelectedItem(null)
+    }
+  }
+
+  const handleDeleteRecord = async (recordId: string, testDate: string) => {
+    const confirmed = window.confirm(
+      `${testDate} 검사 결과를 전체 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.`
+    )
+
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`/api/test-results/${recordId}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '삭제에 실패했습니다')
+      }
+
+      // 성공 시 목록 새로고침
+      await fetchTestRecords()
+      alert('검사 기록이 삭제되었습니다')
+    } catch (err) {
+      console.error('Delete error:', err)
+      alert(err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다')
+    }
+  }
+
+  const handleDeleteResult = async (resultId: string) => {
+    const confirmed = window.confirm(
+      '이 검사 결과를 삭제하시겠습니까?\n\n이 작업은 취소할 수 없습니다.'
+    )
+
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`/api/test-results/result/${resultId}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '삭제에 실패했습니다')
+      }
+
+      // 성공 시 목록 새로고침
+      await fetchTestRecords()
+    } catch (err) {
+      console.error('Delete error:', err)
+      alert(err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다')
     }
   }
 
@@ -144,15 +198,39 @@ function DashboardContent() {
             <p className="text-sm text-muted-foreground">
               총 {records.length}개의 검사 기록
             </p>
-            <Button asChild>
-              <Link href="/upload">
-                <Upload className="w-4 h-4 mr-2" />
-                새 검사지 업로드
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant={isEditMode ? "default" : "outline"}
+                onClick={() => setIsEditMode(!isEditMode)}
+              >
+                {isEditMode ? (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    수정 완료
+                  </>
+                ) : (
+                  <>
+                    <Edit className="w-4 h-4 mr-2" />
+                    수정
+                  </>
+                )}
+              </Button>
+              <Button asChild>
+                <Link href="/upload">
+                  <Upload className="w-4 h-4 mr-2" />
+                  새 검사지 업로드
+                </Link>
+              </Button>
+            </div>
           </div>
 
-          <PivotTable records={records} onItemClick={handleItemClick} />
+          <PivotTable
+            records={records}
+            onItemClick={handleItemClick}
+            isEditMode={isEditMode}
+            onDeleteRecord={handleDeleteRecord}
+            onDeleteResult={handleDeleteResult}
+          />
 
           <TrendChart
             records={records}

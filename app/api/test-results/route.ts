@@ -143,7 +143,7 @@ export async function GET() {
           )
         )
       `)
-      .order('test_date', { ascending: false })
+      .order('test_date', { ascending: true }) // 오래된 것이 먼저 (왼쪽)
 
     if (error) {
       console.error('Failed to fetch test records:', error)

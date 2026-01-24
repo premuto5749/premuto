@@ -25,6 +25,66 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
+    // 중복 체크: 같은 날짜 + 같은 병원의 기존 검사가 있는지 확인
+    const { data: existingRecords, error: checkError } = await supabase
+      .from('test_records')
+      .select(`
+        id,
+        test_results (
+          standard_item_id,
+          value,
+          unit
+        )
+      `)
+      .eq('test_date', test_date)
+      .eq('hospital_name', hospital_name || null)
+
+    if (checkError) {
+      console.error('⚠️  Failed to check for duplicates:', checkError)
+    }
+
+    // 완전 동일한 검사가 있는지 확인
+    let isDuplicate = false
+    if (existingRecords && existingRecords.length > 0) {
+      for (const existing of existingRecords) {
+        const existingResults = existing.test_results as Array<{
+          standard_item_id: string
+          value: number
+          unit: string | null
+        }>
+
+        // 결과 개수가 같고, 모든 항목이 완전히 동일하면 중복으로 판단
+        if (existingResults.length === results.length) {
+          const allMatch = results.every(newResult => {
+            return existingResults.some(existingResult =>
+              existingResult.standard_item_id === newResult.standard_item_id &&
+              existingResult.value === newResult.value &&
+              existingResult.unit === newResult.unit
+            )
+          })
+
+          if (allMatch) {
+            isDuplicate = true
+            console.log(`⚠️  Duplicate test detected for ${test_date} at ${hospital_name}`)
+            break
+          }
+        }
+      }
+    }
+
+    // 중복이면 저장하지 않고 경고 반환
+    if (isDuplicate) {
+      return NextResponse.json({
+        success: true,
+        duplicate: true,
+        message: '동일한 검사 결과가 이미 존재합니다.',
+        data: {
+          record_id: null,
+          saved_count: 0
+        }
+      })
+    }
+
     // 트랜잭션 시작: RPC 함수를 사용하거나 순차적 저장
     // Supabase는 명시적 트랜잭션을 지원하지 않으므로, 오류 발생 시 롤백 처리를 직접 구현
 

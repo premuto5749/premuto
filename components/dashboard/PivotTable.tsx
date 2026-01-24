@@ -2,8 +2,9 @@
 
 import React, { useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { SimpleTooltip } from '@/components/ui/simple-tooltip'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Trash2, X } from 'lucide-react'
 
 interface TestResult {
   id: string
@@ -31,9 +32,18 @@ interface TestRecord {
 interface PivotTableProps {
   records: TestRecord[]
   onItemClick?: (itemName: string) => void
+  isEditMode?: boolean
+  onDeleteRecord?: (recordId: string, testDate: string) => void
+  onDeleteResult?: (resultId: string) => void
 }
 
-export function PivotTable({ records, onItemClick }: PivotTableProps) {
+export function PivotTable({
+  records,
+  onItemClick,
+  isEditMode = false,
+  onDeleteRecord,
+  onDeleteResult
+}: PivotTableProps) {
   // 피벗 데이터 구조 생성
   const pivotData = useMemo(() => {
     // 모든 고유 항목 수집
@@ -193,18 +203,31 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                 </th>
                 {records.map((record) => (
                   <th key={record.id} className="p-3 text-center font-medium min-w-[120px]">
-                    <div>
-                      {new Date(record.test_date).toLocaleDateString('ko-KR', {
-                        year: '2-digit',
-                        month: 'numeric',
-                        day: 'numeric'
-                      })}
-                    </div>
-                    {record.hospital_name && (
-                      <div className="text-xs text-muted-foreground font-normal mt-1">
-                        {record.hospital_name}
+                    <div className="flex flex-col items-center gap-1">
+                      <div>
+                        {new Date(record.test_date).toLocaleDateString('ko-KR', {
+                          year: '2-digit',
+                          month: 'numeric',
+                          day: 'numeric'
+                        })}
                       </div>
-                    )}
+                      {record.hospital_name && (
+                        <div className="text-xs text-muted-foreground font-normal">
+                          {record.hospital_name}
+                        </div>
+                      )}
+                      {isEditMode && onDeleteRecord && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => onDeleteRecord(record.id, record.test_date)}
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          검사 삭제
+                        </Button>
+                      )}
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -243,42 +266,57 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                               className={`p-3 text-center ${result ? getStatusColor(result.status) : ''}`}
                             >
                               {result ? (
-                                <SimpleTooltip
-                                  content={
-                                    <div className="text-left space-y-1 max-w-xs">
-                                      <div className="font-semibold border-b pb-1">
-                                        {detail.name} ({detail.ko})
-                                      </div>
-                                      <div>검사일: {new Date(record.test_date).toLocaleDateString('ko-KR')}</div>
-                                      <div>결과값: {result.value} {result.unit}</div>
-                                      <div>
-                                        참고치: {result.ref_text || `${result.ref_min ?? '?'}-${result.ref_max ?? '?'}`}
-                                      </div>
-                                      <div>상태: {getStatusIcon(result.status)} {result.status}</div>
-                                      {record.hospital_name && (
-                                        <div>병원: {record.hospital_name}</div>
-                                      )}
-                                      {refChange.changed && (
-                                        <div className="text-orange-600 border-t pt-1 mt-1">
-                                          ⚠️ 참고치 변경됨 (이전: {refChange.previousRef})
+                                <div className="flex items-center justify-center gap-1">
+                                  <SimpleTooltip
+                                    content={
+                                      <div className="text-left space-y-1 max-w-xs">
+                                        <div className="font-semibold border-b pb-1">
+                                          {detail.name} ({detail.ko})
                                         </div>
-                                      )}
-                                    </div>
-                                  }
-                                  side="top"
-                                >
-                                  <div className="cursor-help">
-                                    <div className="font-medium flex items-center justify-center gap-1">
-                                      {getStatusIcon(result.status)} {result.value}
-                                      {refChange.changed && (
-                                        <AlertCircle className="w-3 h-3 text-orange-600 inline" />
-                                      )}
-                                    </div>
+                                        <div>검사일: {new Date(record.test_date).toLocaleDateString('ko-KR')}</div>
+                                        <div>결과값: {result.value} {result.unit}</div>
+                                        <div>
+                                          참고치: {result.ref_text || `${result.ref_min ?? '?'}-${result.ref_max ?? '?'}`}
+                                        </div>
+                                        <div>상태: {getStatusIcon(result.status)} {result.status}</div>
+                                        {record.hospital_name && (
+                                          <div>병원: {record.hospital_name}</div>
+                                        )}
+                                        {refChange.changed && (
+                                          <div className="text-orange-600 border-t pt-1 mt-1">
+                                            ⚠️ 참고치 변경됨 (이전: {refChange.previousRef})
+                                          </div>
+                                        )}
+                                      </div>
+                                    }
+                                    side="top"
+                                  >
+                                    <div className="cursor-help">
+                                      <div className="font-medium flex items-center justify-center gap-1">
+                                        {getStatusIcon(result.status)} {result.value}
+                                        {refChange.changed && (
+                                          <AlertCircle className="w-3 h-3 text-orange-600 inline" />
+                                        )}
+                                      </div>
                                     <div className="text-xs text-muted-foreground">
                                       {result.unit}
                                     </div>
                                   </div>
                                 </SimpleTooltip>
+                                  {isEditMode && onDeleteResult && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-5 w-5 p-0 hover:bg-red-100 hover:text-red-600"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        onDeleteResult(result.id)
+                                      }}
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
