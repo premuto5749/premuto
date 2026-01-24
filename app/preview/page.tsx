@@ -54,7 +54,7 @@ function PreviewContent() {
     setEditingIndex(index)
   }
 
-  const handleSave = (index: number) => {
+  const handleSave = () => {
     setEditingIndex(null)
     // 수정사항은 상태에 자동 반영됨
   }
@@ -292,7 +292,7 @@ function PreviewContent() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleSave(index)}
+                            onClick={handleSave}
                             className="h-8 w-8 p-0"
                           >
                             <Check className="w-4 h-4 text-green-600" />
