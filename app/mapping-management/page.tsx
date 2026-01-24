@@ -11,8 +11,9 @@ import type { StandardItem } from '@/types'
 
 interface MappingData {
   standard_item: StandardItem
-  can_remap: boolean // Unmapped 카테고리 여부
+  is_unmapped: boolean // Unmapped 카테고리 여부
   mapping_count: number // 이 항목으로 매핑된 raw_name 개수
+  result_count: number // 실제 검사 결과 개수
 }
 
 function MappingManagementContent() {
@@ -42,11 +43,12 @@ function MappingManagementContent() {
       const mappingsData = await mappingsResponse.json()
       const mappingStats: Record<string, number> = mappingsData.data || {}
 
-      // Unmapped 및 매핑된 항목들 조합
+      // 모든 항목 조합 (병합 가능하도록)
       const mappingDataList: MappingData[] = standardItems.map(item => ({
         standard_item: item,
-        can_remap: item.category === 'Unmapped',
-        mapping_count: mappingStats[item.id] || 0
+        is_unmapped: item.category === 'Unmapped',
+        mapping_count: mappingStats[item.id] || 0,
+        result_count: 0 // TODO: 실제 검사 결과 개수 추가
       }))
 
       setItems(mappingDataList)
@@ -101,12 +103,12 @@ function MappingManagementContent() {
 
   const filteredItems = items.filter(item => {
     if (filter === 'unmapped') {
-      return item.can_remap
+      return item.is_unmapped
     }
     return true
   })
 
-  const unmappedCount = items.filter(i => i.can_remap).length
+  const unmappedCount = items.filter(i => i.is_unmapped).length
   const remappingCount = Object.keys(selectedRemappings).length
 
   if (loading) {
@@ -122,7 +124,7 @@ function MappingManagementContent() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">검사항목 매핑 관리</h1>
         <p className="text-muted-foreground">
-          자동 생성된 &apos;Unmapped&apos; 항목들을 기존 표준 항목과 통합하세요
+          중복되거나 유사한 검사항목들을 통합하여 데이터 품질을 향상시키세요
         </p>
       </div>
 
@@ -174,7 +176,7 @@ function MappingManagementContent() {
         <CardHeader>
           <CardTitle>표준 항목 목록 ({filteredItems.length}개)</CardTitle>
           <CardDescription>
-            Unmapped 항목을 선택하여 기존 표준 항목과 통합할 수 있습니다
+            중복되거나 유사한 항목을 선택하여 다른 표준 항목과 병합할 수 있습니다 (예: BUN/CRE → BUN:CREATININE RATIO)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -187,12 +189,12 @@ function MappingManagementContent() {
                   <TableHead className="w-[100px]">카테고리</TableHead>
                   <TableHead className="w-[80px]">단위</TableHead>
                   <TableHead className="w-[100px]">매핑 개수</TableHead>
-                  <TableHead className="w-[250px]">통합할 표준 항목</TableHead>
+                  <TableHead className="w-[300px]">병합할 항목 선택</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredItems.map((item) => {
-                  const isUnmapped = item.can_remap
+                  const isUnmapped = item.is_unmapped
                   const hasRemapping = selectedRemappings[item.standard_item.id]
 
                   return (
@@ -214,27 +216,23 @@ function MappingManagementContent() {
                         <Badge variant="secondary">{item.mapping_count}</Badge>
                       </TableCell>
                       <TableCell>
-                        {isUnmapped ? (
-                          <Select
-                            value={hasRemapping || ''}
-                            onValueChange={(value) => handleRemapItem(item.standard_item.id, value)}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="선택하세요" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {allStandardItems
-                                .filter(si => si.category !== 'Unmapped' && si.id !== item.standard_item.id)
-                                .map(stdItem => (
-                                  <SelectItem key={stdItem.id} value={stdItem.id}>
-                                    {stdItem.name} ({stdItem.display_name_ko})
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">-</span>
-                        )}
+                        <Select
+                          value={hasRemapping || ''}
+                          onValueChange={(value) => handleRemapItem(item.standard_item.id, value)}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="다른 항목과 병합" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allStandardItems
+                              .filter(si => si.id !== item.standard_item.id)
+                              .map(stdItem => (
+                                <SelectItem key={stdItem.id} value={stdItem.id}>
+                                  {stdItem.name} ({stdItem.display_name_ko}) - {stdItem.category}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                     </TableRow>
                   )
@@ -281,8 +279,9 @@ function MappingManagementContent() {
         <h3 className="font-medium mb-2">💡 팁</h3>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
           <li>&apos;Unmapped&apos; 카테고리는 OCR에서 자동 생성된 항목입니다</li>
-          <li>이 항목들을 기존 표준 항목과 통합하면 중복이 제거됩니다</li>
-          <li>통합 후 기존 매핑 데이터는 새 표준 항목으로 이동됩니다</li>
+          <li>중복 항목 예시: &quot;BUN/CRE&quot;와 &quot;BUN:CREATININE RATIO&quot; 병합</li>
+          <li>병합 시 모든 검사 결과와 매핑 데이터가 선택한 항목으로 이동됩니다</li>
+          <li>병합은 되돌릴 수 없으니 신중히 선택하세요</li>
           <li>정기적으로 이 페이지를 확인하여 데이터 품질을 유지하세요</li>
         </ul>
       </div>
