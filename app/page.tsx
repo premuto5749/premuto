@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
-import { Upload, LineChart, FileText } from 'lucide-react'
+import { Upload, LineChart, FileText, Settings } from 'lucide-react'
 
 export default function Home() {
   return (
@@ -28,9 +28,9 @@ export default function Home() {
           </div>
           <div className="p-6 border rounded-lg">
             <FileText className="w-10 h-10 mb-4 text-primary" />
-            <h3 className="font-semibold mb-2">2. 검수</h3>
+            <h3 className="font-semibold mb-2">2. 자동 저장</h3>
             <p className="text-sm text-muted-foreground">
-              AI가 추출한 결과를 확인하고 수정합니다
+              OCR 결과를 확인 후 AI가 자동으로 매칭하고 저장합니다
             </p>
           </div>
           <div className="p-6 border rounded-lg">
@@ -42,17 +42,25 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex gap-4 justify-center">
-          <Button asChild size="lg">
-            <Link href="/upload">
-              <Upload className="w-4 h-4 mr-2" />
-              검사지 업로드
-            </Link>
-          </Button>
-          <Button variant="outline" size="lg" asChild>
-            <Link href="/dashboard">
-              <LineChart className="w-4 h-4 mr-2" />
-              대시보드
+        <div className="flex flex-col gap-4 items-center">
+          <div className="flex gap-4">
+            <Button asChild size="lg">
+              <Link href="/upload">
+                <Upload className="w-4 h-4 mr-2" />
+                검사지 업로드
+              </Link>
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <Link href="/dashboard">
+                <LineChart className="w-4 h-4 mr-2" />
+                대시보드
+              </Link>
+            </Button>
+          </div>
+          <Button variant="secondary" size="sm" asChild>
+            <Link href="/mapping-management">
+              <Settings className="w-4 h-4 mr-2" />
+              검사항목 매핑 관리
             </Link>
           </Button>
         </div>
