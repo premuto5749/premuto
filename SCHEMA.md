@@ -71,6 +71,14 @@ create table test_records (
 ### 4. 검사 상세 결과 (Test Results) - **핵심 테이블**
 **중요**: 검사 당시의 참고치(Snapshot)를 여기에 직접 저장합니다.
 
+**설계 철학 - 장비별 참고치 독립성**:
+- 같은 항목(예: Creatinine)이라도 검사 장비에 따라 참고치가 다릅니다.
+  - Hitachi 장비: 0~10 mg/dL
+  - IDEXX 장비: 0~<9 mg/dL
+  - Fuji 장비: 0.5~1.8 mg/dL
+- **절대 `standard_items`에 고정 참고치를 저장하지 말 것**: 각 검사 결과는 반드시 자체 참고치를 가져야 합니다.
+- 판정(Low/Normal/High)은 **해당 검사 당시의 참고치**로만 수행합니다.
+
 ```sql
 create table test_results (
   id uuid primary key default gen_random_uuid(),
@@ -79,10 +87,14 @@ create table test_results (
 
   value numeric not null, -- 검사 결과 수치
 
-  -- **참고치 스냅샷 (Dynamic Reference Range)**
+  -- **참고치 스냅샷 (Dynamic Reference Range) - 가장 중요한 부분**
+  -- 이 필드들은 검사 당시 검사지에 적힌 참고치를 그대로 저장합니다.
+  -- 장비가 바뀌거나 검사 방법이 변경되어도 과거 데이터의 정확한 해석이 가능합니다.
   ref_min numeric, -- 그 당시 검사지의 최소값 (Low 기준)
   ref_max numeric, -- 그 당시 검사지의 최대값 (High 기준)
-  ref_text varchar, -- 참고치 텍스트 원본 (예: "5.0-16.0")
+  ref_text varchar, -- 참고치 텍스트 원본 (예: "5.0-16.0", "0-<9" 등)
+    -- ref_text는 사람이 읽기 편한 형태로 저장 (UI 표시용)
+    -- 예: "5.0-16.0", "< 9", "> 0.5", "음성(-)" 등
 
   status varchar check (status in ('Low', 'Normal', 'High', 'Unknown')), -- 판정 결과
   unit varchar, -- 그 당시 검사지의 단위 (단위가 바뀔 수도 있으므로 저장)
@@ -98,13 +110,48 @@ create table test_results (
 -- 성능 최적화를 위한 인덱스
 create index idx_test_results_record on test_results(record_id);
 create index idx_test_results_item on test_results(standard_item_id);
+
+-- 참고치 변경 추적을 위한 인덱스 (같은 항목의 시계열 조회 최적화)
+create index idx_test_results_item_date on test_results(standard_item_id, created_at);
+```
+
+**참고치 스냅샷 예시**:
+```sql
+-- 2024년 12월 검사 (Hitachi 장비)
+INSERT INTO test_results VALUES (
+  ...,
+  'Creatinine-UUID',
+  1.2, -- value
+  0, 10, '0-10', -- ref_min, ref_max, ref_text
+  'Normal',
+  'mg/dL',
+  ...
+);
+
+-- 2025년 1월 검사 (장비 교체 → Fuji 장비)
+INSERT INTO test_results VALUES (
+  ...,
+  'Creatinine-UUID', -- 같은 항목이지만
+  1.2, -- 같은 값이라도
+  0.5, 1.8, '0.5-1.8', -- 참고치가 다름!
+  'Normal',
+  'mg/dL',
+  ...
+);
 ```
 
 ## Design Principles
 
-1. **참고치 스냅샷**: 검사 당시의 참고치를 결과와 함께 저장하여 과거 데이터의 정확한 해석 보장
+1. **참고치 스냅샷 (가장 중요)**:
+   - 검사 당시의 참고치를 결과와 함께 저장하여 과거 데이터의 정확한 해석 보장
+   - **장비별 참고치 독립성**: 같은 항목이라도 장비마다 참고치가 다를 수 있으므로, 각 `test_results` 레코드는 자체 `ref_min`, `ref_max`를 가짐
+   - **글로벌 참고치 금지**: `standard_items`에 "기본 참고치"를 저장하지 않음. 모든 판정은 해당 검사의 참고치로만 수행
+   - **시간 추적**: 같은 항목의 참고치가 시간에 따라 어떻게 변했는지 추적 가능 (장비 교체 감지)
+
 2. **동의어 매핑**: 다양한 검사지 형식에 대응하기 위한 유연한 매핑 시스템
+
 3. **데이터 무결성**: 외래 키와 체크 제약조건을 통한 데이터 품질 보장
+
 4. **확장성**: 새로운 검사 항목과 장비를 쉽게 추가할 수 있는 구조
 
 **v2 추가 원칙**:
@@ -112,3 +159,17 @@ create index idx_test_results_item on test_results(standard_item_id);
 6. **추적성**: 각 결과가 어떤 파일에서 왔는지, OCR 원본 이름이 무엇이었는지 추적 가능
 7. **AI 학습 피드백**: 사용자가 승인한 매칭 정보가 `item_mappings`에 자동 저장되어 점진적 개선
 8. **신뢰도 기반 워크플로우**: 매칭 신뢰도가 낮은 항목을 우선적으로 사용자에게 제시하여 효율적인 검수
+
+## 참고치 관리 FAQ
+
+**Q: `standard_items` 테이블에 `default_ref_min`, `default_ref_max` 같은 필드를 추가하면 안 되나요?**
+A: 절대 안 됩니다. 장비마다 참고치가 다르므로, 표준 항목에 고정 참고치를 저장하면 잘못된 판정이 발생합니다.
+
+**Q: UI에서 "이 항목의 정상 범위는 얼마인가요?"라고 물으면 뭐라고 대답해야 하나요?**
+A: "검사 장비에 따라 다릅니다. 각 검사 결과를 클릭하면 해당 검사의 참고치를 확인할 수 있습니다."
+
+**Q: 참고치가 바뀐 것을 어떻게 감지하나요?**
+A: 같은 항목(`standard_item_id`)의 연속된 검사 결과를 시간순으로 조회하여, `ref_min`과 `ref_max`가 달라진 지점을 찾습니다.
+
+**Q: 여러 검사에 걸쳐 평균 참고치를 계산해서 보여주면 안 되나요?**
+A: 안 됩니다. 각 검사는 해당 검사의 참고치로만 판정되어야 합니다. 평균은 의미가 없습니다.
