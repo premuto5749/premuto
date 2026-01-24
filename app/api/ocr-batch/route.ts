@@ -6,6 +6,36 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
+// Rate limit 재시도 헬퍼 함수
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 3000
+): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error: any) {
+      const isRateLimitError = error?.status === 429
+      const isLastAttempt = attempt === maxRetries
+
+      if (!isRateLimitError || isLastAttempt) {
+        throw error
+      }
+
+      // Rate limit 에러에서 대기 시간 추출 (있으면)
+      const retryAfter = error?.headers?.['retry-after']
+      const waitTime = retryAfter
+        ? parseInt(retryAfter) * 1000
+        : baseDelay * Math.pow(2, attempt) // 지수 백오프: 3s, 6s, 12s
+
+      console.log(`⏳ Rate limit hit, retrying in ${waitTime/1000}s (attempt ${attempt + 1}/${maxRetries})`)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+    }
+  }
+  throw new Error('Max retries exceeded')
+}
+
 // 단일 파일 OCR 처리 함수
 async function processFile(file: File): Promise<{
   filename: string
@@ -33,16 +63,17 @@ async function processFile(file: File): Promise<{
 
   console.log(`📁 Processing file: ${file.name} (${file.size} bytes)`)
 
-  // GPT-4o Vision API 호출
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `이 이미지는 반려동물의 혈액검사 결과지입니다.
+  // GPT-4o Vision API 호출 (rate limit 재시도 포함)
+  const completion = await retryWithBackoff(async () => {
+    return await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `이 이미지는 반려동물의 혈액검사 결과지입니다.
 다음 정보를 정확하게 추출하여 JSON 형식으로 반환해주세요:
 
 1. 검사 날짜 (test_date): YYYY-MM-DD 형식
@@ -90,10 +121,11 @@ async function processFile(file: File): Promise<{
           }
         ]
       }
-    ],
-    max_tokens: 3000, // 더 긴 응답 허용
-    temperature: 0.1,
-    response_format: { type: "json_object" } // JSON 형식 강제
+      ],
+      max_tokens: 3000, // 더 긴 응답 허용
+      temperature: 0.1,
+      response_format: { type: "json_object" } // JSON 형식 강제
+    })
   })
 
   const content = completion.choices[0]?.message?.content
@@ -196,11 +228,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`🚀 Processing ${files.length} files in parallel...`)
+    console.log(`🚀 Processing ${files.length} files with staggered start...`)
 
-    // 모든 파일을 병렬로 처리 (개별 파일 실패 허용)
+    // 모든 파일을 처리하되, 시작 시점을 분산시켜 rate limit 방지
+    // 각 파일은 1초 간격으로 시작
     const processResults = await Promise.allSettled(
-      files.map(file => processFile(file))
+      files.map((file, index) =>
+        new Promise(resolve =>
+          setTimeout(() => resolve(processFile(file)), index * 1000)
+        )
+      )
     )
 
     // 성공한 결과만 추출
