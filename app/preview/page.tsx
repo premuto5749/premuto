@@ -1,17 +1,27 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowRight, AlertCircle, Loader2, Edit2, Check } from 'lucide-react'
 import type { OcrBatchResponse, OcrResult } from '@/types'
 
 interface EditableItem extends OcrResult {
   source_filename: string
+  test_date: string
+  hospital_name: string
   isEditing?: boolean
+}
+
+interface DateGroup {
+  date: string
+  hospital: string
+  sequence: number // 같은 날짜의 순번 (1, 2, 3...)
+  items: EditableItem[]
 }
 
 function PreviewContent() {
@@ -20,6 +30,7 @@ function PreviewContent() {
   const [allItems, setAllItems] = useState<EditableItem[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [activeTab, setActiveTab] = useState<string>('')
 
   useEffect(() => {
     // 세션 스토리지에서 OCR 배치 결과 로드
@@ -29,26 +40,74 @@ function PreviewContent() {
         const data: OcrBatchResponse['data'] = JSON.parse(stored)
         setBatchData(data)
 
-        // 모든 결과를 평탄화하여 하나의 배열로 만들기
+        // 모든 결과를 평탄화하면서 test_date, hospital_name 보존
         const flattenedItems: EditableItem[] = []
         data.results.forEach(result => {
+          const testDate = result.metadata.test_date || 'Unknown'
+          const hospitalName = result.metadata.hospital_name || 'Unknown'
+
           result.items.forEach(item => {
             flattenedItems.push({
               ...item,
-              source_filename: result.filename
+              source_filename: result.filename,
+              test_date: testDate,
+              hospital_name: hospitalName
             })
           })
         })
         setAllItems(flattenedItems)
+
+        // 첫 번째 탭을 기본 선택
+        if (flattenedItems.length > 0) {
+          const firstDate = flattenedItems[0].test_date
+          const firstHospital = flattenedItems[0].hospital_name
+          setActiveTab(`${firstDate}-${firstHospital}-1`)
+        }
       } catch (error) {
         console.error('Failed to parse batch data:', error)
         router.push('/upload')
       }
     } else {
-      // 데이터가 없으면 업로드 페이지로 리다이렉트
       router.push('/upload')
     }
   }, [router])
+
+  // 날짜별로 그룹화
+  const dateGroups = useMemo(() => {
+    const groups: DateGroup[] = []
+    const dateMap = new Map<string, Map<string, EditableItem[]>>()
+
+    // 날짜 → 병원 → 항목 리스트로 그룹화
+    allItems.forEach(item => {
+      if (!dateMap.has(item.test_date)) {
+        dateMap.set(item.test_date, new Map())
+      }
+      const hospitalMap = dateMap.get(item.test_date)!
+      if (!hospitalMap.has(item.hospital_name)) {
+        hospitalMap.set(item.hospital_name, [])
+      }
+      hospitalMap.get(item.hospital_name)!.push(item)
+    })
+
+    // DateGroup 배열로 변환 (같은 날짜는 순번 부여)
+    dateMap.forEach((hospitalMap, date) => {
+      let sequence = 1
+      hospitalMap.forEach((items, hospital) => {
+        groups.push({
+          date,
+          hospital,
+          sequence,
+          items
+        })
+        sequence++
+      })
+    })
+
+    // 날짜순 정렬
+    groups.sort((a, b) => a.date.localeCompare(b.date))
+
+    return groups
+  }, [allItems])
 
   const handleEdit = (index: number) => {
     setEditingIndex(index)
@@ -56,7 +115,6 @@ function PreviewContent() {
 
   const handleSave = () => {
     setEditingIndex(null)
-    // 수정사항은 상태에 자동 반영됨
   }
 
   const handleFieldChange = (itemIndex: number, field: keyof OcrResult, value: string | number | null) => {
@@ -76,34 +134,39 @@ function PreviewContent() {
     setIsProcessing(true)
 
     try {
-      // AI 매핑 API 호출
-      const response = await fetch('/api/ai-mapping', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          batch_id: batchData.batch_id,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          ocr_results: allItems.map(({ source_filename, ...item }) => item) // source_filename 제외
-        }),
+      // 날짜별로 AI 매핑 (각 날짜 그룹을 독립적으로 처리)
+      const mappingPromises = dateGroups.map(async (group) => {
+        const response = await fetch('/api/ai-mapping', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            batch_id: `${batchData.batch_id}_${group.date}_${group.sequence}`,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            ocr_results: group.items.map(({ source_filename, test_date, hospital_name, ...item }) => item)
+          }),
+        })
+
+        const result = await response.json()
+
+        if (!response.ok) {
+          throw new Error(result.error || 'AI 매핑 중 오류가 발생했습니다')
+        }
+
+        return {
+          group,
+          mappingResult: result.data
+        }
       })
 
-      const result = await response.json()
+      const mappingResults = await Promise.all(mappingPromises)
 
-      if (!response.ok) {
-        throw new Error(result.error || 'AI 매핑 중 오류가 발생했습니다')
-      }
-
-      if (!result.success) {
-        throw new Error('AI 매핑 결과를 가져오는데 실패했습니다')
-      }
-
-      // AI 매핑 결과와 원본 데이터를 함께 저장
-      sessionStorage.setItem('aiMappingResult', JSON.stringify({
+      // 매핑 결과를 세션 스토리지에 저장
+      sessionStorage.setItem('aiMappingResultByDate', JSON.stringify({
         batchData,
-        allItems,
-        mappingResults: result.data
+        dateGroups,
+        mappingResults
       }))
 
       // Staging 페이지로 이동
@@ -117,7 +180,7 @@ function PreviewContent() {
     }
   }
 
-  if (!batchData) {
+  if (!batchData || allItems.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -130,30 +193,9 @@ function PreviewContent() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">OCR 결과 확인</h1>
         <p className="text-muted-foreground">
-          AI가 추출한 결과를 확인하고 필요시 수정하세요
+          AI가 추출한 결과를 날짜별로 확인하고 필요시 수정하세요
         </p>
       </div>
-
-      {/* 메타데이터 카드 */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>검사 정보</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">검사 날짜</p>
-            <p className="text-lg font-semibold">{batchData.test_date || '정보 없음'}</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">병원명</p>
-            <p className="text-lg font-semibold">{batchData.hospital_name || '정보 없음'}</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">파일 개수</p>
-            <p className="text-lg font-semibold">{batchData.results.length}개</p>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* 경고 메시지 */}
       {batchData.warnings && batchData.warnings.length > 0 && (
@@ -176,153 +218,180 @@ function PreviewContent() {
         </Card>
       )}
 
-      {/* OCR 결과 테이블 */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>추출된 검사 항목 ({allItems.length}개)</CardTitle>
-          <CardDescription>
-            각 셀을 클릭하여 수정할 수 있습니다
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">항목명 (OCR)</TableHead>
-                  <TableHead className="w-[100px]">결과값</TableHead>
-                  <TableHead className="w-[100px]">단위</TableHead>
-                  <TableHead className="w-[100px]">참고치 Min</TableHead>
-                  <TableHead className="w-[100px]">참고치 Max</TableHead>
-                  <TableHead className="w-[150px]">참고치 원문</TableHead>
-                  <TableHead className="w-[200px]">출처 파일</TableHead>
-                  <TableHead className="w-[80px]">수정</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {allItems.map((item, index) => {
-                  const isEditing = editingIndex === index
+      {/* 날짜별 탭 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList className="mb-4">
+          {dateGroups.map((group) => {
+            const tabId = `${group.date}-${group.hospital}-${group.sequence}`
+            const displayName = group.sequence > 1
+              ? `${group.date} (${group.hospital}) (${group.sequence})`
+              : `${group.date} (${group.hospital})`
 
-                  return (
-                    <TableRow key={index}>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            value={item.name}
-                            onChange={(e) => handleFieldChange(index, 'name', e.target.value)}
-                            className="h-8"
-                          />
-                        ) : (
-                          <span className="font-medium">{item.name}</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.value}
-                            onChange={(e) => handleFieldChange(index, 'value', parseFloat(e.target.value))}
-                            className="h-8"
-                          />
-                        ) : (
-                          item.value
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            value={item.unit}
-                            onChange={(e) => handleFieldChange(index, 'unit', e.target.value)}
-                            className="h-8"
-                          />
-                        ) : (
-                          item.unit
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.ref_min ?? ''}
-                            onChange={(e) =>
-                              handleFieldChange(index, 'ref_min', e.target.value ? parseFloat(e.target.value) : null)
-                            }
-                            placeholder="없음"
-                            className="h-8"
-                          />
-                        ) : (
-                          item.ref_min ?? '-'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.ref_max ?? ''}
-                            onChange={(e) =>
-                              handleFieldChange(index, 'ref_max', e.target.value ? parseFloat(e.target.value) : null)
-                            }
-                            placeholder="없음"
-                            className="h-8"
-                          />
-                        ) : (
-                          item.ref_max ?? '-'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            value={item.ref_text ?? ''}
-                            onChange={(e) => handleFieldChange(index, 'ref_text', e.target.value || null)}
-                            placeholder="없음"
-                            className="h-8"
-                          />
-                        ) : (
-                          item.ref_text ?? '-'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs text-muted-foreground">{item.source_filename}</span>
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleSave}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Check className="w-4 h-4 text-green-600" />
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(index)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+            return (
+              <TabsTrigger key={tabId} value={tabId}>
+                {displayName}
+              </TabsTrigger>
+            )
+          })}
+        </TabsList>
+
+        {dateGroups.map((group) => {
+          const tabId = `${group.date}-${group.hospital}-${group.sequence}`
+
+          return (
+            <TabsContent key={tabId} value={tabId}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>추출된 검사 항목 ({group.items.length}개)</CardTitle>
+                  <CardDescription>
+                    {group.date} - {group.hospital} {group.sequence > 1 && `(${group.sequence}번째)`}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[200px]">항목명 (OCR)</TableHead>
+                          <TableHead className="w-[100px]">결과값</TableHead>
+                          <TableHead className="w-[100px]">단위</TableHead>
+                          <TableHead className="w-[100px]">참고치 Min</TableHead>
+                          <TableHead className="w-[100px]">참고치 Max</TableHead>
+                          <TableHead className="w-[150px]">참고치 원문</TableHead>
+                          <TableHead className="w-[200px]">출처 파일</TableHead>
+                          <TableHead className="w-[80px]">수정</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {group.items.map((item) => {
+                          // 전체 배열에서의 인덱스 찾기
+                          const globalIndex = allItems.indexOf(item)
+                          const isEditing = editingIndex === globalIndex
+
+                          return (
+                            <TableRow key={globalIndex}>
+                              <TableCell>
+                                {isEditing ? (
+                                  <Input
+                                    value={item.name}
+                                    onChange={(e) => handleFieldChange(globalIndex, 'name', e.target.value)}
+                                    className="h-8"
+                                  />
+                                ) : (
+                                  <span className="font-medium">{item.name}</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isEditing ? (
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={item.value}
+                                    onChange={(e) => handleFieldChange(globalIndex, 'value', parseFloat(e.target.value))}
+                                    className="h-8"
+                                  />
+                                ) : (
+                                  item.value
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isEditing ? (
+                                  <Input
+                                    value={item.unit}
+                                    onChange={(e) => handleFieldChange(globalIndex, 'unit', e.target.value)}
+                                    className="h-8"
+                                  />
+                                ) : (
+                                  item.unit
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isEditing ? (
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={item.ref_min ?? ''}
+                                    onChange={(e) =>
+                                      handleFieldChange(globalIndex, 'ref_min', e.target.value ? parseFloat(e.target.value) : null)
+                                    }
+                                    placeholder="없음"
+                                    className="h-8"
+                                  />
+                                ) : (
+                                  item.ref_min ?? '-'
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isEditing ? (
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    value={item.ref_max ?? ''}
+                                    onChange={(e) =>
+                                      handleFieldChange(globalIndex, 'ref_max', e.target.value ? parseFloat(e.target.value) : null)
+                                    }
+                                    placeholder="없음"
+                                    className="h-8"
+                                  />
+                                ) : (
+                                  item.ref_max ?? '-'
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {isEditing ? (
+                                  <Input
+                                    value={item.ref_text ?? ''}
+                                    onChange={(e) => handleFieldChange(globalIndex, 'ref_text', e.target.value || null)}
+                                    placeholder="없음"
+                                    className="h-8"
+                                  />
+                                ) : (
+                                  item.ref_text ?? '-'
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-xs text-muted-foreground">{item.source_filename}</span>
+                              </TableCell>
+                              <TableCell>
+                                {isEditing ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleSave}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Check className="w-4 h-4 text-green-600" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleEdit(globalIndex)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )
+        })}
+      </Tabs>
 
       {/* 다음 단계 버튼 */}
       <Card>
         <CardHeader>
           <CardTitle>다음 단계: AI 매칭</CardTitle>
           <CardDescription>
-            추출된 항목을 표준 검사 항목과 자동으로 매칭합니다
+            각 날짜별로 항목을 표준 검사 항목과 자동으로 매칭합니다
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -335,11 +404,11 @@ function PreviewContent() {
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                AI 매칭 중...
+                AI 매칭 중... ({dateGroups.length}개 날짜 그룹)
               </>
             ) : (
               <>
-                AI 매칭 시작
+                AI 매칭 시작 ({dateGroups.length}개 날짜 그룹)
                 <ArrowRight className="w-4 h-4 ml-2" />
               </>
             )}
@@ -348,7 +417,7 @@ function PreviewContent() {
           {isProcessing && (
             <div className="mt-4 p-4 bg-muted rounded-lg">
               <p className="text-sm text-center text-muted-foreground">
-                {allItems.length}개 항목을 분석하고 있습니다. 약 10-20초 소요됩니다...
+                {dateGroups.length}개 날짜 그룹을 분석하고 있습니다...
               </p>
             </div>
           )}
@@ -358,9 +427,10 @@ function PreviewContent() {
       <div className="mt-8 p-4 bg-muted rounded-lg">
         <h3 className="font-medium mb-2">💡 팁</h3>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+          <li>날짜별 탭을 클릭하여 각 검사의 결과를 확인하세요</li>
+          <li>같은 날짜에 여러 병원에서 검사한 경우 순번(1, 2, ...)이 표시됩니다</li>
           <li>숫자가 잘못 인식된 경우 지금 수정하면 정확한 매칭이 가능합니다</li>
-          <li>항목명의 오타는 AI가 자동으로 보정하므로 큰 문제가 없습니다</li>
-          <li>참고치가 누락된 항목은 다음 단계에서 수동으로 입력할 수 있습니다</li>
+          <li>각 날짜 그룹은 독립적으로 저장됩니다</li>
         </ul>
       </div>
     </div>
