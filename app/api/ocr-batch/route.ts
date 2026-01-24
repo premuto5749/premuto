@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
     const files: File[] = []
 
     // FormData에서 모든 파일 추출
-    for (const [key, value] of formData.entries()) {
+    for (const [key, value] of Array.from(formData.entries())) {
       if (key.startsWith('file') && value instanceof File) {
         files.push(value)
       }
