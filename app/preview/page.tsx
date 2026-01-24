@@ -235,7 +235,10 @@ function PreviewContent() {
         })
 
         // 미매칭 항목을 Unmapped 카테고리로 standard_items에 추가
-        const newStandardItemPromises = unmappedItems.map(async (item) => {
+        // value가 유효한 숫자인 항목만 처리
+        const newStandardItemPromises = unmappedItems
+          .filter(item => typeof item.ocr_item.value === 'number' && !isNaN(item.ocr_item.value))
+          .map(async (item) => {
           const createResponse = await fetch('/api/standard-items', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -263,31 +266,36 @@ function PreviewContent() {
         const newStandardItems = (await Promise.all(newStandardItemPromises)).filter(Boolean)
 
         // 모든 항목 통합 (매핑된 것 + 새로 생성된 것)
+        // value가 유효한 숫자인 항목만 포함
         const allResults = [
-          ...mappedItems.map(item => ({
-            standard_item_id: item.suggested_mapping.standard_item_id,
-            value: item.ocr_item.value,
-            unit: item.ocr_item.unit,
-            ref_min: item.ocr_item.ref_min,
-            ref_max: item.ocr_item.ref_max,
-            ref_text: item.ocr_item.ref_text,
-            source_filename: item.source_filename,
-            ocr_raw_name: item.ocr_item.name,
-            mapping_confidence: item.suggested_mapping.confidence,
-            user_verified: false
-          })),
-          ...newStandardItems.map(item => ({
-            standard_item_id: item!.standard_item_id,
-            value: item!.ocr_item.value,
-            unit: item!.ocr_item.unit,
-            ref_min: item!.ocr_item.ref_min,
-            ref_max: item!.ocr_item.ref_max,
-            ref_text: item!.ocr_item.ref_text,
-            source_filename: item!.source_filename,
-            ocr_raw_name: item!.ocr_item.name,
-            mapping_confidence: 0,
-            user_verified: false
-          }))
+          ...mappedItems
+            .filter(item => typeof item.ocr_item.value === 'number' && !isNaN(item.ocr_item.value))
+            .map(item => ({
+              standard_item_id: item.suggested_mapping.standard_item_id,
+              value: item.ocr_item.value,
+              unit: item.ocr_item.unit,
+              ref_min: item.ocr_item.ref_min,
+              ref_max: item.ocr_item.ref_max,
+              ref_text: item.ocr_item.ref_text,
+              source_filename: item.source_filename,
+              ocr_raw_name: item.ocr_item.name,
+              mapping_confidence: item.suggested_mapping.confidence,
+              user_verified: false
+            })),
+          ...newStandardItems
+            .filter(item => item && typeof item.ocr_item.value === 'number' && !isNaN(item.ocr_item.value))
+            .map(item => ({
+              standard_item_id: item!.standard_item_id,
+              value: item!.ocr_item.value,
+              unit: item!.ocr_item.unit,
+              ref_min: item!.ocr_item.ref_min,
+              ref_max: item!.ocr_item.ref_max,
+              ref_text: item!.ocr_item.ref_text,
+              source_filename: item!.source_filename,
+              ocr_raw_name: item!.ocr_item.name,
+              mapping_confidence: 0,
+              user_verified: false
+            }))
         ]
 
         // 그룹의 파일들만 추출
