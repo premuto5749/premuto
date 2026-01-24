@@ -35,6 +35,7 @@ function PreviewContent() {
   const [activeTab, setActiveTab] = useState<string>('')
   const [hospitals, setHospitals] = useState<Hospital[]>([])
   const [groupHospitalOverrides, setGroupHospitalOverrides] = useState<Map<string, string>>(new Map())
+  const [groupDateOverrides, setGroupDateOverrides] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
     // 세션 스토리지에서 OCR 배치 결과 로드
@@ -47,15 +48,15 @@ function PreviewContent() {
         // 모든 결과를 평탄화하면서 test_date, hospital_name 보존
         const flattenedItems: EditableItem[] = []
         data.results.forEach(result => {
-          const testDate = result.metadata.test_date || 'Unknown'
-          const hospitalName = result.metadata.hospital_name || 'Unknown'
+          const testDate = result.metadata.test_date || null
+          const hospitalName = result.metadata.hospital_name || null
 
           result.items.forEach(item => {
             flattenedItems.push({
               ...item,
               source_filename: result.filename,
-              test_date: testDate,
-              hospital_name: hospitalName
+              test_date: testDate as string,
+              hospital_name: hospitalName as string
             })
           })
         })
@@ -114,11 +115,12 @@ function PreviewContent() {
       let sequence = 1
       hospitalMap.forEach((items, hospital) => {
         const groupKey = `${date}-${hospital}-${sequence}`
-        // 사용자가 병원을 선택한 경우 override 사용
+        // 사용자가 병원/날짜를 선택한 경우 override 사용
         const finalHospital = groupHospitalOverrides.get(groupKey) || hospital
+        const finalDate = groupDateOverrides.get(groupKey) || date
 
         groups.push({
-          date,
+          date: finalDate,
           hospital: finalHospital,
           sequence,
           items
@@ -131,7 +133,7 @@ function PreviewContent() {
     groups.sort((a, b) => a.date.localeCompare(b.date))
 
     return groups
-  }, [allItems, groupHospitalOverrides])
+  }, [allItems, groupHospitalOverrides, groupDateOverrides])
 
   const handleEdit = (index: number) => {
     setEditingIndex(index)
@@ -164,8 +166,23 @@ function PreviewContent() {
     setHospitals(prev => [...prev, hospital])
   }
 
+  const handleDateChange = (groupKey: string, date: string) => {
+    setGroupDateOverrides(prev => {
+      const updated = new Map(prev)
+      updated.set(groupKey, date)
+      return updated
+    })
+  }
+
   const handleSaveAll = async () => {
     if (!batchData) return
+
+    // Validate all dates are present
+    const invalidGroups = dateGroups.filter(g => !g.date || g.date === 'null')
+    if (invalidGroups.length > 0) {
+      alert('검사 날짜가 누락된 그룹이 있습니다. 날짜를 입력해주세요.')
+      return
+    }
 
     setIsProcessing(true)
 
@@ -414,6 +431,24 @@ function PreviewContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* 검사 날짜 입력 (날짜 누락 시에만 표시) */}
+                  {(!group.date || group.date === 'null') && (
+                    <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <Label className="text-sm font-medium mb-2 block text-yellow-900">
+                        ⚠️ 검사 날짜 (필수)
+                      </Label>
+                      <Input
+                        type="date"
+                        value={groupDateOverrides.get(tabId) || ''}
+                        onChange={(e) => handleDateChange(tabId, e.target.value)}
+                        className="mb-2"
+                      />
+                      <p className="text-xs text-yellow-700">
+                        OCR에서 날짜를 추출하지 못했습니다. 캘린더에서 검사 날짜를 선택해주세요.
+                      </p>
+                    </div>
+                  )}
+
                   {/* 병원 선택 */}
                   <div className="mb-6 p-4 bg-muted/50 rounded-lg">
                     <Label className="text-sm font-medium mb-2 block">병원</Label>

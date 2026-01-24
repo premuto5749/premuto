@@ -128,8 +128,8 @@ export function HospitalSelector({
                   <CommandItem
                     key={hospital.id}
                     value={hospital.name}
-                    onSelect={(currentValue) => {
-                      onValueChange(currentValue === value ? "" : currentValue)
+                    onSelect={() => {
+                      onValueChange(hospital.name)
                       setOpen(false)
                     }}
                   >

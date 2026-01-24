@@ -21,6 +21,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 날짜 검증
+    if (test_date === 'Unknown' || test_date === 'null') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '검사 날짜가 필요합니다. Preview 페이지에서 날짜를 입력해주세요.'
+        },
+        { status: 400 }
+      )
+    }
+
+    // 날짜 형식 검증 (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(test_date)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: '날짜 형식이 올바르지 않습니다. YYYY-MM-DD 형식이어야 합니다.'
+        },
+        { status: 400 }
+      )
+    }
+
     console.log(`💾 Batch save started for ${results.length} items (batch: ${batch_id})`)
 
     const supabase = await createClient()
