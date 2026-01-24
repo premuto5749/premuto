@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
+import Image from 'next/image'
 import { Upload, File, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -43,14 +44,16 @@ export function FileUploader({
 
     await page.render({
       canvasContext: context,
-      viewport: viewport
+      viewport: viewport,
+      canvas: canvas
     }).promise
 
     // Canvas를 Blob으로 변환
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {
         if (blob) {
-          const imageFile = new File(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const imageFile = new (File as any)(
             [blob],
             file.name.replace('.pdf', '.png'),
             { type: 'image/png' }
@@ -118,10 +121,12 @@ export function FileUploader({
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-4 flex-1">
             {preview ? (
-              <img 
-                src={preview} 
-                alt="Preview" 
-                className="w-32 h-32 object-cover rounded-md"
+              <Image
+                src={preview}
+                alt="Preview"
+                width={128}
+                height={128}
+                className="object-cover rounded-md"
               />
             ) : (
               <div className="w-32 h-32 bg-muted rounded-md flex items-center justify-center">

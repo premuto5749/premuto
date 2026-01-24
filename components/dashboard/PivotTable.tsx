@@ -9,6 +9,7 @@ interface TestResult {
   value: number
   ref_min: number | null
   ref_max: number | null
+  ref_text: string | null
   status: string
   unit: string | null
   standard_items: {

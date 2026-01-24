@@ -56,7 +56,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
           displayName: result.standard_items.display_name_ko || result.standard_items.name
         }
       })
-      .filter(Boolean)
+      .filter((d): d is NonNullable<typeof d> => d !== null)
       .reverse() // 날짜 오름차순
 
     if (dataPoints.length === 0) return null

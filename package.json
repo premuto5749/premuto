@@ -8,6 +8,13 @@
     "start": "next start",
     "lint": "next lint"
   },
+  "overrides": {
+    "rimraf": "^6.0.1",
+    "inflight": "npm:@humanfs/inflight@^1.0.0",
+    "glob": "^11.0.0",
+    "@humanwhocodes/config-array": "npm:@eslint/config-array@^0.20.0",
+    "@humanwhocodes/object-schema": "npm:@eslint/object-schema@^2.1.5"
+  },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-dialog": "^1.1.15",
