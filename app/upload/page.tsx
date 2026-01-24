@@ -6,7 +6,6 @@ import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, ArrowRight, AlertCircle } from 'lucide-react'
-import type { OcrResponse } from '@/types'
 
 const FileUploader = dynamic(
   () => import('@/components/upload/FileUploader').then(mod => ({ default: mod.FileUploader })),

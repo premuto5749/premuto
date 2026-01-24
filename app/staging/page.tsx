@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -324,7 +323,7 @@ function StagingV2Content() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map((item, index) => {
+                {filteredItems.map((item) => {
                   const globalIndex = mappingItems.indexOf(item)
                   const isApproved = item.user_action === 'approved'
                   const isModified = item.user_action === 'modified' && item.selected_standard_item_id

@@ -59,11 +59,11 @@ function PreviewContent() {
     // 수정사항은 상태에 자동 반영됨
   }
 
-  const handleFieldChange = (index: number, field: keyof OcrResult, value: string | number | null) => {
+  const handleFieldChange = (itemIndex: number, field: keyof OcrResult, value: string | number | null) => {
     setAllItems(prev => {
       const updated = [...prev]
-      updated[index] = {
-        ...updated[index],
+      updated[itemIndex] = {
+        ...updated[itemIndex],
         [field]: value
       }
       return updated
@@ -84,6 +84,7 @@ function PreviewContent() {
         },
         body: JSON.stringify({
           batch_id: batchData.batch_id,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           ocr_results: allItems.map(({ source_filename, ...item }) => item) // source_filename 제외
         }),
       })
