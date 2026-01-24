@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import { Loader2, ArrowRight, AlertCircle } from 'lucide-react'
 
 const FileUploader = dynamic(
@@ -17,6 +18,8 @@ export default function UploadPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState(0)
+  const [estimatedTime, setEstimatedTime] = useState(0)
 
   const handleFilesSelect = (files: File[]) => {
     setSelectedFiles(files)
@@ -33,6 +36,21 @@ export default function UploadPage() {
 
     setIsProcessing(true)
     setError(null)
+    setProgress(0)
+
+    // 파일당 평균 15초로 예상 (총 예상 시간)
+    const estimatedSeconds = selectedFiles.length * 15
+    setEstimatedTime(estimatedSeconds)
+
+    // 진행률 시뮬레이션 (실제 API 응답 전까지)
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        const newProgress = prev + (100 / estimatedSeconds)
+        // 95%에서 멈추고 실제 완료를 기다림
+        return newProgress >= 95 ? 95 : newProgress
+      })
+      setEstimatedTime(prev => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
 
     try {
       const formData = new FormData()
@@ -57,17 +75,28 @@ export default function UploadPage() {
         throw new Error('OCR 결과를 가져오는데 실패했습니다')
       }
 
+      // 완료 시 100%로 설정
+      clearInterval(progressInterval)
+      setProgress(100)
+      setEstimatedTime(0)
+
       // 배치 OCR 결과를 세션 스토리지에 저장
       sessionStorage.setItem('ocrBatchResult', JSON.stringify(result.data))
 
-      // Preview 페이지로 이동
-      router.push('/preview')
+      // 잠깐 대기 후 페이지 이동 (100% 표시를 보여주기 위해)
+      setTimeout(() => {
+        router.push('/preview')
+      }, 500)
 
     } catch (err) {
       console.error('OCR Batch error:', err)
+      clearInterval(progressInterval)
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다')
     } finally {
+      clearInterval(progressInterval)
       setIsProcessing(false)
+      setProgress(0)
+      setEstimatedTime(0)
     }
   }
 
@@ -143,10 +172,25 @@ export default function UploadPage() {
           </div>
 
           {isProcessing && (
-            <div className="mt-4 p-4 bg-muted rounded-lg">
-              <p className="text-sm text-center text-muted-foreground">
-                {selectedFiles.length}개의 검사지를 병렬로 분석하고 있습니다. 파일 수에 따라 20-60초 정도 소요됩니다...
-              </p>
+            <div className="mt-4 space-y-3">
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium">
+                    {selectedFiles.length}개 파일 분석 중...
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {progress >= 95
+                      ? '거의 완료...'
+                      : estimatedTime > 0
+                        ? `약 ${estimatedTime}초 남음`
+                        : '처리 중...'}
+                  </p>
+                </div>
+                <Progress value={progress} className="h-2" />
+                <p className="text-xs text-center text-muted-foreground mt-2">
+                  GPT-4o가 검사지를 병렬로 분석하고 있습니다
+                </p>
+              </div>
             </div>
           )}
         </CardContent>
