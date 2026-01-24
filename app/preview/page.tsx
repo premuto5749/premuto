@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Label } from '@/components/ui/label'
+import { HospitalSelector } from '@/components/ui/hospital-selector'
 import { ArrowRight, AlertCircle, Loader2, Edit2, Check } from 'lucide-react'
-import type { OcrBatchResponse, OcrResult } from '@/types'
+import type { OcrBatchResponse, OcrResult, Hospital } from '@/types'
 
 interface EditableItem extends OcrResult {
   source_filename: string
@@ -31,6 +33,8 @@ function PreviewContent() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [activeTab, setActiveTab] = useState<string>('')
+  const [hospitals, setHospitals] = useState<Hospital[]>([])
+  const [groupHospitalOverrides, setGroupHospitalOverrides] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
     // 세션 스토리지에서 OCR 배치 결과 로드
@@ -72,6 +76,22 @@ function PreviewContent() {
     }
   }, [router])
 
+  // 병원 목록 로드
+  useEffect(() => {
+    const fetchHospitals = async () => {
+      try {
+        const response = await fetch('/api/hospitals')
+        const result = await response.json()
+        if (result.success && result.data) {
+          setHospitals(result.data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch hospitals:', error)
+      }
+    }
+    fetchHospitals()
+  }, [])
+
   // 날짜별로 그룹화
   const dateGroups = useMemo(() => {
     const groups: DateGroup[] = []
@@ -93,9 +113,13 @@ function PreviewContent() {
     dateMap.forEach((hospitalMap, date) => {
       let sequence = 1
       hospitalMap.forEach((items, hospital) => {
+        const groupKey = `${date}-${hospital}-${sequence}`
+        // 사용자가 병원을 선택한 경우 override 사용
+        const finalHospital = groupHospitalOverrides.get(groupKey) || hospital
+
         groups.push({
           date,
-          hospital,
+          hospital: finalHospital,
           sequence,
           items
         })
@@ -107,7 +131,7 @@ function PreviewContent() {
     groups.sort((a, b) => a.date.localeCompare(b.date))
 
     return groups
-  }, [allItems])
+  }, [allItems, groupHospitalOverrides])
 
   const handleEdit = (index: number) => {
     setEditingIndex(index)
@@ -126,6 +150,18 @@ function PreviewContent() {
       }
       return updated
     })
+  }
+
+  const handleHospitalChange = (groupKey: string, hospitalName: string) => {
+    setGroupHospitalOverrides(prev => {
+      const updated = new Map(prev)
+      updated.set(groupKey, hospitalName)
+      return updated
+    })
+  }
+
+  const handleHospitalCreated = (hospital: Hospital) => {
+    setHospitals(prev => [...prev, hospital])
   }
 
   const handleSaveAll = async () => {
@@ -370,6 +406,20 @@ function PreviewContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* 병원 선택 */}
+                  <div className="mb-6 p-4 bg-muted/50 rounded-lg">
+                    <Label className="text-sm font-medium mb-2 block">병원</Label>
+                    <HospitalSelector
+                      value={group.hospital}
+                      onValueChange={(value) => handleHospitalChange(tabId, value)}
+                      hospitals={hospitals}
+                      onHospitalCreated={handleHospitalCreated}
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      병원명을 검색하거나 새로 추가할 수 있습니다
+                    </p>
+                  </div>
+
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
