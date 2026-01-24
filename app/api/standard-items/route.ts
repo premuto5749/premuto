@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export async function GET() {
@@ -25,6 +25,73 @@ export async function GET() {
 
   } catch (error) {
     console.error('Standard Items API error:', error)
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const body = await request.json()
+
+    const { name, display_name_ko, category, default_unit, description } = body
+
+    if (!name) {
+      return NextResponse.json(
+        { error: 'Name is required' },
+        { status: 400 }
+      )
+    }
+
+    // 중복 체크
+    const { data: existing } = await supabase
+      .from('standard_items')
+      .select('id')
+      .eq('name', name)
+      .single()
+
+    if (existing) {
+      return NextResponse.json({
+        success: true,
+        data: existing,
+        message: 'Item already exists'
+      })
+    }
+
+    // 새 항목 생성
+    const { data: newItem, error } = await supabase
+      .from('standard_items')
+      .insert({
+        name,
+        display_name_ko: display_name_ko || name,
+        category: category || 'Unmapped',
+        default_unit,
+        description
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Failed to create standard item:', error)
+      return NextResponse.json(
+        { error: 'Failed to create standard item' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: newItem
+    })
+
+  } catch (error) {
+    console.error('Standard Items POST error:', error)
     return NextResponse.json(
       {
         error: 'Internal server error',

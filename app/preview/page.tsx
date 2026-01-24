@@ -128,13 +128,13 @@ function PreviewContent() {
     })
   }
 
-  const handleProceedToMapping = async () => {
+  const handleSaveAll = async () => {
     if (!batchData) return
 
     setIsProcessing(true)
 
     try {
-      // 날짜별로 AI 매핑 (각 날짜 그룹을 독립적으로 처리)
+      // 1단계: 날짜별로 AI 매핑 실행
       const mappingPromises = dateGroups.map(async (group) => {
         const response = await fetch('/api/ai-mapping', {
           method: 'POST',
@@ -162,19 +162,141 @@ function PreviewContent() {
 
       const mappingResults = await Promise.all(mappingPromises)
 
-      // 매핑 결과를 세션 스토리지에 저장
-      sessionStorage.setItem('aiMappingResultByDate', JSON.stringify({
-        batchData,
-        dateGroups,
-        mappingResults
-      }))
+      // 2단계: 각 날짜 그룹별로 자동 저장
+      const savePromises = mappingResults.map(async ({ group, mappingResult }) => {
+        // 매칭된 항목과 미매칭 항목 분리
+        const mappedItems: Array<{
+          ocr_item: OcrResult
+          suggested_mapping: { standard_item_id: string; confidence: number }
+          source_filename: string
+        }> = []
 
-      // Staging 페이지로 이동
-      router.push('/staging')
+        const unmappedItems: Array<{
+          ocr_item: OcrResult
+          source_filename: string
+        }> = []
+
+        mappingResult.forEach((result: {
+          ocr_item: OcrResult
+          suggested_mapping: { standard_item_id: string; confidence: number } | null
+        }) => {
+          const originalItem = group.items.find(
+            item => item.name === result.ocr_item.name && item.value === result.ocr_item.value
+          )
+
+          if (result.suggested_mapping) {
+            mappedItems.push({
+              ocr_item: result.ocr_item,
+              suggested_mapping: result.suggested_mapping,
+              source_filename: originalItem?.source_filename || 'unknown'
+            })
+          } else {
+            unmappedItems.push({
+              ocr_item: result.ocr_item,
+              source_filename: originalItem?.source_filename || 'unknown'
+            })
+          }
+        })
+
+        // 미매칭 항목을 Unmapped 카테고리로 standard_items에 추가
+        const newStandardItemPromises = unmappedItems.map(async (item) => {
+          const createResponse = await fetch('/api/standard-items', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: item.ocr_item.name,
+              display_name_ko: item.ocr_item.name,
+              category: 'Unmapped',
+              default_unit: item.ocr_item.unit,
+              description: 'OCR에서 자동 생성됨'
+            })
+          })
+
+          if (!createResponse.ok) {
+            console.error(`Failed to create standard item for ${item.ocr_item.name}`)
+            return null
+          }
+
+          const newItem = await createResponse.json()
+          return {
+            ...item,
+            standard_item_id: newItem.data.id
+          }
+        })
+
+        const newStandardItems = (await Promise.all(newStandardItemPromises)).filter(Boolean)
+
+        // 모든 항목 통합 (매핑된 것 + 새로 생성된 것)
+        const allResults = [
+          ...mappedItems.map(item => ({
+            standard_item_id: item.suggested_mapping.standard_item_id,
+            value: item.ocr_item.value,
+            unit: item.ocr_item.unit,
+            ref_min: item.ocr_item.ref_min,
+            ref_max: item.ocr_item.ref_max,
+            ref_text: item.ocr_item.ref_text,
+            source_filename: item.source_filename,
+            ocr_raw_name: item.ocr_item.name,
+            mapping_confidence: item.suggested_mapping.confidence,
+            user_verified: false
+          })),
+          ...newStandardItems.map(item => ({
+            standard_item_id: item!.standard_item_id,
+            value: item!.ocr_item.value,
+            unit: item!.ocr_item.unit,
+            ref_min: item!.ocr_item.ref_min,
+            ref_max: item!.ocr_item.ref_max,
+            ref_text: item!.ocr_item.ref_text,
+            source_filename: item!.source_filename,
+            ocr_raw_name: item!.ocr_item.name,
+            mapping_confidence: 0,
+            user_verified: false
+          }))
+        ]
+
+        // 그룹의 파일들만 추출
+        const groupFiles = [...new Set(group.items.map(item => item.source_filename))]
+        const uploadedFiles = batchData.results
+          .filter(r => groupFiles.includes(r.filename))
+          .map(r => ({
+            filename: r.filename,
+            size: 0,
+            type: r.filename.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'
+          }))
+
+        // test_results 저장
+        const saveResponse = await fetch('/api/test-results-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            batch_id: `${batchData.batch_id}_${group.date}_${group.sequence}`,
+            test_date: group.date,
+            hospital_name: group.hospital,
+            uploaded_files: uploadedFiles,
+            results: allResults
+          })
+        })
+
+        const saveResult = await saveResponse.json()
+
+        if (!saveResponse.ok) {
+          throw new Error(saveResult.error || `${group.date} 저장 실패`)
+        }
+
+        return saveResult
+      })
+
+      await Promise.all(savePromises)
+
+      // 세션 스토리지 정리
+      sessionStorage.removeItem('ocrBatchResult')
+
+      // 대시보드로 이동
+      router.push('/dashboard?saved=true')
 
     } catch (error) {
-      console.error('AI Mapping error:', error)
-      alert(error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다')
+      console.error('Save error:', error)
+      alert(error instanceof Error ? error.message : '저장 중 오류가 발생했습니다')
     } finally {
       setIsProcessing(false)
     }
@@ -386,17 +508,17 @@ function PreviewContent() {
         })}
       </Tabs>
 
-      {/* 다음 단계 버튼 */}
+      {/* 저장 버튼 */}
       <Card>
         <CardHeader>
-          <CardTitle>다음 단계: AI 매칭</CardTitle>
+          <CardTitle>검사 결과 저장</CardTitle>
           <CardDescription>
-            각 날짜별로 항목을 표준 검사 항목과 자동으로 매칭합니다
+            OCR 결과를 확인했다면 저장하세요. AI가 자동으로 매칭하고 DB에 저장합니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button
-            onClick={handleProceedToMapping}
+            onClick={handleSaveAll}
             disabled={isProcessing || allItems.length === 0}
             className="w-full"
             size="lg"
@@ -404,11 +526,11 @@ function PreviewContent() {
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                AI 매칭 중... ({dateGroups.length}개 날짜 그룹)
+                저장 중... ({dateGroups.length}개 날짜 그룹)
               </>
             ) : (
               <>
-                AI 매칭 시작 ({dateGroups.length}개 날짜 그룹)
+                모두 저장 ({dateGroups.length}개 날짜 그룹)
                 <ArrowRight className="w-4 h-4 ml-2" />
               </>
             )}
@@ -417,7 +539,10 @@ function PreviewContent() {
           {isProcessing && (
             <div className="mt-4 p-4 bg-muted rounded-lg">
               <p className="text-sm text-center text-muted-foreground">
-                {dateGroups.length}개 날짜 그룹을 분석하고 있습니다...
+                AI 매칭 및 저장 중... ({dateGroups.length}개 날짜 그룹)
+              </p>
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                매칭되지 않은 항목은 자동으로 생성됩니다
               </p>
             </div>
           )}
@@ -427,9 +552,11 @@ function PreviewContent() {
       <div className="mt-8 p-4 bg-muted rounded-lg">
         <h3 className="font-medium mb-2">💡 팁</h3>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-          <li>날짜별 탭을 클릭하여 각 검사의 결과를 확인하세요</li>
+          <li>날짜별 탭을 클릭하여 각 검사의 OCR 결과를 확인하세요</li>
           <li>같은 날짜에 여러 병원에서 검사한 경우 순번(1, 2, ...)이 표시됩니다</li>
-          <li>숫자가 잘못 인식된 경우 지금 수정하면 정확한 매칭이 가능합니다</li>
+          <li>숫자가 잘못 인식된 경우 지금 수정하세요 (수정 버튼 클릭)</li>
+          <li>[저장] 버튼을 누르면 AI가 자동으로 매칭하고 DB에 저장합니다</li>
+          <li>매칭되지 않은 항목은 &apos;Unmapped&apos; 카테고리로 자동 생성됩니다</li>
           <li>각 날짜 그룹은 독립적으로 저장됩니다</li>
         </ul>
       </div>
