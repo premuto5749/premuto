@@ -39,8 +39,10 @@ export default function LoginPage() {
           throw signUpError
         }
 
-        alert('회원가입이 완료되었습니다! 이메일을 확인하여 인증해주세요.')
+        alert('회원가입이 완료되었습니다! 이제 로그인할 수 있습니다.')
         setIsSignUp(false)
+        setEmail('')
+        setPassword('')
       } else {
         // 로그인
         const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -57,7 +59,16 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error('Auth error:', err)
-      setError(err instanceof Error ? err.message : '인증에 실패했습니다')
+      const errorMessage = err instanceof Error ? err.message : '인증에 실패했습니다'
+
+      // 이메일 확인 에러 감지
+      if (errorMessage.includes('Email not confirmed')) {
+        setError('이메일 확인이 필요합니다. Supabase Dashboard에서 "Enable email confirmations"를 끄거나, 계정을 수동으로 확인 처리하세요.')
+      } else if (errorMessage.includes('Invalid login credentials')) {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다.')
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setIsLoading(false)
     }
