@@ -15,8 +15,9 @@ async function retryWithBackoff<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn()
-    } catch (error: any) {
-      const isRateLimitError = error?.status === 429
+    } catch (error: unknown) {
+      const isOpenAIError = error && typeof error === 'object' && 'status' in error
+      const isRateLimitError = isOpenAIError && (error as { status: number }).status === 429
       const isLastAttempt = attempt === maxRetries
 
       if (!isRateLimitError || isLastAttempt) {
@@ -24,7 +25,8 @@ async function retryWithBackoff<T>(
       }
 
       // Rate limit 에러에서 대기 시간 추출 (있으면)
-      const retryAfter = error?.headers?.['retry-after']
+      const errorWithHeaders = error as { headers?: { 'retry-after'?: string } }
+      const retryAfter = errorWithHeaders.headers?.['retry-after']
       const waitTime = retryAfter
         ? parseInt(retryAfter) * 1000
         : baseDelay * Math.pow(2, attempt) // 지수 백오프: 3s, 6s, 12s
