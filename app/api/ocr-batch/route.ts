@@ -77,6 +77,9 @@ async function processFile(file: File): Promise<{
 - 모든 수치는 숫자 타입으로 반환
 - 검사 항목명은 대문자로 통일
 - 참고치가 없는 경우 null로 표시
+- **반드시 유효한 JSON 형식으로만 반환하세요**
+- 마지막 항목 뒤에 쉼표(,)를 추가하지 마세요
+- 배열 마지막 요소 뒤에 쉼표 없음
 - JSON만 반환하고 다른 설명은 추가하지 마세요`
           },
           {
@@ -88,8 +91,9 @@ async function processFile(file: File): Promise<{
         ]
       }
     ],
-    max_tokens: 2000,
+    max_tokens: 3000, // 더 긴 응답 허용
     temperature: 0.1,
+    response_format: { type: "json_object" } // JSON 형식 강제
   })
 
   const content = completion.choices[0]?.message?.content
@@ -98,18 +102,36 @@ async function processFile(file: File): Promise<{
     throw new Error(`No response from OCR service for file: ${file.name}`)
   }
 
-  // JSON 파싱
+  // JSON 파싱 (robust하게 처리)
   let ocrResult
   try {
+    // 1차 시도: 원본 그대로 파싱
     const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      ocrResult = JSON.parse(jsonMatch[0])
-    } else {
-      ocrResult = JSON.parse(content)
+    const jsonString = jsonMatch ? jsonMatch[0] : content
+
+    try {
+      ocrResult = JSON.parse(jsonString)
+    } catch (firstError) {
+      // 2차 시도: trailing comma 제거
+      console.log(`⚠️  First parse failed, trying to fix trailing commas...`)
+      const fixedJson = jsonString
+        .replace(/,(\s*[}\]])/g, '$1') // 배열/객체 끝의 쉼표 제거
+        .replace(/,(\s*,)/g, ',') // 연속된 쉼표 제거
+
+      try {
+        ocrResult = JSON.parse(fixedJson)
+        console.log(`✅ JSON fixed and parsed successfully`)
+      } catch (secondError) {
+        // 3차 시도 실패 - 원본 내용 로깅
+        console.error(`❌ JSON parse error for ${file.name}`)
+        console.error(`Original content (first 500 chars):`, content.substring(0, 500))
+        console.error(`Parse error:`, secondError)
+        throw new Error(`Failed to parse OCR result for file: ${file.name}. Invalid JSON format.`)
+      }
     }
   } catch (parseError) {
-    console.error(`❌ JSON parse error for ${file.name}:`, parseError)
-    throw new Error(`Failed to parse OCR result for file: ${file.name}`)
+    console.error(`❌ JSON extraction error for ${file.name}:`, parseError)
+    throw new Error(`Failed to extract JSON from OCR result for file: ${file.name}`)
   }
 
   const processingTime = Date.now() - startTime
@@ -176,19 +198,58 @@ export async function POST(request: NextRequest) {
 
     console.log(`🚀 Processing ${files.length} files in parallel...`)
 
-    // 모든 파일을 병렬로 처리
-    const results = await Promise.all(
+    // 모든 파일을 병렬로 처리 (개별 파일 실패 허용)
+    const processResults = await Promise.allSettled(
       files.map(file => processFile(file))
     )
 
-    console.log(`✅ Successfully processed ${results.length} files`)
+    // 성공한 결과만 추출
+    const results = processResults
+      .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof processFile>>> =>
+        result.status === 'fulfilled'
+      )
+      .map(result => result.value)
+
+    // 실패한 파일 로깅
+    const failedFiles = processResults
+      .map((result, index) => ({ result, file: files[index] }))
+      .filter(({ result }) => result.status === 'rejected')
+      .map(({ result, file }) => ({
+        filename: file.name,
+        error: result.status === 'rejected' ? result.reason.message : 'Unknown error'
+      }))
+
+    if (failedFiles.length > 0) {
+      console.error(`⚠️  ${failedFiles.length} file(s) failed to process:`, failedFiles)
+    }
+
+    if (results.length === 0) {
+      return NextResponse.json(
+        {
+          error: 'All files failed to process',
+          details: failedFiles
+        },
+        { status: 500 }
+      )
+    }
+
+    console.log(`✅ Successfully processed ${results.length}/${files.length} files`)
 
     // 메타데이터 일치성 검증
     const warnings: Array<{
-      type: 'date_mismatch' | 'duplicate_item'
+      type: 'date_mismatch' | 'duplicate_item' | 'processing_failed'
       message: string
       files: string[]
     }> = []
+
+    // 실패한 파일 경고 추가
+    if (failedFiles.length > 0) {
+      warnings.push({
+        type: 'processing_failed',
+        message: `${failedFiles.length}개 파일 처리 실패: ${failedFiles.map(f => `${f.filename} (${f.error})`).join(', ')}`,
+        files: failedFiles.map(f => f.filename)
+      })
+    }
 
     // 검사 날짜 일치 확인
     const testDates = results
