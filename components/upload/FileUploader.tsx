@@ -13,20 +13,25 @@ if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 }
 
+interface FileWithPreview {
+  file: File
+  preview: string | null
+}
+
 interface FileUploaderProps {
-  onFileSelect: (file: File) => void
-  onFileRemove: () => void
-  selectedFile: File | null
+  onFilesSelect: (files: File[]) => void
+  onFileRemove: (index: number) => void
+  selectedFiles: File[]
   isProcessing?: boolean
 }
 
 export function FileUploader({
-  onFileSelect,
+  onFilesSelect,
   onFileRemove,
-  selectedFile,
+  selectedFiles,
   isProcessing = false
 }: FileUploaderProps) {
-  const [preview, setPreview] = useState<string | null>(null)
+  const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
   const [isConverting, setIsConverting] = useState(false)
 
   // PDF를 이미지로 변환하는 함수
@@ -65,39 +70,69 @@ export function FileUploader({
   }
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (!file) return
+    if (acceptedFiles.length === 0) return
+
+    // 기존 파일과 합쳐서 최대 10개 제한
+    if (selectedFiles.length + acceptedFiles.length > 10) {
+      alert('최대 10개 파일까지만 업로드할 수 있습니다.')
+      return
+    }
 
     try {
-      let processedFile = file
+      setIsConverting(true)
+      const processedFiles: File[] = []
 
-      // PDF 파일이면 이미지로 변환
-      if (file.type === 'application/pdf') {
-        setIsConverting(true)
-        console.log('📄 PDF 파일 감지, 이미지로 변환 중...')
-        processedFile = await convertPdfToImage(file)
-        console.log('✅ PDF → PNG 변환 완료')
-        setIsConverting(false)
-      }
+      // 모든 파일 처리 (PDF 변환 포함)
+      for (const file of acceptedFiles) {
+        let processedFile = file
 
-      onFileSelect(processedFile)
-
-      // 이미지 미리보기 생성
-      if (processedFile.type.startsWith('image/')) {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          setPreview(reader.result as string)
+        // PDF 파일이면 이미지로 변환
+        if (file.type === 'application/pdf') {
+          console.log(`📄 PDF 파일 감지: ${file.name}, 이미지로 변환 중...`)
+          processedFile = await convertPdfToImage(file)
+          console.log('✅ PDF → PNG 변환 완료')
         }
-        reader.readAsDataURL(processedFile)
-      } else {
-        setPreview(null)
+
+        processedFiles.push(processedFile)
       }
-    } catch (error) {
-      console.error('❌ PDF 변환 실패:', error)
+
       setIsConverting(false)
-      alert('PDF 변환에 실패했습니다. 다른 파일을 시도해주세요.')
+
+      // 부모 컴포넌트에 전체 파일 목록 전달
+      const allFiles = [...selectedFiles, ...processedFiles]
+      onFilesSelect(allFiles)
+
+      // 각 파일의 미리보기 생성
+      const newFilesWithPreview = await Promise.all(
+        processedFiles.map(async (file) => {
+          if (file.type.startsWith('image/')) {
+            return new Promise<FileWithPreview>((resolve) => {
+              const reader = new FileReader()
+              reader.onloadend = () => {
+                resolve({
+                  file,
+                  preview: reader.result as string
+                })
+              }
+              reader.readAsDataURL(file)
+            })
+          } else {
+            return {
+              file,
+              preview: null
+            }
+          }
+        })
+      )
+
+      setFilesWithPreview(prev => [...prev, ...newFilesWithPreview])
+
+    } catch (error) {
+      console.error('❌ 파일 처리 실패:', error)
+      setIsConverting(false)
+      alert('파일 처리에 실패했습니다. 다른 파일을 시도해주세요.')
     }
-  }, [onFileSelect])
+  }, [selectedFiles, onFilesSelect])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -105,56 +140,101 @@ export function FileUploader({
       'image/*': ['.png', '.jpg', '.jpeg'],
       'application/pdf': ['.pdf']
     },
-    maxFiles: 1,
+    maxFiles: 10,
     maxSize: 10 * 1024 * 1024, // 10MB
+    multiple: true,
     disabled: isProcessing || isConverting
   })
 
-  const handleRemove = () => {
-    onFileRemove()
-    setPreview(null)
+  const handleRemove = (index: number) => {
+    onFileRemove(index)
+    setFilesWithPreview(prev => prev.filter((_, i) => i !== index))
   }
 
-  if (selectedFile) {
+  if (selectedFiles.length > 0) {
     return (
-      <Card className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4 flex-1">
-            {preview ? (
-              <Image
-                src={preview}
-                alt="Preview"
-                width={128}
-                height={128}
-                className="object-cover rounded-md"
-              />
-            ) : (
-              <div className="w-32 h-32 bg-muted rounded-md flex items-center justify-center">
-                <File className="w-12 h-12 text-muted-foreground" />
-              </div>
-            )}
-            <div>
-              <p className="font-medium">{selectedFile.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {selectedFile.type}
-              </p>
-            </div>
-          </div>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">
+            업로드된 파일 ({selectedFiles.length}/10)
+          </p>
           {!isProcessing && (
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleRemove}
-              className="flex-shrink-0"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                selectedFiles.forEach((_, index) => handleRemove(index))
+              }}
             >
-              <X className="w-4 h-4" />
+              모두 제거
             </Button>
           )}
         </div>
-      </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {selectedFiles.map((file, index) => {
+            const fileWithPreview = filesWithPreview.find(f => f.file === file)
+            const preview = fileWithPreview?.preview
+
+            return (
+              <Card key={`${file.name}-${index}`} className="p-4">
+                <div className="flex items-start gap-3">
+                  {preview ? (
+                    <Image
+                      src={preview}
+                      alt={`Preview ${index + 1}`}
+                      width={80}
+                      height={80}
+                      className="object-cover rounded-md flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
+                      <File className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate" title={file.name}>
+                      {file.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {file.type}
+                    </p>
+                  </div>
+
+                  {!isProcessing && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemove(index)}
+                      className="flex-shrink-0 h-8 w-8"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+
+        {!isProcessing && selectedFiles.length < 10 && (
+          <div
+            {...getRootProps()}
+            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors duration-200 border-muted-foreground/25 hover:border-primary hover:bg-primary/5"
+          >
+            <input {...getInputProps()} />
+            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-sm font-medium">파일 추가하기</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              최대 {10 - selectedFiles.length}개 더 추가 가능
+            </p>
+          </div>
+        )}
+      </div>
     )
   }
 
@@ -183,20 +263,23 @@ export function FileUploader({
       <input {...getInputProps()} />
       <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
       {isDragActive ? (
-        <p className="text-lg font-medium">파일을 여기에 놓아주세요</p>
+        <p className="text-lg font-medium">파일들을 여기에 놓아주세요</p>
       ) : (
         <>
           <p className="text-lg font-medium mb-2">
-            검사지 이미지 또는 PDF를 업로드하세요
+            한 번의 검사에 해당하는 모든 문서를 업로드하세요
           </p>
           <p className="text-sm text-muted-foreground mb-4">
-            클릭하거나 드래그앤드롭으로 파일을 선택할 수 있습니다
+            여러 파일을 한 번에 선택하거나 드래그앤드롭할 수 있습니다
           </p>
           <p className="text-xs text-muted-foreground">
-            지원 형식: JPG, PNG, PDF (최대 10MB)
+            지원 형식: JPG, PNG, PDF (각 파일 최대 10MB, 최대 10개)
           </p>
           <p className="text-xs text-green-600 mt-2">
             ✅ PDF는 자동으로 이미지로 변환됩니다
+          </p>
+          <p className="text-xs text-blue-600 mt-1">
+            💡 예: CBC 결과지 + Chemistry 결과지 + 특수 검사 결과지
           </p>
         </>
       )}

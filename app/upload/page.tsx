@@ -15,31 +15,35 @@ const FileUploader = dynamic(
 
 export default function UploadPage() {
   const router = useRouter()
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleFileSelect = (file: File) => {
-    setSelectedFile(file)
+  const handleFilesSelect = (files: File[]) => {
+    setSelectedFiles(files)
     setError(null)
   }
 
-  const handleFileRemove = () => {
-    setSelectedFile(null)
+  const handleFileRemove = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
     setError(null)
   }
 
   const handleAnalyze = async () => {
-    if (!selectedFile) return
+    if (selectedFiles.length === 0) return
 
     setIsProcessing(true)
     setError(null)
 
     try {
       const formData = new FormData()
-      formData.append('file', selectedFile)
 
-      const response = await fetch('/api/ocr', {
+      // 여러 파일을 FormData에 추가
+      selectedFiles.forEach((file, index) => {
+        formData.append(`file${index}`, file)
+      })
+
+      const response = await fetch('/api/ocr-batch', {
         method: 'POST',
         body: formData,
       })
@@ -54,15 +58,14 @@ export default function UploadPage() {
         throw new Error('OCR 결과를 가져오는데 실패했습니다')
       }
 
-      // OCR 결과를 세션 스토리지에 저장
-      const ocrData: OcrResponse = result.data
-      sessionStorage.setItem('ocrResult', JSON.stringify(ocrData))
+      // 배치 OCR 결과를 세션 스토리지에 저장
+      sessionStorage.setItem('ocrBatchResult', JSON.stringify(result.data))
 
-      // Staging 페이지로 이동
-      router.push('/staging')
+      // Preview 페이지로 이동
+      router.push('/preview')
 
     } catch (err) {
-      console.error('OCR error:', err)
+      console.error('OCR Batch error:', err)
       setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다')
     } finally {
       setIsProcessing(false)
@@ -74,7 +77,7 @@ export default function UploadPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">검사지 업로드</h1>
         <p className="text-muted-foreground">
-          혈액검사 결과지를 업로드하면 AI가 자동으로 분석합니다
+          한 번의 검사에 해당하는 모든 결과지를 업로드하면 AI가 자동으로 분석합니다
         </p>
       </div>
 
@@ -82,14 +85,14 @@ export default function UploadPage() {
         <CardHeader>
           <CardTitle>1단계: 파일 선택</CardTitle>
           <CardDescription>
-            JPG, PNG 또는 PDF 형식의 검사지를 업로드하세요 (최대 10MB)
+            여러 검사지를 한 번에 업로드할 수 있습니다 (최대 10개, 각 10MB 이하)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <FileUploader
-            onFileSelect={handleFileSelect}
+            onFilesSelect={handleFilesSelect}
             onFileRemove={handleFileRemove}
-            selectedFile={selectedFile}
+            selectedFiles={selectedFiles}
             isProcessing={isProcessing}
           />
         </CardContent>
@@ -111,37 +114,39 @@ export default function UploadPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>2단계: AI 분석</CardTitle>
+          <CardTitle>2단계: AI 일괄 분석</CardTitle>
           <CardDescription>
-            GPT-4o Vision이 검사지를 분석하여 항목별 결과를 추출합니다
+            GPT-4o Vision이 모든 검사지를 동시에 분석하여 항목별 결과를 추출합니다
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4">
             <Button
               onClick={handleAnalyze}
-              disabled={!selectedFile || isProcessing}
+              disabled={selectedFiles.length === 0 || isProcessing}
               className="flex-1"
               size="lg"
             >
               {isProcessing ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  AI 분석 중...
+                  AI 분석 중... ({selectedFiles.length}개 파일)
                 </>
               ) : (
                 <>
-                  분석 시작
+                  {selectedFiles.length > 0
+                    ? `${selectedFiles.length}개 파일 분석 시작`
+                    : '분석 시작'}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </>
               )}
             </Button>
           </div>
-          
+
           {isProcessing && (
             <div className="mt-4 p-4 bg-muted rounded-lg">
               <p className="text-sm text-center text-muted-foreground">
-                검사지를 분석하고 있습니다. 약 10-30초 정도 소요됩니다...
+                {selectedFiles.length}개의 검사지를 병렬로 분석하고 있습니다. 파일 수에 따라 20-60초 정도 소요됩니다...
               </p>
             </div>
           )}
@@ -151,9 +156,10 @@ export default function UploadPage() {
       <div className="mt-8 p-4 bg-muted rounded-lg">
         <h3 className="font-medium mb-2">💡 팁</h3>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+          <li>같은 날짜의 검사 결과지를 모두 한 번에 업로드하세요 (예: CBC + Chemistry + 특수 검사)</li>
           <li>검사지 전체가 선명하게 촬영된 이미지를 사용하세요</li>
           <li>글씨가 흐리거나 잘린 경우 인식 정확도가 낮을 수 있습니다</li>
-          <li>분석 후 검수 페이지에서 결과를 확인하고 수정할 수 있습니다</li>
+          <li>분석 후 AI가 자동으로 항목을 매칭하며, 검수 페이지에서 확인 및 수정할 수 있습니다</li>
         </ul>
       </div>
     </div>
