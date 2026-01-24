@@ -33,6 +33,8 @@ export interface OcrBatchResponse {
       metadata: {
         pages: number
         processingTime: number
+        test_date?: string
+        hospital_name?: string
       }
     }>
     warnings: Array<{
@@ -82,6 +84,17 @@ export interface StagingItem extends OcrResult {
 // ============================================
 // 데이터베이스 테이블 타입
 // ============================================
+
+export interface Hospital {
+  id: string
+  name: string
+  address?: string | null
+  phone?: string | null
+  website?: string | null
+  notes?: string | null
+  created_at?: string
+  updated_at?: string
+}
 
 export interface StandardItem {
   id: string

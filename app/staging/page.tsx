@@ -28,43 +28,49 @@ function StagingV2Content() {
   const [filter, setFilter] = useState<'all' | 'low' | 'unmatched'>('all')
 
   useEffect(() => {
-    // 세션 스토리지에서 AI 매핑 결과 로드
-    const stored = sessionStorage.getItem('aiMappingResult')
+    // 세션 스토리지에서 AI 매핑 결과 로드 (날짜별 그룹)
+    const stored = sessionStorage.getItem('aiMappingResultByDate')
     if (stored) {
       try {
-        const { batchData, allItems, mappingResults } = JSON.parse(stored)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { batchData, dateGroups, mappingResults } = JSON.parse(stored)
         setBatchData(batchData)
 
-        // AI 매핑 결과를 MappingItem 형태로 변환
-        const items: MappingItem[] = mappingResults.map((result: {
-          ocr_item: OcrResult
-          suggested_mapping: AiMappingSuggestion | null
-        }) => {
-          // allItems에서 source_filename 찾기
-          const originalItem = allItems.find((item: OcrResult & { source_filename: string }) =>
-            item.name === result.ocr_item.name && item.value === result.ocr_item.value
-          )
+        // 모든 날짜 그룹의 매핑 결과를 평탄화
+        const allMappingItems: MappingItem[] = []
 
-          return {
-            ocr_item: {
-              ...result.ocr_item,
-              source_filename: originalItem?.source_filename || 'unknown'
-            },
-            suggested_mapping: result.suggested_mapping,
-            user_action: result.suggested_mapping ? 'pending' : 'pending',
-            selected_standard_item_id: result.suggested_mapping?.standard_item_id || null,
-            user_verified: false
-          }
+        mappingResults.forEach((groupResult: {
+          group: { date: string; hospital: string; sequence: number; items: Array<OcrResult & { source_filename: string; test_date: string; hospital_name: string }> }
+          mappingResult: Array<{ ocr_item: OcrResult; suggested_mapping: AiMappingSuggestion | null }>
+        }) => {
+          groupResult.mappingResult.forEach((result) => {
+            // 원본 아이템에서 source_filename 찾기
+            const originalItem = groupResult.group.items.find(item =>
+              item.name === result.ocr_item.name &&
+              item.value === result.ocr_item.value
+            )
+
+            allMappingItems.push({
+              ocr_item: {
+                ...result.ocr_item,
+                source_filename: originalItem?.source_filename || 'unknown'
+              },
+              suggested_mapping: result.suggested_mapping,
+              user_action: result.suggested_mapping ? 'pending' : 'pending',
+              selected_standard_item_id: result.suggested_mapping?.standard_item_id || null,
+              user_verified: false
+            })
+          })
         })
 
         // 신뢰도 순으로 정렬 (낮은 것 먼저)
-        items.sort((a, b) => {
+        allMappingItems.sort((a, b) => {
           const confA = a.suggested_mapping?.confidence ?? -1
           const confB = b.suggested_mapping?.confidence ?? -1
           return confA - confB
         })
 
-        setMappingItems(items)
+        setMappingItems(allMappingItems)
       } catch (error) {
         console.error('Failed to parse mapping data:', error)
         router.push('/upload')
@@ -147,45 +153,80 @@ function StagingV2Content() {
     setSaving(true)
 
     try {
-      // 배치 저장 API 호출
-      const response = await fetch('/api/test-results-batch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          batch_id: batchData.batch_id,
-          test_date: batchData.test_date,
-          hospital_name: batchData.hospital_name,
-          uploaded_files: batchData.results.map(r => ({
-            filename: r.filename,
-            size: 0, // TODO: 실제 파일 크기 전달
-            type: r.filename.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'
-          })),
-          results: mappingItems.map(item => ({
-            standard_item_id: item.selected_standard_item_id!,
-            value: item.ocr_item.value,
-            unit: item.ocr_item.unit,
-            ref_min: item.ocr_item.ref_min,
-            ref_max: item.ocr_item.ref_max,
-            ref_text: item.ocr_item.ref_text,
-            source_filename: item.ocr_item.source_filename,
-            ocr_raw_name: item.ocr_item.name,
-            mapping_confidence: item.suggested_mapping?.confidence ?? 0,
-            user_verified: item.user_verified
-          }))
+      // 날짜별로 그룹화된 데이터 로드
+      const stored = sessionStorage.getItem('aiMappingResultByDate')
+      if (!stored) {
+        throw new Error('매핑 데이터를 찾을 수 없습니다.')
+      }
+
+      const { dateGroups } = JSON.parse(stored)
+
+      // 각 날짜 그룹별로 별도의 test_record 저장
+      const savePromises = dateGroups.map(async (group: {
+        date: string
+        hospital: string
+        sequence: number
+        items: Array<OcrResult & { source_filename: string }>
+      }) => {
+        // 이 그룹에 해당하는 매핑 항목들만 필터링
+        const groupMappingItems = mappingItems.filter(item => {
+          const matchingItem = group.items.find(
+            groupItem => groupItem.name === item.ocr_item.name &&
+                        groupItem.value === item.ocr_item.value &&
+                        groupItem.source_filename === item.ocr_item.source_filename
+          )
+          return !!matchingItem
         })
+
+        // 이 그룹의 파일들만 추출
+        const groupFiles = [...new Set(group.items.map(item => item.source_filename))]
+        const uploadedFiles = batchData.results
+          .filter(r => groupFiles.includes(r.filename))
+          .map(r => ({
+            filename: r.filename,
+            size: 0,
+            type: r.filename.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg'
+          }))
+
+        const response = await fetch('/api/test-results-batch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            batch_id: `${batchData.batch_id}_${group.date}_${group.sequence}`,
+            test_date: group.date,
+            hospital_name: group.hospital,
+            uploaded_files: uploadedFiles,
+            results: groupMappingItems.map(item => ({
+              standard_item_id: item.selected_standard_item_id!,
+              value: item.ocr_item.value,
+              unit: item.ocr_item.unit,
+              ref_min: item.ocr_item.ref_min,
+              ref_max: item.ocr_item.ref_max,
+              ref_text: item.ocr_item.ref_text,
+              source_filename: item.ocr_item.source_filename,
+              ocr_raw_name: item.ocr_item.name,
+              mapping_confidence: item.suggested_mapping?.confidence ?? 0,
+              user_verified: item.user_verified
+            }))
+          })
+        })
+
+        const result = await response.json()
+
+        if (!response.ok) {
+          throw new Error(result.error || `${group.date} 저장 실패`)
+        }
+
+        return result
       })
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || '저장에 실패했습니다')
-      }
+      await Promise.all(savePromises)
 
       // 세션 스토리지 정리
       sessionStorage.removeItem('ocrBatchResult')
-      sessionStorage.removeItem('aiMappingResult')
+      sessionStorage.removeItem('aiMappingResultByDate')
 
       // 대시보드로 이동
       router.push('/dashboard?saved=true')
@@ -236,7 +277,7 @@ function StagingV2Content() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">AI 매칭 검수</h1>
         <p className="text-muted-foreground">
-          AI가 제안한 매칭 결과를 확인하고 승인 또는 수정하세요
+          AI가 제안한 매칭 결과를 확인하고 승인 또는 수정하세요. 날짜별 그룹이 독립적으로 저장됩니다.
         </p>
       </div>
 
@@ -415,7 +456,7 @@ function StagingV2Content() {
         <CardHeader>
           <CardTitle>최종 저장</CardTitle>
           <CardDescription>
-            모든 항목의 매칭을 확인한 후 저장하세요
+            모든 항목의 매칭을 확인한 후 저장하세요. 각 날짜 그룹은 별도의 검사 기록으로 저장됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -456,6 +497,7 @@ function StagingV2Content() {
           <li>신뢰도가 낮거나 매칭 실패한 항목은 수동으로 선택해주세요</li>
           <li>AI가 제안한 매칭이 올바르면 ✓ 버튼으로 승인하세요</li>
           <li>승인한 매칭은 다음번 업로드 시 자동으로 적용됩니다</li>
+          <li>여러 날짜의 검사를 함께 업로드한 경우, 각 날짜별로 독립적인 검사 기록이 생성됩니다</li>
         </ul>
       </div>
     </div>

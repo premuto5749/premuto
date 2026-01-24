@@ -38,7 +38,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
   const pivotData = useMemo(() => {
     // 모든 고유 항목 수집
     const allItems = new Set<string>()
-    const itemDetails = new Map<string, { name: string; ko: string; category: string; hasMultipleRefRanges: boolean }>()
+    const itemDetails = new Map<string, { name: string; ko: string; category: string; refRangeDisplay: string | null }>()
 
     // 각 항목별로 고유한 참고치 개수 추적
     const refRangesByItem = new Map<string, Set<string>>()
@@ -53,7 +53,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
             name: itemName,
             ko: result.standard_items.display_name_ko || itemName,
             category: result.standard_items.category || 'Other',
-            hasMultipleRefRanges: false
+            refRangeDisplay: null
           })
         }
 
@@ -63,16 +63,25 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
             refRangesByItem.set(itemName, new Set())
           }
           refRangesByItem.get(itemName)!.add(result.ref_text)
+        } else if (result.ref_min !== null || result.ref_max !== null) {
+          // ref_text가 없으면 ref_min-ref_max로 생성
+          const refRange = `${result.ref_min ?? '?'}-${result.ref_max ?? '?'}`
+          if (!refRangesByItem.has(itemName)) {
+            refRangesByItem.set(itemName, new Set())
+          }
+          refRangesByItem.get(itemName)!.add(refRange)
         }
       })
     })
 
-    // 여러 참고치를 가진 항목 표시
+    // 참고치 표시 결정: 단일 참고치면 그 값을, 여러 참고치면 "여러 참고치 적용됨"
     refRangesByItem.forEach((refRanges, itemName) => {
-      if (refRanges.size > 1) {
-        const detail = itemDetails.get(itemName)
-        if (detail) {
-          detail.hasMultipleRefRanges = true
+      const detail = itemDetails.get(itemName)
+      if (detail) {
+        if (refRanges.size === 1) {
+          detail.refRangeDisplay = Array.from(refRanges)[0]
+        } else if (refRanges.size > 1) {
+          detail.refRangeDisplay = '여러 참고치 적용됨'
         }
       }
     })
@@ -218,9 +227,9 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                         >
                           <div className="font-medium">{detail.name}</div>
                           <div className="text-xs text-muted-foreground">{detail.ko}</div>
-                          {detail.hasMultipleRefRanges && (
-                            <div className="text-xs text-orange-600 mt-1">
-                              여러 참고치 적용됨
+                          {detail.refRangeDisplay && (
+                            <div className={`text-xs mt-1 ${detail.refRangeDisplay === '여러 참고치 적용됨' ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                              {detail.refRangeDisplay}
                             </div>
                           )}
                         </td>

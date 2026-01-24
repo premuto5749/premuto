@@ -1,12 +1,30 @@
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
-import { Upload, LineChart, FileText } from 'lucide-react'
+import { Upload, LineChart, FileText, Settings, LogOut } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+
+  // 로그인되지 않은 경우 로그인 페이지로
+  if (!session) {
+    redirect('/login')
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
       <div className="max-w-4xl w-full">
         <div className="text-center mb-12">
+          <div className="flex justify-end mb-4">
+            <form action="/auth/signout" method="post">
+              <Button variant="ghost" size="sm" type="submit">
+                <LogOut className="w-4 h-4 mr-2" />
+                로그아웃
+              </Button>
+            </form>
+          </div>
           <h1 className="text-5xl font-bold mb-4">
             Mimo Health Log
           </h1>
@@ -16,6 +34,11 @@ export default function Home() {
           <p className="text-muted-foreground">
             OCR로 검사 결과를 자동 분석하고 시계열 트렌드를 관리합니다
           </p>
+          {session.user.email && (
+            <p className="text-sm text-muted-foreground mt-2">
+              {session.user.email}님 환영합니다
+            </p>
+          )}
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 mb-8">
@@ -28,9 +51,9 @@ export default function Home() {
           </div>
           <div className="p-6 border rounded-lg">
             <FileText className="w-10 h-10 mb-4 text-primary" />
-            <h3 className="font-semibold mb-2">2. 검수</h3>
+            <h3 className="font-semibold mb-2">2. 자동 저장</h3>
             <p className="text-sm text-muted-foreground">
-              AI가 추출한 결과를 확인하고 수정합니다
+              OCR 결과를 확인 후 AI가 자동으로 매칭하고 저장합니다
             </p>
           </div>
           <div className="p-6 border rounded-lg">
@@ -42,17 +65,25 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="flex gap-4 justify-center">
-          <Button asChild size="lg">
-            <Link href="/upload">
-              <Upload className="w-4 h-4 mr-2" />
-              검사지 업로드
-            </Link>
-          </Button>
-          <Button variant="outline" size="lg" asChild>
-            <Link href="/dashboard">
-              <LineChart className="w-4 h-4 mr-2" />
-              대시보드
+        <div className="flex flex-col gap-4 items-center">
+          <div className="flex gap-4">
+            <Button asChild size="lg">
+              <Link href="/upload">
+                <Upload className="w-4 h-4 mr-2" />
+                검사지 업로드
+              </Link>
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <Link href="/dashboard">
+                <LineChart className="w-4 h-4 mr-2" />
+                대시보드
+              </Link>
+            </Button>
+          </div>
+          <Button variant="secondary" size="sm" asChild>
+            <Link href="/mapping-management">
+              <Settings className="w-4 h-4 mr-2" />
+              검사항목 매핑 관리
             </Link>
           </Button>
         </div>

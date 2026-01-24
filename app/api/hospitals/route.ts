@@ -5,26 +5,26 @@ export async function GET() {
   try {
     const supabase = await createClient()
 
-    const { data: standardItems, error } = await supabase
-      .from('standard_items')
+    const { data: hospitals, error } = await supabase
+      .from('hospitals')
       .select('*')
-      .order('category, name')
+      .order('name')
 
     if (error) {
-      console.error('Failed to fetch standard items:', error)
+      console.error('Failed to fetch hospitals:', error)
       return NextResponse.json(
-        { error: 'Failed to fetch standard items' },
+        { error: 'Failed to fetch hospitals' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      data: standardItems
+      data: hospitals
     })
 
   } catch (error) {
-    console.error('Standard Items API error:', error)
+    console.error('Hospitals API error:', error)
     return NextResponse.json(
       {
         error: 'Internal server error',
@@ -40,19 +40,19 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const body = await request.json()
 
-    const { name, display_name_ko, category, default_unit, description } = body
+    const { name, address, phone, website, notes } = body
 
     if (!name) {
       return NextResponse.json(
-        { error: 'Name is required' },
+        { error: 'Hospital name is required' },
         { status: 400 }
       )
     }
 
     // 중복 체크
     const { data: existing } = await supabase
-      .from('standard_items')
-      .select('id')
+      .from('hospitals')
+      .select('id, name')
       .eq('name', name)
       .single()
 
@@ -60,38 +60,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: existing,
-        message: 'Item already exists'
+        message: 'Hospital already exists'
       })
     }
 
-    // 새 항목 생성
-    const { data: newItem, error } = await supabase
-      .from('standard_items')
+    // 새 병원 생성
+    const { data: newHospital, error } = await supabase
+      .from('hospitals')
       .insert({
         name,
-        display_name_ko: display_name_ko || name,
-        category: category || 'Unmapped',
-        default_unit,
-        description
+        address,
+        phone,
+        website,
+        notes
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Failed to create standard item:', error)
+      console.error('Failed to create hospital:', error)
       return NextResponse.json(
-        { error: 'Failed to create standard item' },
+        { error: 'Failed to create hospital' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      data: newItem
+      data: newHospital
     })
 
   } catch (error) {
-    console.error('Standard Items POST error:', error)
+    console.error('Hospitals POST error:', error)
     return NextResponse.json(
       {
         error: 'Internal server error',
