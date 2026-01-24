@@ -111,7 +111,7 @@ async function processFile(file: File): Promise<{
 
     try {
       ocrResult = JSON.parse(jsonString)
-    } catch (firstError) {
+    } catch {
       // 2차 시도: trailing comma 제거
       console.log(`⚠️  First parse failed, trying to fix trailing commas...`)
       const fixedJson = jsonString
@@ -121,11 +121,11 @@ async function processFile(file: File): Promise<{
       try {
         ocrResult = JSON.parse(fixedJson)
         console.log(`✅ JSON fixed and parsed successfully`)
-      } catch (secondError) {
+      } catch (finalError) {
         // 3차 시도 실패 - 원본 내용 로깅
         console.error(`❌ JSON parse error for ${file.name}`)
         console.error(`Original content (first 500 chars):`, content.substring(0, 500))
-        console.error(`Parse error:`, secondError)
+        console.error(`Parse error:`, finalError)
         throw new Error(`Failed to parse OCR result for file: ${file.name}. Invalid JSON format.`)
       }
     }
