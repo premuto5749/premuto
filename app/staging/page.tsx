@@ -32,6 +32,7 @@ function StagingV2Content() {
     const stored = sessionStorage.getItem('aiMappingResultByDate')
     if (stored) {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { batchData, dateGroups, mappingResults } = JSON.parse(stored)
         setBatchData(batchData)
 
