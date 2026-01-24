@@ -25,11 +25,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 파일 타입 체크 (현재는 이미지만 지원)
+    // 파일 타입 체크
+    // 참고: PDF는 클라이언트에서 이미지로 변환되어 전송됨
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Only JPG and PNG images are supported. PDF support coming soon.' },
+        { error: 'Invalid file type. Only JPG and PNG images are supported.' },
         { status: 400 }
       )
     }

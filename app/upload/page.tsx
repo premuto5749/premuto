@@ -2,11 +2,16 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FileUploader } from '@/components/upload/FileUploader'
+import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, ArrowRight, AlertCircle } from 'lucide-react'
 import type { OcrResponse } from '@/types'
+
+const FileUploader = dynamic(
+  () => import('@/components/upload/FileUploader').then(mod => ({ default: mod.FileUploader })),
+  { ssr: false, loading: () => <div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" /></div> }
+)
 
 export default function UploadPage() {
   const router = useRouter()
