@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET: 모든 검사 기록 조회 (대시보드용)
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
 

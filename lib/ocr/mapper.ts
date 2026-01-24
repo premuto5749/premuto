@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import type { OcrResult, StandardItem } from '@/types'
+import type { StandardItem } from '@/types'
 
 /**
  * OCR 결과 항목을 표준 항목으로 자동 매핑

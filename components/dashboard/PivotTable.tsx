@@ -62,7 +62,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
     })
 
     // 각 카테고리 내에서 항목 정렬
-    itemsByCategory.forEach((items, category) => {
+    itemsByCategory.forEach((items) => {
       items.sort()
     })
 

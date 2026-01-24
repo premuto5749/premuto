@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { autoMapItem, getAllStandardItems, calculateStatus } from '@/lib/ocr/mapper'
 import type { OcrResult, StandardItem, StagingItem } from '@/types'
-import { Check, X, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 interface StagingTableProps {
   ocrItems: OcrResult[]
