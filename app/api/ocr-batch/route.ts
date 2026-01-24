@@ -244,7 +244,9 @@ export async function POST(request: NextRequest) {
           items: r.items,
           metadata: {
             pages: r.metadata.pages,
-            processingTime: r.metadata.processingTime
+            processingTime: r.metadata.processingTime,
+            test_date: r.metadata.test_date,
+            hospital_name: r.metadata.hospital_name
           }
         })),
         warnings

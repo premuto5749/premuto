@@ -33,6 +33,8 @@ export interface OcrBatchResponse {
       metadata: {
         pages: number
         processingTime: number
+        test_date?: string
+        hospital_name?: string
       }
     }>
     warnings: Array<{
