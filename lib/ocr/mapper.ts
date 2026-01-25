@@ -46,7 +46,7 @@ export async function getAllStandardItems(): Promise<StandardItem[]> {
  * Value가 Ref_Min보다 낮으면 Low, Ref_Max보다 높으면 High
  */
 export function calculateStatus(
-  value: number,
+  value: number | string,
   refMin: number | null,
   refMax: number | null
 ): 'Low' | 'Normal' | 'High' | 'Unknown' {
@@ -55,13 +55,23 @@ export function calculateStatus(
     return 'Unknown'
   }
 
+  // value를 숫자로 변환 (string일 수 있음: <500, *14 등)
+  const numericValue = typeof value === 'number'
+    ? value
+    : parseFloat(String(value).replace(/[<>*,]/g, ''))
+
+  // 숫자로 변환 불가능한 경우
+  if (isNaN(numericValue)) {
+    return 'Unknown'
+  }
+
   // Low 판정
-  if (refMin !== null && value < refMin) {
+  if (refMin !== null && numericValue < refMin) {
     return 'Low'
   }
 
   // High 판정
-  if (refMax !== null && value > refMax) {
+  if (refMax !== null && numericValue > refMax) {
     return 'High'
   }
 

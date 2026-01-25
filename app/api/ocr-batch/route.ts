@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import type { OcrResult } from '@/types'
+import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
+import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -126,41 +128,57 @@ async function processFile(file: File, retryCount = 0): Promise<{
           content: [
             {
               type: 'text',
-              text: `이 이미지는 반려동물의 혈액검사 결과지입니다.
-다음 정보를 정확하게 추출하여 JSON 형식으로 반환해주세요:
+              text: `당신은 수의학 검사 결과지에서 데이터를 정확하게 추출하는 전문가입니다.
 
-1. 검사 날짜 (test_date): YYYY-MM-DD 형식
-2. 병원명 (hospital_name): 병원 이름
-3. 장비명 (machine_type): 사용된 장비 이름 (있는 경우)
-4. 검사 항목들 (items): 배열 형태로
-   - name: 검사 항목명 (예: CREA, BUN, ALT 등)
-   - value: 검사 결과 수치 (숫자만)
-   - unit: 단위 (예: mg/dL, U/L, % 등)
-   - ref_min: 참고치 최소값 (숫자, 없으면 null)
-   - ref_max: 참고치 최대값 (숫자, 없으면 null)
-   - ref_text: 참고치 원문 (예: "0.5-1.8", 없으면 null)
+첨부된 검사 결과지 이미지에서 다음 정보를 추출해주세요:
 
-응답 형식 예시:
+## 1. 메타 정보
+- test_date: 검사일 (YYYY-MM-DD 형식)
+- hospital_name: 병원명
+- patient_name: 환자명 (동물 이름, 있는 경우)
+- machine_type: 장비명 (있는 경우)
+
+## 2. 검사 결과 (items 배열)
+각 검사 항목에 대해 다음 정보를 추출:
+- raw_name: 항목명 (검사지에 표기된 그대로, 대소문자 유지)
+- value: 결과값 (숫자, <500 같은 특수표기, *14 같은 장비표기 포함)
+- unit: 단위
+- reference: 참조범위 (원문 그대로, 예: "3-50", "<14")
+- is_abnormal: 이상 여부 (▲, ▼, H, L 표시가 있으면 true)
+- abnormal_direction: "high" (▲, H) / "low" (▼, L) / null
+
+## 출력 형식
 {
   "test_date": "2024-12-02",
   "hospital_name": "타임즈동물의료센터",
+  "patient_name": "미모",
   "machine_type": "Fuji DRI-CHEM",
   "items": [
     {
-      "name": "CREA",
-      "value": 1.2,
-      "unit": "mg/dL",
-      "ref_min": 0.5,
-      "ref_max": 1.8,
-      "ref_text": "0.5-1.8"
+      "raw_name": "ALT(GPT)*",
+      "value": "23",
+      "unit": "U/L",
+      "reference": "3-50",
+      "is_abnormal": false,
+      "abnormal_direction": null
+    },
+    {
+      "raw_name": "cPL_V100",
+      "value": "386.5",
+      "unit": "ng/ml",
+      "reference": "50-200",
+      "is_abnormal": true,
+      "abnormal_direction": "high"
     }
   ]
 }
 
-중요:
-- 모든 수치는 숫자 타입으로 반환
-- 검사 항목명은 대문자로 통일
-- 참고치가 없는 경우 null로 표시
+## 주의사항
+- 값이 비어있거나 측정되지 않은 항목은 value를 null로
+- 참조범위가 없는 항목은 reference를 빈 문자열로
+- 특수 표기(*14, <500, >1000, Low 등)는 그대로 value에 기록
+- 숫자에 천단위 구분자(,)가 있으면 제거 (1,390 → 1390)
+- 모든 항목을 빠짐없이 추출
 - JSON만 반환하고 다른 설명은 추가하지 마세요
 - 반드시 유효한 JSON 형식으로 반환하세요`
             },
@@ -211,9 +229,54 @@ async function processFile(file: File, retryCount = 0): Promise<{
 
     const processingTime = Date.now() - startTime
 
+    // 응답 items를 OcrResult 형식으로 변환
+    const rawItems = (ocrResult.items as Array<{
+      raw_name?: string
+      name?: string
+      value?: string | number | null
+      unit?: string
+      reference?: string
+      ref_min?: number | null
+      ref_max?: number | null
+      ref_text?: string | null
+      is_abnormal?: boolean
+      abnormal_direction?: 'high' | 'low' | null
+    }>) || []
+
+    const items: OcrResult[] = rawItems.map(item => {
+      // reference에서 ref_min, ref_max 추출
+      const refRange = extractRefMinMax(item.reference)
+
+      // value 처리: 천단위 구분자 제거
+      let processedValue: number | string = item.value ?? ''
+      if (typeof processedValue === 'string') {
+        const cleaned = removeThousandsSeparator(processedValue)
+        // 순수 숫자인 경우 number로 변환
+        const numValue = parseFloat(cleaned)
+        if (!isNaN(numValue) && /^-?\d+\.?\d*$/.test(cleaned)) {
+          processedValue = numValue
+        } else {
+          processedValue = cleaned
+        }
+      }
+
+      return {
+        name: item.raw_name?.toUpperCase() || item.name?.toUpperCase() || '',
+        raw_name: item.raw_name || item.name || '',
+        value: processedValue,
+        unit: item.unit || '',
+        ref_min: item.ref_min ?? refRange.ref_min,
+        ref_max: item.ref_max ?? refRange.ref_max,
+        ref_text: item.ref_text ?? refRange.ref_text,
+        reference: item.reference,
+        is_abnormal: item.is_abnormal,
+        abnormal_direction: item.abnormal_direction
+      }
+    })
+
     return {
       filename: file.name,
-      items: (ocrResult.items as OcrResult[]) || [],
+      items,
       metadata: {
         test_date: ocrResult.test_date as string | undefined,
         hospital_name: ocrResult.hospital_name as string | undefined,
@@ -344,10 +407,12 @@ export async function POST(request: NextRequest) {
     const allItemNames: Record<string, string[]> = {}
     successfulResults.forEach(result => {
       result.items.forEach(item => {
-        if (!allItemNames[item.name]) {
-          allItemNames[item.name] = []
+        const itemKey = item.name || item.raw_name || ''
+        if (!itemKey) return
+        if (!allItemNames[itemKey]) {
+          allItemNames[itemKey] = []
         }
-        allItemNames[item.name].push(result.filename)
+        allItemNames[itemKey].push(result.filename)
       })
     })
 

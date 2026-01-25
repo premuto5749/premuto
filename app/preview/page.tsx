@@ -9,8 +9,33 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { HospitalSelector } from '@/components/ui/hospital-selector'
-import { ArrowRight, AlertCircle, Loader2, Edit2, Check } from 'lucide-react'
+import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import type { OcrBatchResponse, OcrResult, Hospital } from '@/types'
+
+// 이상여부 배지 컴포넌트
+function AbnormalBadge({ isAbnormal, direction }: {
+  isAbnormal?: boolean
+  direction?: 'high' | 'low' | null
+}) {
+  if (!isAbnormal || !direction) return null
+
+  if (direction === 'high') {
+    return (
+      <Badge variant="destructive" className="ml-2 text-xs">
+        <ArrowUp className="w-3 h-3 mr-1" />
+        H
+      </Badge>
+    )
+  }
+
+  return (
+    <Badge variant="default" className="ml-2 text-xs bg-blue-500">
+      <ArrowDown className="w-3 h-3 mr-1" />
+      L
+    </Badge>
+  )
+}
 
 interface EditableItem extends OcrResult {
   source_filename: string
@@ -429,12 +454,11 @@ function PreviewContent() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-[200px]">항목명 (OCR)</TableHead>
-                          <TableHead className="w-[100px]">결과값</TableHead>
-                          <TableHead className="w-[100px]">단위</TableHead>
-                          <TableHead className="w-[100px]">참고치 Min</TableHead>
-                          <TableHead className="w-[100px]">참고치 Max</TableHead>
-                          <TableHead className="w-[150px]">참고치 원문</TableHead>
-                          <TableHead className="w-[200px]">출처 파일</TableHead>
+                          <TableHead className="w-[120px]">결과값</TableHead>
+                          <TableHead className="w-[80px]">상태</TableHead>
+                          <TableHead className="w-[80px]">단위</TableHead>
+                          <TableHead className="w-[150px]">참고치</TableHead>
+                          <TableHead className="w-[150px]">출처 파일</TableHead>
                           <TableHead className="w-[80px]">수정</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -446,30 +470,56 @@ function PreviewContent() {
 
                           return (
                             <TableRow key={globalIndex}>
+                              {/* 항목명 */}
                               <TableCell>
                                 {isEditing ? (
                                   <Input
-                                    value={item.name}
+                                    value={item.raw_name || item.name}
                                     onChange={(e) => handleFieldChange(globalIndex, 'name', e.target.value)}
                                     className="h-8"
                                   />
                                 ) : (
-                                  <span className="font-medium">{item.name}</span>
+                                  <div>
+                                    <span className="font-medium">{item.raw_name || item.name}</span>
+                                    {item.raw_name && item.raw_name !== item.name && (
+                                      <span className="text-xs text-muted-foreground ml-1">
+                                        → {item.name}
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </TableCell>
+                              {/* 결과값 */}
                               <TableCell>
                                 {isEditing ? (
                                   <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={item.value}
-                                    onChange={(e) => handleFieldChange(globalIndex, 'value', parseFloat(e.target.value))}
+                                    value={String(item.value)}
+                                    onChange={(e) => {
+                                      const val = e.target.value
+                                      const numVal = parseFloat(val)
+                                      handleFieldChange(globalIndex, 'value', isNaN(numVal) ? val : numVal)
+                                    }}
                                     className="h-8"
                                   />
                                 ) : (
-                                  item.value
+                                  <span className={item.is_abnormal ? 'font-semibold' : ''}>
+                                    {item.value}
+                                  </span>
                                 )}
                               </TableCell>
+                              {/* 상태 (H/L) */}
+                              <TableCell>
+                                <AbnormalBadge
+                                  isAbnormal={item.is_abnormal}
+                                  direction={item.abnormal_direction}
+                                />
+                                {!item.is_abnormal && item.ref_min != null && item.ref_max != null && (
+                                  <Badge variant="outline" className="text-xs text-green-600">
+                                    정상
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              {/* 단위 */}
                               <TableCell>
                                 {isEditing ? (
                                   <Input
@@ -481,53 +531,26 @@ function PreviewContent() {
                                   item.unit
                                 )}
                               </TableCell>
+                              {/* 참고치 (통합) */}
                               <TableCell>
                                 {isEditing ? (
                                   <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={item.ref_min ?? ''}
-                                    onChange={(e) =>
-                                      handleFieldChange(globalIndex, 'ref_min', e.target.value ? parseFloat(e.target.value) : null)
-                                    }
-                                    placeholder="없음"
-                                    className="h-8"
-                                  />
-                                ) : (
-                                  item.ref_min ?? '-'
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {isEditing ? (
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    value={item.ref_max ?? ''}
-                                    onChange={(e) =>
-                                      handleFieldChange(globalIndex, 'ref_max', e.target.value ? parseFloat(e.target.value) : null)
-                                    }
-                                    placeholder="없음"
-                                    className="h-8"
-                                  />
-                                ) : (
-                                  item.ref_max ?? '-'
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {isEditing ? (
-                                  <Input
-                                    value={item.ref_text ?? ''}
+                                    value={item.reference || item.ref_text || ''}
                                     onChange={(e) => handleFieldChange(globalIndex, 'ref_text', e.target.value || null)}
-                                    placeholder="없음"
+                                    placeholder="예: 0.5-1.8"
                                     className="h-8"
                                   />
                                 ) : (
-                                  item.ref_text ?? '-'
+                                  <span className="text-sm">
+                                    {item.reference || item.ref_text || '-'}
+                                  </span>
                                 )}
                               </TableCell>
+                              {/* 출처 파일 */}
                               <TableCell>
                                 <span className="text-xs text-muted-foreground">{item.source_filename}</span>
                               </TableCell>
+                              {/* 수정 버튼 */}
                               <TableCell>
                                 {isEditing ? (
                                   <Button
