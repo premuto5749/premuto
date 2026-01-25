@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
+import { matchItem } from '@/lib/ocr/item-matcher'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -56,16 +57,56 @@ export async function POST(request: NextRequest) {
 
     // 매핑 사전을 Map으로 변환 (빠른 조회)
     const mappingsMap = new Map(
-      existingMappings?.map(m => [m.raw_name, m]) || []
+      existingMappings?.map(m => [m.raw_name.toUpperCase(), m]) || []
+    )
+
+    // 표준 항목을 이름으로 빠르게 조회하기 위한 Map
+    const standardItemsByName = new Map(
+      standardItems?.map(si => [si.name.toUpperCase(), si]) || []
     )
 
     console.log(`📊 Loaded ${standardItems?.length || 0} standard items and ${existingMappings?.length || 0} existing mappings`)
 
+    // 통계 추적
+    let localMatchCount = 0
+    let dbMatchCount = 0
+    let aiMatchCount = 0
+    let failedCount = 0
+
     // 3. 각 OCR 결과에 대해 매핑 수행
     const mappingResults = await Promise.all(
       ocr_results.map(async (ocrItem) => {
-        // 3-1. 기존 매핑 사전에서 먼저 조회
-        const existingMapping = mappingsMap.get(ocrItem.name)
+        const itemName = ocrItem.raw_name || ocrItem.name
+
+        // 3-1. 로컬 매핑 우선 시도 (JSON 설정 기반)
+        const localMatch = matchItem(itemName)
+
+        if (localMatch.confidence >= 70 && localMatch.standardItemName) {
+          // 로컬 매칭 성공 - DB에서 해당 표준 항목 찾기
+          const standardItem = standardItemsByName.get(localMatch.standardItemName.toUpperCase())
+
+          if (standardItem) {
+            localMatchCount++
+            console.log(`📍 Local match: "${itemName}" → ${localMatch.standardItemName} (${localMatch.confidence}%, ${localMatch.method})`)
+
+            return {
+              ocr_item: ocrItem,
+              suggested_mapping: {
+                standard_item_id: standardItem.id,
+                standard_item_name: standardItem.name,
+                display_name_ko: standardItem.display_name_ko || localMatch.displayNameKo || '',
+                confidence: localMatch.confidence,
+                reasoning: `로컬 매칭 (${localMatch.method}): ${localMatch.matchedAgainst || itemName}`
+              } as AiMappingSuggestion
+            }
+          }
+
+          // DB에 없는 경우, 로컬 정보만으로 반환 (나중에 DB에 추가됨)
+          console.log(`⚠️ Local match found but not in DB: ${localMatch.standardItemName}`)
+        }
+
+        // 3-2. DB 매핑 사전에서 조회
+        const existingMapping = mappingsMap.get(itemName.toUpperCase())
 
         if (existingMapping) {
           // 기존 매핑이 있으면 해당 표준 항목 정보 반환
@@ -74,7 +115,8 @@ export async function POST(request: NextRequest) {
           )
 
           if (standardItem) {
-            console.log(`✅ Found existing mapping: ${ocrItem.name} → ${standardItem.name}`)
+            dbMatchCount++
+            console.log(`✅ DB mapping: ${itemName} → ${standardItem.name}`)
             return {
               ocr_item: ocrItem,
               suggested_mapping: {
@@ -88,8 +130,8 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 3-2. 기존 매핑이 없으면 AI에게 요청
-        console.log(`🔍 No existing mapping for "${ocrItem.name}", requesting AI suggestion...`)
+        // 3-3. 로컬/DB 매핑 모두 실패 시 AI에게 요청
+        console.log(`🔍 No match for "${itemName}", requesting AI suggestion...`)
 
         try {
           const aiSuggestion = await getAiMappingSuggestion(
@@ -97,12 +139,19 @@ export async function POST(request: NextRequest) {
             standardItems || []
           )
 
+          if (aiSuggestion) {
+            aiMatchCount++
+          } else {
+            failedCount++
+          }
+
           return {
             ocr_item: ocrItem,
             suggested_mapping: aiSuggestion
           }
         } catch (aiError) {
-          console.error(`❌ AI mapping failed for "${ocrItem.name}":`, aiError)
+          console.error(`❌ AI mapping failed for "${itemName}":`, aiError)
+          failedCount++
           return {
             ocr_item: ocrItem,
             suggested_mapping: null
@@ -112,10 +161,18 @@ export async function POST(request: NextRequest) {
     )
 
     console.log(`✅ AI Mapping completed for batch ${batch_id}`)
+    console.log(`📊 Stats: Local=${localMatchCount}, DB=${dbMatchCount}, AI=${aiMatchCount}, Failed=${failedCount}`)
 
     return NextResponse.json({
       success: true,
-      data: mappingResults
+      data: mappingResults,
+      stats: {
+        total: ocr_results.length,
+        localMatch: localMatchCount,
+        dbMatch: dbMatchCount,
+        aiMatch: aiMatchCount,
+        failed: failedCount
+      }
     })
 
   } catch (error) {
