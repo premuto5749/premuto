@@ -54,7 +54,7 @@ function cleanAndParseJson(content: string): Record<string, unknown> | null {
     try {
       const itemsMatch = cleaned.match(/"items"\s*:\s*\[([\s\S]*?)(?:\]|$)/)
       if (itemsMatch) {
-        let itemsStr = itemsMatch[1]
+        const itemsStr = itemsMatch[1]
         // 마지막 완전한 객체까지만 사용
         const objects = itemsStr.match(/\{[^{}]*\}/g) || []
         if (objects.length > 0) {
