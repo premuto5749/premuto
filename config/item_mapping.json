@@ -1,0 +1,520 @@
+{
+  "version": "1.0",
+  "description": "미모 건강 기록 - 항목 매핑 설정",
+  "mappings": {
+    "ALT": {
+      "category": "Chemistry",
+      "display_name_ko": "알라닌아미노전달효소",
+      "aliases": ["ALT", "ALT(GPT)", "ALT(GPT)*", "ALT GPT", "ALT_GPT", "GPT", "SGPT", "알라닌아미노전이효소"],
+      "patterns": ["^ALT[\\s_\\-]?\\(?GPT\\)?\\*?$", "^GPT$", "^SGPT$"],
+      "default_unit": "U/L",
+      "default_reference": "17-78"
+    },
+    "AST": {
+      "category": "Chemistry",
+      "display_name_ko": "아스파르테이트아미노전달효소",
+      "aliases": ["AST", "AST(GOT)", "AST(GOT)*", "AST GOT", "AST_GOT", "GOT", "SGOT"],
+      "patterns": ["^AST[\\s_\\-]?\\(?GOT\\)?\\*?$", "^GOT$", "^SGOT$"],
+      "default_unit": "U/L",
+      "default_reference": "17-44"
+    },
+    "ALP": {
+      "category": "Chemistry",
+      "display_name_ko": "알칼리인산분해효소",
+      "aliases": ["ALP", "ALKP", "Alk Phos", "Alkaline Phosphatase", "알칼리성인산분해효소"],
+      "patterns": ["^ALP$", "^ALKP$", "^Alk[\\s_]?Phos$"],
+      "default_unit": "U/L",
+      "default_reference": "47-254"
+    },
+    "GGT": {
+      "category": "Chemistry",
+      "display_name_ko": "감마글루타밀전이효소",
+      "aliases": ["GGT", "γ-GT", "Gamma-GT", "γGT"],
+      "patterns": ["^GGT$", "^[γγ][\\-]?GT$"],
+      "default_unit": "U/L",
+      "default_reference": "0-14"
+    },
+    "T.Bilirubin": {
+      "category": "Chemistry",
+      "display_name_ko": "총빌리루빈",
+      "aliases": ["T.Bilirubin", "T.Bil", "T-Bil", "Total Bilirubin", "T.BIL", "TBIL", "총빌리루빈"],
+      "patterns": ["^T\\.?[\\s_\\-]?Bil(irubin)?$", "^TBIL$"],
+      "default_unit": "mg/dL",
+      "default_reference": "0-0.9"
+    },
+    "BUN": {
+      "category": "Chemistry",
+      "display_name_ko": "혈중요소질소",
+      "aliases": ["BUN", "Blood Urea Nitrogen", "요소질소", "Urea"],
+      "patterns": ["^BUN$", "^Urea$"],
+      "default_unit": "mg/dL",
+      "default_reference": "7-27"
+    },
+    "Creatinine": {
+      "category": "Chemistry",
+      "display_name_ko": "크레아티닌",
+      "aliases": ["Creatinine", "CREA", "CRE", "Cre", "크레아티닌"],
+      "patterns": ["^CREA(TININE)?$", "^CRE$"],
+      "default_unit": "mg/dL",
+      "default_reference": "0.5-1.8"
+    },
+    "BUN/CRE": {
+      "category": "Chemistry",
+      "display_name_ko": "BUN/크레아티닌 비율",
+      "aliases": ["BUN/CRE", "BUN/CREA", "BUN/Cre Ratio", "BUN_CRE"],
+      "patterns": ["^BUN[/_]CRE(A)?$"],
+      "default_unit": "",
+      "default_reference": "4-27"
+    },
+    "SDMA": {
+      "category": "Special",
+      "display_name_ko": "대칭디메틸아르기닌",
+      "aliases": ["SDMA", "Symmetric Dimethylarginine"],
+      "patterns": ["^SDMA$"],
+      "default_unit": "μg/dL",
+      "default_reference": "0-14"
+    },
+    "Total Protein": {
+      "category": "Chemistry",
+      "display_name_ko": "총단백",
+      "aliases": ["Total Protein", "TP", "T.Protein", "총단백"],
+      "patterns": ["^T\\.?[\\s_]?Protein$", "^TP$"],
+      "default_unit": "g/dL",
+      "default_reference": "5.2-8.2"
+    },
+    "Albumin": {
+      "category": "Chemistry",
+      "display_name_ko": "알부민",
+      "aliases": ["Albumin", "ALB", "Alb", "알부민"],
+      "patterns": ["^ALB(UMIN)?$"],
+      "default_unit": "g/dL",
+      "default_reference": "2.3-4.0"
+    },
+    "Globulin": {
+      "category": "Chemistry",
+      "display_name_ko": "글로불린",
+      "aliases": ["Globulin", "GLOB", "Glob", "글로불린"],
+      "patterns": ["^GLOB(ULIN)?$"],
+      "default_unit": "g/dL",
+      "default_reference": "2.5-4.5"
+    },
+    "A/G Ratio": {
+      "category": "Chemistry",
+      "display_name_ko": "알부민/글로불린 비율",
+      "aliases": ["A/G Ratio", "A/G", "AG Ratio", "ALB/GLOB"],
+      "patterns": ["^A[/_]G[\\s_]?(Ratio)?$"],
+      "default_unit": "",
+      "default_reference": "0.5-1.3"
+    },
+    "Glucose": {
+      "category": "Chemistry",
+      "display_name_ko": "혈당",
+      "aliases": ["Glucose", "GLU", "Glu", "Blood Glucose", "혈당", "포도당"],
+      "patterns": ["^GLU(COSE)?$"],
+      "default_unit": "mg/dL",
+      "default_reference": "74-143"
+    },
+    "Cholesterol": {
+      "category": "Chemistry",
+      "display_name_ko": "콜레스테롤",
+      "aliases": ["Cholesterol", "CHOL", "T.Chol", "Total Cholesterol", "콜레스테롤"],
+      "patterns": ["^CHOL(ESTEROL)?$", "^T\\.?Chol$"],
+      "default_unit": "mg/dL",
+      "default_reference": "110-320"
+    },
+    "Triglycerides": {
+      "category": "Chemistry",
+      "display_name_ko": "중성지방",
+      "aliases": ["Triglycerides", "TG", "TRIG", "중성지방"],
+      "patterns": ["^TG$", "^TRIG(LYCERIDES)?$"],
+      "default_unit": "mg/dL",
+      "default_reference": "50-150"
+    },
+    "Calcium": {
+      "category": "Chemistry",
+      "display_name_ko": "칼슘",
+      "aliases": ["Calcium", "Ca", "CA", "칼슘"],
+      "patterns": ["^CA(LCIUM)?$"],
+      "default_unit": "mg/dL",
+      "default_reference": "7.9-12.0"
+    },
+    "Phosphorus": {
+      "category": "Chemistry",
+      "display_name_ko": "인",
+      "aliases": ["Phosphorus", "P", "PHOS", "IP", "Inorganic Phosphorus", "인"],
+      "patterns": ["^P(HOS(PHORUS)?)?$", "^IP$"],
+      "default_unit": "mg/dL",
+      "default_reference": "2.5-6.8"
+    },
+    "Amylase": {
+      "category": "Chemistry",
+      "display_name_ko": "아밀라아제",
+      "aliases": ["Amylase", "AMY", "AMYL", "아밀라아제"],
+      "patterns": ["^AMY(LASE)?$"],
+      "default_unit": "U/L",
+      "default_reference": "500-1500"
+    },
+    "Lipase": {
+      "category": "Chemistry",
+      "display_name_ko": "리파아제",
+      "aliases": ["Lipase", "LIP", "LIPA", "리파아제"],
+      "patterns": ["^LIP(ASE)?$"],
+      "default_unit": "U/L",
+      "default_reference": "200-1800"
+    },
+    "CK": {
+      "category": "Chemistry",
+      "display_name_ko": "크레아틴키나아제",
+      "aliases": ["CK", "CPK", "Creatine Kinase", "CK(CPK)", "크레아틴키나아제"],
+      "patterns": ["^CK$", "^CPK$", "^CK\\s?\\(?CPK\\)?$"],
+      "default_unit": "U/L",
+      "default_reference": "10-200"
+    },
+    "LDH": {
+      "category": "Chemistry",
+      "display_name_ko": "젖산탈수소효소",
+      "aliases": ["LDH", "Lactate Dehydrogenase", "젖산탈수소효소"],
+      "patterns": ["^LDH$"],
+      "default_unit": "U/L",
+      "default_reference": "45-233"
+    },
+    "Lactate": {
+      "category": "Chemistry",
+      "display_name_ko": "젖산",
+      "aliases": ["Lactate", "LAC", "젖산", "Lactic Acid"],
+      "patterns": ["^LAC(TATE)?$"],
+      "default_unit": "mmol/L",
+      "default_reference": "0.5-2.5"
+    },
+    "NH3": {
+      "category": "Chemistry",
+      "display_name_ko": "암모니아",
+      "aliases": ["NH3", "Ammonia", "암모니아"],
+      "patterns": ["^NH3$", "^Ammonia$"],
+      "default_unit": "μmol/L",
+      "default_reference": "0-98"
+    },
+    "cPL": {
+      "category": "Special",
+      "display_name_ko": "개 췌장 리파아제",
+      "aliases": ["cPL", "cPL_V100", "Spec cPL", "cPL 정량", "Canine Pancreatic Lipase", "Pancreatic Lipase"],
+      "patterns": ["^cPL[_\\s]?V?\\d*$", "^Spec[\\s_]?cPL$"],
+      "default_unit": "μg/L",
+      "default_reference": "0-200"
+    },
+    "CRP": {
+      "category": "Special",
+      "display_name_ko": "C반응성단백",
+      "aliases": ["CRP", "C-Reactive Protein", "C반응성단백"],
+      "patterns": ["^CRP$", "^C[\\-]?Reactive[\\s_]?Protein$"],
+      "default_unit": "mg/L",
+      "default_reference": "0-10"
+    },
+    "proBNP": {
+      "category": "Special",
+      "display_name_ko": "나트륨이뇨펩타이드",
+      "aliases": ["proBNP", "NT-proBNP", "BNP", "ProBNP"],
+      "patterns": ["^(NT[\\-]?)?proBNP$", "^BNP$"],
+      "default_unit": "pmol/L",
+      "default_reference": "0-900"
+    },
+    "WBC": {
+      "category": "CBC",
+      "display_name_ko": "백혈구수",
+      "aliases": ["WBC", "WBC_a", "White Blood Cell", "백혈구수", "백혈구"],
+      "patterns": ["^WBC[_a]?$"],
+      "default_unit": "10^3/μL",
+      "default_reference": "5.5-16.9"
+    },
+    "RBC": {
+      "category": "CBC",
+      "display_name_ko": "적혈구수",
+      "aliases": ["RBC", "Red Blood Cell", "적혈구수", "적혈구"],
+      "patterns": ["^RBC$"],
+      "default_unit": "10^6/μL",
+      "default_reference": "5.5-8.5"
+    },
+    "HCT": {
+      "category": "CBC",
+      "display_name_ko": "헤마토크릿",
+      "aliases": ["HCT", "Hematocrit", "PCV", "헤마토크릿"],
+      "patterns": ["^HCT$", "^PCV$"],
+      "default_unit": "%",
+      "default_reference": "37-55"
+    },
+    "HGB": {
+      "category": "CBC",
+      "display_name_ko": "헤모글로빈",
+      "aliases": ["HGB", "Hgb", "Hemoglobin", "HB", "헤모글로빈"],
+      "patterns": ["^H(G)?B$", "^Hemoglobin$"],
+      "default_unit": "g/dL",
+      "default_reference": "12-18"
+    },
+    "MCV": {
+      "category": "CBC",
+      "display_name_ko": "평균적혈구용적",
+      "aliases": ["MCV", "Mean Corpuscular Volume", "평균적혈구용적"],
+      "patterns": ["^MCV$"],
+      "default_unit": "fL",
+      "default_reference": "60-77"
+    },
+    "MCH": {
+      "category": "CBC",
+      "display_name_ko": "평균적혈구혈색소",
+      "aliases": ["MCH", "Mean Corpuscular Hemoglobin", "평균적혈구혈색소"],
+      "patterns": ["^MCH$"],
+      "default_unit": "pg",
+      "default_reference": "19.5-24.5"
+    },
+    "MCHC": {
+      "category": "CBC",
+      "display_name_ko": "평균적혈구혈색소농도",
+      "aliases": ["MCHC", "Mean Corpuscular Hemoglobin Concentration", "평균적혈구혈색소농도"],
+      "patterns": ["^MCHC$"],
+      "default_unit": "g/dL",
+      "default_reference": "32-36"
+    },
+    "RDW": {
+      "category": "CBC",
+      "display_name_ko": "적혈구분포폭",
+      "aliases": ["RDW", "RDW-CV", "Red Cell Distribution Width", "적혈구분포폭"],
+      "patterns": ["^RDW([\\-_]?CV)?$"],
+      "default_unit": "%",
+      "default_reference": "12-17.5"
+    },
+    "PLT": {
+      "category": "CBC",
+      "display_name_ko": "혈소판수",
+      "aliases": ["PLT", "Platelet", "Platelets", "혈소판수", "혈소판"],
+      "patterns": ["^PLT$", "^Platelet(s)?$"],
+      "default_unit": "10^3/μL",
+      "default_reference": "175-500"
+    },
+    "MPV": {
+      "category": "CBC",
+      "display_name_ko": "평균혈소판용적",
+      "aliases": ["MPV", "Mean Platelet Volume", "평균혈소판용적"],
+      "patterns": ["^MPV$"],
+      "default_unit": "fL",
+      "default_reference": "7-12.9"
+    },
+    "PDW": {
+      "category": "CBC",
+      "display_name_ko": "혈소판분포폭",
+      "aliases": ["PDW", "Platelet Distribution Width", "혈소판분포폭"],
+      "patterns": ["^PDW$"],
+      "default_unit": "%",
+      "default_reference": "9-18"
+    },
+    "PCT": {
+      "category": "CBC",
+      "display_name_ko": "혈소판용적률",
+      "aliases": ["PCT", "Plateletcrit", "혈소판용적률"],
+      "patterns": ["^PCT$"],
+      "default_unit": "%",
+      "default_reference": "0.15-0.4"
+    },
+    "NEU#": {
+      "category": "CBC",
+      "display_name_ko": "호중구수",
+      "aliases": ["NEU#", "NEU(#)", "Neutrophils#", "ANC", "호중구수", "호중구 수"],
+      "patterns": ["^NEU[\\s_]?\\(?#\\)?$", "^ANC$"],
+      "default_unit": "10^3/μL",
+      "default_reference": "3-11.5"
+    },
+    "NEU%": {
+      "category": "CBC",
+      "display_name_ko": "호중구비율",
+      "aliases": ["NEU%", "NEU(%)", "Neutrophils%", "호중구비율", "호중구 %"],
+      "patterns": ["^NEU[\\s_]?\\(?%\\)?$"],
+      "default_unit": "%",
+      "default_reference": "60-77"
+    },
+    "LYM#": {
+      "category": "CBC",
+      "display_name_ko": "림프구수",
+      "aliases": ["LYM#", "LYM(#)", "Lymphocytes#", "ALC", "림프구수", "림프구 수"],
+      "patterns": ["^LYM[\\s_]?\\(?#\\)?$", "^ALC$"],
+      "default_unit": "10^3/μL",
+      "default_reference": "1-4.8"
+    },
+    "LYM%": {
+      "category": "CBC",
+      "display_name_ko": "림프구비율",
+      "aliases": ["LYM%", "LYM(%)", "Lymphocytes%", "림프구비율", "림프구 %"],
+      "patterns": ["^LYM[\\s_]?\\(?%\\)?$"],
+      "default_unit": "%",
+      "default_reference": "12-30"
+    },
+    "MONO#": {
+      "category": "CBC",
+      "display_name_ko": "단핵구수",
+      "aliases": ["MONO#", "MONO(#)", "Monocytes#", "AMC", "단핵구수", "단핵구 수"],
+      "patterns": ["^MONO[\\s_]?\\(?#\\)?$", "^AMC$"],
+      "default_unit": "10^3/μL",
+      "default_reference": "0.3-2"
+    },
+    "MONO%": {
+      "category": "CBC",
+      "display_name_ko": "단핵구비율",
+      "aliases": ["MONO%", "MONO(%)", "Monocytes%", "단핵구비율", "단핵구 %"],
+      "patterns": ["^MONO[\\s_]?\\(?%\\)?$"],
+      "default_unit": "%",
+      "default_reference": "3-10"
+    },
+    "EOS#": {
+      "category": "CBC",
+      "display_name_ko": "호산구수",
+      "aliases": ["EOS#", "EOS(#)", "Eosinophils#", "AEC", "호산구수", "호산구 수"],
+      "patterns": ["^EOS[\\s_]?\\(?#\\)?$", "^AEC$"],
+      "default_unit": "10^3/μL",
+      "default_reference": "0.1-1.4"
+    },
+    "EOS%": {
+      "category": "CBC",
+      "display_name_ko": "호산구비율",
+      "aliases": ["EOS%", "EOS(%)", "Eosinophils%", "호산구비율", "호산구 %"],
+      "patterns": ["^EOS[\\s_]?\\(?%\\)?$"],
+      "default_unit": "%",
+      "default_reference": "2-10"
+    },
+    "BASO#": {
+      "category": "CBC",
+      "display_name_ko": "호염기구수",
+      "aliases": ["BASO#", "BASO(#)", "Basophils#", "ABC", "호염기구수", "호염기구 수"],
+      "patterns": ["^BASO[\\s_]?\\(?#\\)?$", "^ABC$"],
+      "default_unit": "10^3/μL",
+      "default_reference": "0-0.1"
+    },
+    "BASO%": {
+      "category": "CBC",
+      "display_name_ko": "호염기구비율",
+      "aliases": ["BASO%", "BASO(%)", "Basophils%", "호염기구비율", "호염기구 %"],
+      "patterns": ["^BASO[\\s_]?\\(?%\\)?$"],
+      "default_unit": "%",
+      "default_reference": "0-1"
+    },
+    "RETIC#": {
+      "category": "CBC",
+      "display_name_ko": "망상적혈구수",
+      "aliases": ["RETIC#", "RETIC(#)", "Reticulocytes#", "망상적혈구수"],
+      "patterns": ["^RETIC[\\s_]?\\(?#\\)?$"],
+      "default_unit": "10^3/μL",
+      "default_reference": "10-110"
+    },
+    "RETIC%": {
+      "category": "CBC",
+      "display_name_ko": "망상적혈구비율",
+      "aliases": ["RETIC%", "RETIC(%)", "Reticulocytes%", "망상적혈구비율"],
+      "patterns": ["^RETIC[\\s_]?\\(?%\\)?$"],
+      "default_unit": "%",
+      "default_reference": "0-1.5"
+    },
+    "RETIC-HGB": {
+      "category": "CBC",
+      "display_name_ko": "망상적혈구헤모글로빈",
+      "aliases": ["RETIC-HGB", "CHr", "Reticulocyte Hemoglobin", "RET-He"],
+      "patterns": ["^RETIC[\\-_]?H(G)?B$", "^CHr$", "^RET[\\-_]?He$"],
+      "default_unit": "pg",
+      "default_reference": "22-27"
+    },
+    "HDW": {
+      "category": "CBC",
+      "display_name_ko": "헤모글로빈분포폭",
+      "aliases": ["HDW", "Hemoglobin Distribution Width"],
+      "patterns": ["^HDW$"],
+      "default_unit": "g/dL",
+      "default_reference": "1.5-2.5"
+    },
+    "CHCM": {
+      "category": "CBC",
+      "display_name_ko": "세포헤모글로빈농도평균",
+      "aliases": ["CHCM", "Cell Hemoglobin Concentration Mean"],
+      "patterns": ["^CHCM$"],
+      "default_unit": "g/dL",
+      "default_reference": "32-36"
+    },
+    "CH": {
+      "category": "CBC",
+      "display_name_ko": "세포헤모글로빈",
+      "aliases": ["CH", "Cell Hemoglobin"],
+      "patterns": ["^CH$"],
+      "default_unit": "pg",
+      "default_reference": "20-26"
+    },
+    "Na": {
+      "category": "Electrolyte",
+      "display_name_ko": "나트륨",
+      "aliases": ["Na", "Sodium", "나트륨"],
+      "patterns": ["^Na$", "^Sodium$"],
+      "default_unit": "mEq/L",
+      "default_reference": "144-160"
+    },
+    "K": {
+      "category": "Electrolyte",
+      "display_name_ko": "칼륨",
+      "aliases": ["K", "Potassium", "칼륨"],
+      "patterns": ["^K$", "^Potassium$"],
+      "default_unit": "mEq/L",
+      "default_reference": "3.5-5.8"
+    },
+    "Cl": {
+      "category": "Electrolyte",
+      "display_name_ko": "염소",
+      "aliases": ["Cl", "Chloride", "염소"],
+      "patterns": ["^Cl$", "^Chloride$"],
+      "default_unit": "mEq/L",
+      "default_reference": "109-122"
+    },
+    "Na/K": {
+      "category": "Electrolyte",
+      "display_name_ko": "나트륨/칼륨 비율",
+      "aliases": ["Na/K", "Na/K Ratio"],
+      "patterns": ["^Na[/_]K$"],
+      "default_unit": "",
+      "default_reference": "27-40"
+    }
+  },
+  "categories": {
+    "CBC": {
+      "order": 1,
+      "color": "#FCE4D6",
+      "description": "혈구검사"
+    },
+    "Chemistry": {
+      "order": 2,
+      "color": "#DDEBF7",
+      "description": "생화학검사"
+    },
+    "Special": {
+      "order": 3,
+      "color": "#FFF2CC",
+      "description": "특수검사"
+    },
+    "Electrolyte": {
+      "order": 4,
+      "color": "#E2EFDA",
+      "description": "전해질검사"
+    },
+    "Blood Gas": {
+      "order": 5,
+      "color": "#D9E1F2",
+      "description": "혈액가스검사"
+    },
+    "Coagulation": {
+      "order": 6,
+      "color": "#F8CBAD",
+      "description": "응고검사"
+    },
+    "Urinalysis": {
+      "order": 7,
+      "color": "#F4B183",
+      "description": "요검사"
+    },
+    "Unmapped": {
+      "order": 99,
+      "color": "#D9D9D9",
+      "description": "미분류"
+    }
+  }
+}

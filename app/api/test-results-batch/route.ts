@@ -58,10 +58,15 @@ export async function POST(request: NextRequest) {
         // 상태 계산 (Low/Normal/High/Unknown)
         let status: 'Low' | 'Normal' | 'High' | 'Unknown' = 'Unknown'
 
-        if (result.ref_min !== null && result.ref_max !== null) {
-          if (result.value < result.ref_min) {
+        // value를 숫자로 변환 (string일 수 있음)
+        const numericValue = typeof result.value === 'number'
+          ? result.value
+          : parseFloat(String(result.value).replace(/[<>*,]/g, ''))
+
+        if (result.ref_min !== null && result.ref_max !== null && !isNaN(numericValue)) {
+          if (numericValue < result.ref_min) {
             status = 'Low'
-          } else if (result.value > result.ref_max) {
+          } else if (numericValue > result.ref_max) {
             status = 'High'
           } else {
             status = 'Normal'

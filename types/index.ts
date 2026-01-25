@@ -6,11 +6,15 @@
 
 export interface OcrResult {
   name: string
-  value: number
+  raw_name?: string           // 원본 항목명 (검사지에 표기된 그대로)
+  value: number | string      // 특수값 지원 (<500, *14 등)
   unit: string
   ref_min: number | null
   ref_max: number | null
   ref_text: string | null
+  reference?: string          // 원본 참조범위 (예: "3-50", "<14")
+  is_abnormal?: boolean       // 이상 여부 (▲, ▼, H, L 표시)
+  abnormal_direction?: 'high' | 'low' | null  // 이상 방향
 }
 
 export interface OcrResponse {
@@ -38,7 +42,7 @@ export interface OcrBatchResponse {
       }
     }>
     warnings: Array<{
-      type: 'date_mismatch' | 'duplicate_item'
+      type: 'date_mismatch' | 'duplicate_item' | 'parse_error'
       message: string
       files: string[]
     }>
@@ -136,7 +140,7 @@ export interface TestResult {
   id: string
   record_id: string
   standard_item_id: string
-  value: number
+  value: number | string      // 특수값 지원
   ref_min: number | null
   ref_max: number | null
   ref_text: string | null
@@ -148,6 +152,8 @@ export interface TestResult {
   ocr_raw_name?: string
   mapping_confidence?: number
   user_verified?: boolean
+  is_abnormal?: boolean       // 이상 여부
+  abnormal_direction?: 'high' | 'low' | null
 }
 
 // ============================================
@@ -165,7 +171,7 @@ export interface BatchSaveRequest {
   }>
   results: Array<{
     standard_item_id: string
-    value: number
+    value: number | string    // 특수값 지원
     unit: string
     ref_min: number | null
     ref_max: number | null
@@ -174,6 +180,8 @@ export interface BatchSaveRequest {
     ocr_raw_name: string
     mapping_confidence: number
     user_verified: boolean
+    is_abnormal?: boolean
+    abnormal_direction?: 'high' | 'low' | null
   }>
 }
 

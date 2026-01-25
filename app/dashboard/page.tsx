@@ -8,6 +8,7 @@ import { Upload, Loader2, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { PivotTable } from '@/components/dashboard/PivotTable'
 import { TrendChart } from '@/components/dashboard/TrendChart'
+import { ExcelExportButton } from '@/components/export/ExcelExportButton'
 
 interface TestResult {
   id: string
@@ -144,12 +145,15 @@ function DashboardContent() {
             <p className="text-sm text-muted-foreground">
               총 {records.length}개의 검사 기록
             </p>
-            <Button asChild>
-              <Link href="/upload">
-                <Upload className="w-4 h-4 mr-2" />
-                새 검사지 업로드
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExcelExportButton />
+              <Button asChild>
+                <Link href="/upload">
+                  <Upload className="w-4 h-4 mr-2" />
+                  새 검사지 업로드
+                </Link>
+              </Button>
+            </div>
           </div>
 
           <PivotTable records={records} onItemClick={handleItemClick} />

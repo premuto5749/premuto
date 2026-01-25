@@ -1,0 +1,343 @@
+{
+  "version": "1.0.0",
+  "description": "검사 결과 값 검증 규칙",
+  "last_updated": "2026-01-25",
+
+  "biological_ranges": {
+    "CBC": {
+      "WBC": {
+        "unit": "K/μL",
+        "biological_min": 0.1,
+        "biological_max": 200,
+        "critical_low": 1,
+        "critical_high": 50,
+        "description": "백혈구 수"
+      },
+      "RBC": {
+        "unit": "M/μL",
+        "biological_min": 1,
+        "biological_max": 15,
+        "critical_low": 3,
+        "critical_high": 10,
+        "description": "적혈구 수"
+      },
+      "HGB": {
+        "unit": "g/dL",
+        "biological_min": 1,
+        "biological_max": 25,
+        "critical_low": 5,
+        "critical_high": 20,
+        "description": "헤모글로빈"
+      },
+      "HCT": {
+        "unit": "%",
+        "biological_min": 5,
+        "biological_max": 80,
+        "critical_low": 15,
+        "critical_high": 65,
+        "description": "적혈구 용적률"
+      },
+      "PLT": {
+        "unit": "K/μL",
+        "biological_min": 5,
+        "biological_max": 2000,
+        "critical_low": 20,
+        "critical_high": 1000,
+        "description": "혈소판 수"
+      },
+      "MCV": {
+        "unit": "fL",
+        "biological_min": 30,
+        "biological_max": 150,
+        "description": "평균 적혈구 용적"
+      },
+      "MCH": {
+        "unit": "pg",
+        "biological_min": 10,
+        "biological_max": 50,
+        "description": "평균 적혈구 혈색소량"
+      },
+      "MCHC": {
+        "unit": "g/dL",
+        "biological_min": 20,
+        "biological_max": 45,
+        "description": "평균 적혈구 혈색소 농도"
+      },
+      "RDW": {
+        "unit": "%",
+        "biological_min": 8,
+        "biological_max": 30,
+        "description": "적혈구 분포폭"
+      }
+    },
+
+    "WBC_Differential": {
+      "NEU": {
+        "unit": "%",
+        "biological_min": 0,
+        "biological_max": 100,
+        "description": "호중구"
+      },
+      "LYM": {
+        "unit": "%",
+        "biological_min": 0,
+        "biological_max": 100,
+        "description": "림프구"
+      },
+      "MONO": {
+        "unit": "%",
+        "biological_min": 0,
+        "biological_max": 100,
+        "description": "단핵구"
+      },
+      "EOS": {
+        "unit": "%",
+        "biological_min": 0,
+        "biological_max": 100,
+        "description": "호산구"
+      },
+      "BASO": {
+        "unit": "%",
+        "biological_min": 0,
+        "biological_max": 100,
+        "description": "호염기구"
+      }
+    },
+
+    "Chemistry_Kidney": {
+      "BUN": {
+        "unit": "mg/dL",
+        "biological_min": 0,
+        "biological_max": 300,
+        "critical_high": 150,
+        "description": "혈중 요소 질소"
+      },
+      "CREA": {
+        "unit": "mg/dL",
+        "biological_min": 0,
+        "biological_max": 30,
+        "critical_high": 15,
+        "description": "크레아티닌"
+      },
+      "SDMA": {
+        "unit": "μg/dL",
+        "biological_min": 0,
+        "biological_max": 100,
+        "description": "대칭디메틸아르기닌"
+      }
+    },
+
+    "Chemistry_Liver": {
+      "ALT": {
+        "unit": "U/L",
+        "biological_min": 0,
+        "biological_max": 5000,
+        "critical_high": 2000,
+        "description": "알라닌 아미노전이효소"
+      },
+      "AST": {
+        "unit": "U/L",
+        "biological_min": 0,
+        "biological_max": 5000,
+        "critical_high": 2000,
+        "description": "아스파르테이트 아미노전이효소"
+      },
+      "ALP": {
+        "unit": "U/L",
+        "biological_min": 0,
+        "biological_max": 5000,
+        "description": "알칼리성 인산분해효소"
+      },
+      "GGT": {
+        "unit": "U/L",
+        "biological_min": 0,
+        "biological_max": 500,
+        "description": "감마글루타밀전이효소"
+      },
+      "TBIL": {
+        "unit": "mg/dL",
+        "biological_min": 0,
+        "biological_max": 30,
+        "critical_high": 15,
+        "description": "총 빌리루빈"
+      }
+    },
+
+    "Chemistry_Protein": {
+      "TP": {
+        "unit": "g/dL",
+        "biological_min": 1,
+        "biological_max": 15,
+        "description": "총 단백"
+      },
+      "ALB": {
+        "unit": "g/dL",
+        "biological_min": 0.5,
+        "biological_max": 8,
+        "critical_low": 1.5,
+        "description": "알부민"
+      },
+      "GLOB": {
+        "unit": "g/dL",
+        "biological_min": 0.5,
+        "biological_max": 10,
+        "description": "글로불린"
+      }
+    },
+
+    "Chemistry_Glucose": {
+      "GLU": {
+        "unit": "mg/dL",
+        "biological_min": 10,
+        "biological_max": 1000,
+        "critical_low": 40,
+        "critical_high": 500,
+        "description": "혈당"
+      }
+    },
+
+    "Chemistry_Lipid": {
+      "CHOL": {
+        "unit": "mg/dL",
+        "biological_min": 50,
+        "biological_max": 1000,
+        "description": "콜레스테롤"
+      },
+      "TG": {
+        "unit": "mg/dL",
+        "biological_min": 10,
+        "biological_max": 2000,
+        "description": "중성지방"
+      }
+    },
+
+    "Electrolyte": {
+      "NA": {
+        "unit": "mEq/L",
+        "biological_min": 100,
+        "biological_max": 200,
+        "critical_low": 120,
+        "critical_high": 160,
+        "description": "나트륨"
+      },
+      "K": {
+        "unit": "mEq/L",
+        "biological_min": 1,
+        "biological_max": 10,
+        "critical_low": 2.5,
+        "critical_high": 7,
+        "description": "칼륨"
+      },
+      "CL": {
+        "unit": "mEq/L",
+        "biological_min": 70,
+        "biological_max": 150,
+        "description": "염소"
+      },
+      "CA": {
+        "unit": "mg/dL",
+        "biological_min": 4,
+        "biological_max": 20,
+        "critical_low": 6,
+        "critical_high": 14,
+        "description": "칼슘"
+      },
+      "P": {
+        "unit": "mg/dL",
+        "biological_min": 1,
+        "biological_max": 20,
+        "description": "인"
+      },
+      "MG": {
+        "unit": "mg/dL",
+        "biological_min": 0.5,
+        "biological_max": 5,
+        "description": "마그네슘"
+      }
+    },
+
+    "Special": {
+      "LIPASE": {
+        "unit": "U/L",
+        "biological_min": 0,
+        "biological_max": 5000,
+        "description": "리파아제"
+      },
+      "AMYLASE": {
+        "unit": "U/L",
+        "biological_min": 0,
+        "biological_max": 5000,
+        "description": "아밀라아제"
+      },
+      "CPL": {
+        "unit": "μg/L",
+        "biological_min": 0,
+        "biological_max": 2000,
+        "description": "개 췌장 리파아제"
+      }
+    },
+
+    "Coagulation": {
+      "PT": {
+        "unit": "sec",
+        "biological_min": 5,
+        "biological_max": 60,
+        "description": "프로트롬빈 시간"
+      },
+      "APTT": {
+        "unit": "sec",
+        "biological_min": 10,
+        "biological_max": 120,
+        "description": "활성화 부분 트롬보플라스틴 시간"
+      },
+      "FIB": {
+        "unit": "mg/dL",
+        "biological_min": 50,
+        "biological_max": 1000,
+        "description": "피브리노겐"
+      }
+    }
+  },
+
+  "ocr_error_patterns": {
+    "decimal_point_missing": {
+      "description": "소수점 누락 의심",
+      "detection": "값이 생물학적 최대치의 10배 이상",
+      "suggestion": "소수점 위치 확인"
+    },
+    "zero_confusion": {
+      "description": "0과 O 혼동",
+      "detection": "예상치 못한 0 값",
+      "suggestion": "원본 이미지 확인"
+    },
+    "one_confusion": {
+      "description": "1과 l/I 혼동",
+      "detection": "비정상적으로 작은 값",
+      "suggestion": "원본 이미지 확인"
+    },
+    "thousand_separator": {
+      "description": "천단위 구분자 오인식",
+      "detection": "쉼표가 소수점으로 인식됨",
+      "suggestion": "1,234 vs 1.234 확인"
+    }
+  },
+
+  "cross_validation_rules": {
+    "wbc_differential_sum": {
+      "description": "WBC Differential 합계 검증",
+      "fields": ["NEU", "LYM", "MONO", "EOS", "BASO"],
+      "expected_sum": 100,
+      "tolerance": 5
+    },
+    "ag_ratio": {
+      "description": "A/G Ratio 검증",
+      "formula": "ALB / GLOB",
+      "expected_range": [0.5, 2.0]
+    },
+    "tp_calculation": {
+      "description": "TP = ALB + GLOB 검증",
+      "fields": ["TP", "ALB", "GLOB"],
+      "tolerance": 0.5
+    }
+  }
+}

@@ -1,0 +1,213 @@
+{
+  "version": "1.0.0",
+  "description": "단위 정규화 및 변환 설정",
+  "last_updated": "2026-01-25",
+
+  "unit_aliases": {
+    "concentration": {
+      "mg/dL": ["mg/dL", "mg/dl", "mg/100mL", "mg/100ml", "mg %", "mg%"],
+      "g/dL": ["g/dL", "g/dl", "g/100mL", "g/100ml", "g %", "g%", "gm/dl"],
+      "μg/dL": ["μg/dL", "ug/dL", "mcg/dL", "μg/dl", "ug/dl", "mcg/dl"],
+      "ng/mL": ["ng/mL", "ng/ml"],
+      "pg/mL": ["pg/mL", "pg/ml"],
+      "μg/mL": ["μg/mL", "ug/mL", "mcg/mL", "μg/ml", "ug/ml", "mcg/ml"]
+    },
+    "enzyme": {
+      "U/L": ["U/L", "U/l", "IU/L", "IU/l", "u/L", "u/l"],
+      "mU/L": ["mU/L", "mU/l", "mIU/L"]
+    },
+    "cell_count": {
+      "K/μL": ["K/μL", "K/uL", "K/ul", "10^3/μL", "10^3/uL", "x10^3/μL", "x10^3/uL", "10³/μL", "thou/uL", "K/µL"],
+      "M/μL": ["M/μL", "M/uL", "M/ul", "10^6/μL", "10^6/uL", "x10^6/μL", "x10^6/uL", "10⁶/μL", "mil/uL", "M/µL"],
+      "/μL": ["/μL", "/uL", "/ul", "/µL", "cells/uL", "cells/μL"]
+    },
+    "percentage": {
+      "%": ["%", "percent", "pct"]
+    },
+    "volume": {
+      "fL": ["fL", "fl", "femtoliter", "femtoliters"]
+    },
+    "mass": {
+      "pg": ["pg", "picogram", "picograms"]
+    },
+    "electrolyte": {
+      "mEq/L": ["mEq/L", "meq/L", "mEq/l", "meq/l"],
+      "mmol/L": ["mmol/L", "mmol/l", "mM"]
+    },
+    "osmolality": {
+      "mOsm/kg": ["mOsm/kg", "mosm/kg", "mOsm/Kg", "mosmol/kg"],
+      "mOsm/L": ["mOsm/L", "mosm/L", "mosm/l"]
+    },
+    "time": {
+      "sec": ["sec", "s", "seconds", "secs"],
+      "min": ["min", "minutes", "mins"]
+    },
+    "other": {
+      "g/L": ["g/L", "g/l"],
+      "mg/L": ["mg/L", "mg/l"],
+      "ratio": ["ratio", "Ratio"],
+      "index": ["index", "Index"]
+    }
+  },
+
+  "conversion_rules": {
+    "CBC": {
+      "PLT": {
+        "standard_unit": "K/μL",
+        "conversions": {
+          "/μL": { "multiplier": 0.001, "formula": "/μL ÷ 1000 = K/μL" },
+          "10^9/L": { "multiplier": 1, "formula": "10^9/L = K/μL" }
+        }
+      },
+      "RBC": {
+        "standard_unit": "M/μL",
+        "conversions": {
+          "10^12/L": { "multiplier": 1, "formula": "10^12/L = M/μL" },
+          "/μL": { "multiplier": 0.000001, "formula": "/μL ÷ 10^6 = M/μL" }
+        }
+      },
+      "WBC": {
+        "standard_unit": "K/μL",
+        "conversions": {
+          "/μL": { "multiplier": 0.001, "formula": "/μL ÷ 1000 = K/μL" },
+          "10^9/L": { "multiplier": 1, "formula": "10^9/L = K/μL" }
+        }
+      },
+      "HGB": {
+        "standard_unit": "g/dL",
+        "conversions": {
+          "g/L": { "multiplier": 0.1, "formula": "g/L × 0.1 = g/dL" },
+          "mmol/L": { "multiplier": 1.611, "formula": "mmol/L × 1.611 = g/dL" }
+        }
+      }
+    },
+
+    "Chemistry": {
+      "BUN": {
+        "standard_unit": "mg/dL",
+        "conversions": {
+          "mmol/L": { "multiplier": 2.801, "formula": "mmol/L × 2.801 = mg/dL" }
+        }
+      },
+      "CREA": {
+        "standard_unit": "mg/dL",
+        "conversions": {
+          "μmol/L": { "multiplier": 0.0113, "formula": "μmol/L × 0.0113 = mg/dL" },
+          "umol/L": { "multiplier": 0.0113, "formula": "umol/L × 0.0113 = mg/dL" }
+        }
+      },
+      "GLU": {
+        "standard_unit": "mg/dL",
+        "conversions": {
+          "mmol/L": { "multiplier": 18.02, "formula": "mmol/L × 18.02 = mg/dL" }
+        }
+      },
+      "TP": {
+        "standard_unit": "g/dL",
+        "conversions": {
+          "g/L": { "multiplier": 0.1, "formula": "g/L × 0.1 = g/dL" }
+        }
+      },
+      "ALB": {
+        "standard_unit": "g/dL",
+        "conversions": {
+          "g/L": { "multiplier": 0.1, "formula": "g/L × 0.1 = g/dL" }
+        }
+      },
+      "GLOB": {
+        "standard_unit": "g/dL",
+        "conversions": {
+          "g/L": { "multiplier": 0.1, "formula": "g/L × 0.1 = g/dL" }
+        }
+      },
+      "TBIL": {
+        "standard_unit": "mg/dL",
+        "conversions": {
+          "μmol/L": { "multiplier": 0.0585, "formula": "μmol/L × 0.0585 = mg/dL" },
+          "umol/L": { "multiplier": 0.0585, "formula": "umol/L × 0.0585 = mg/dL" }
+        }
+      },
+      "CHOL": {
+        "standard_unit": "mg/dL",
+        "conversions": {
+          "mmol/L": { "multiplier": 38.67, "formula": "mmol/L × 38.67 = mg/dL" }
+        }
+      },
+      "TG": {
+        "standard_unit": "mg/dL",
+        "conversions": {
+          "mmol/L": { "multiplier": 88.57, "formula": "mmol/L × 88.57 = mg/dL" }
+        }
+      }
+    },
+
+    "Electrolyte": {
+      "CA": {
+        "standard_unit": "mg/dL",
+        "conversions": {
+          "mmol/L": { "multiplier": 4.008, "formula": "mmol/L × 4.008 = mg/dL" },
+          "mEq/L": { "multiplier": 2.004, "formula": "mEq/L × 2.004 = mg/dL" }
+        }
+      },
+      "P": {
+        "standard_unit": "mg/dL",
+        "conversions": {
+          "mmol/L": { "multiplier": 3.097, "formula": "mmol/L × 3.097 = mg/dL" }
+        }
+      },
+      "K": {
+        "standard_unit": "mEq/L",
+        "conversions": {
+          "mmol/L": { "multiplier": 1, "formula": "mmol/L = mEq/L (1가 이온)" }
+        }
+      },
+      "NA": {
+        "standard_unit": "mEq/L",
+        "conversions": {
+          "mmol/L": { "multiplier": 1, "formula": "mmol/L = mEq/L (1가 이온)" }
+        }
+      },
+      "CL": {
+        "standard_unit": "mEq/L",
+        "conversions": {
+          "mmol/L": { "multiplier": 1, "formula": "mmol/L = mEq/L (1가 이온)" }
+        }
+      },
+      "MG": {
+        "standard_unit": "mg/dL",
+        "conversions": {
+          "mmol/L": { "multiplier": 2.43, "formula": "mmol/L × 2.43 = mg/dL" },
+          "mEq/L": { "multiplier": 1.215, "formula": "mEq/L × 1.215 = mg/dL" }
+        }
+      }
+    }
+  },
+
+  "display_preferences": {
+    "decimal_places": {
+      "default": 2,
+      "percentage": 1,
+      "enzyme": 0,
+      "cell_count": 2
+    },
+    "unit_display": {
+      "use_unicode": true,
+      "superscript_exponents": true
+    }
+  },
+
+  "validation_rules": {
+    "CBC": {
+      "WBC": { "min": 0.1, "max": 100, "unit": "K/μL" },
+      "RBC": { "min": 1, "max": 15, "unit": "M/μL" },
+      "HCT": { "min": 5, "max": 80, "unit": "%" },
+      "PLT": { "min": 10, "max": 1500, "unit": "K/μL" }
+    },
+    "Chemistry": {
+      "ALT": { "min": 0, "max": 5000, "unit": "U/L" },
+      "BUN": { "min": 0, "max": 200, "unit": "mg/dL" },
+      "CREA": { "min": 0, "max": 30, "unit": "mg/dL" },
+      "GLU": { "min": 10, "max": 1000, "unit": "mg/dL" }
+    }
+  }
+}

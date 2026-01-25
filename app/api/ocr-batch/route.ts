@@ -1,13 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import type { OcrResult } from '@/types'
+import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
+import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-// 단일 파일 OCR 처리 함수
-async function processFile(file: File): Promise<{
+// JSON 문자열을 정리하고 복구하는 함수
+function cleanAndParseJson(content: string): Record<string, unknown> | null {
+  // 1. 기본 정리: 코드 블록 마커 제거
+  let cleaned = content
+    .replace(/```json\s*/g, '')
+    .replace(/```\s*/g, '')
+    .trim()
+
+  // 2. JSON 객체 부분만 추출
+  const jsonStart = cleaned.indexOf('{')
+  const jsonEnd = cleaned.lastIndexOf('}')
+
+  if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) {
+    return null
+  }
+
+  cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+
+  // 3. 일반적인 JSON 오류 수정
+  // - 트레일링 콤마 제거
+  cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1')
+  // - 잘린 배열 닫기
+  if (cleaned.includes('"items"') && !cleaned.includes(']}')) {
+    // items 배열이 잘린 경우 복구 시도
+    const itemsMatch = cleaned.match(/"items"\s*:\s*\[/)
+    if (itemsMatch) {
+      // 마지막 완전한 객체 찾기
+      const lastCompleteObj = cleaned.lastIndexOf('}')
+      if (lastCompleteObj > 0) {
+        const afterItems = cleaned.substring(itemsMatch.index! + itemsMatch[0].length)
+        // 배열 내 마지막 완전한 객체까지만 사용
+        const objectCount = (afterItems.match(/\{[^{}]*\}/g) || []).length
+        if (objectCount > 0) {
+          // 배열과 객체 닫기 추가
+          cleaned = cleaned.substring(0, lastCompleteObj + 1) + ']}'
+        }
+      }
+    }
+  }
+
+  // 4. 파싱 시도
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    // 5. 더 공격적인 복구: items 배열만 추출
+    try {
+      const itemsMatch = cleaned.match(/"items"\s*:\s*\[([\s\S]*?)(?:\]|$)/)
+      if (itemsMatch) {
+        const itemsStr = itemsMatch[1]
+        // 마지막 완전한 객체까지만 사용
+        const objects = itemsStr.match(/\{[^{}]*\}/g) || []
+        if (objects.length > 0) {
+          const recoveredItems = objects.map(obj => {
+            try {
+              return JSON.parse(obj)
+            } catch {
+              return null
+            }
+          }).filter(Boolean)
+
+          // 메타데이터 추출 시도
+          const dateMatch = cleaned.match(/"test_date"\s*:\s*"([^"]*)"/)
+          const hospitalMatch = cleaned.match(/"hospital_name"\s*:\s*"([^"]*)"/)
+          const machineMatch = cleaned.match(/"machine_type"\s*:\s*"([^"]*)"/)
+
+          return {
+            test_date: dateMatch?.[1] || null,
+            hospital_name: hospitalMatch?.[1] || null,
+            machine_type: machineMatch?.[1] || null,
+            items: recoveredItems
+          }
+        }
+      }
+    } catch {
+      // 복구 실패
+    }
+
+    return null
+  }
+}
+
+// 단일 파일 OCR 처리 함수 (재시도 지원)
+async function processFile(file: File, retryCount = 0): Promise<{
   filename: string
   items: OcrResult[]
   metadata: {
@@ -17,8 +100,10 @@ async function processFile(file: File): Promise<{
     pages: number
     processingTime: number
   }
+  error?: string
 }> {
   const startTime = Date.now()
+  const MAX_RETRIES = 2
 
   // 파일을 Base64로 인코딩
   const bytes = await file.arrayBuffer()
@@ -31,98 +116,194 @@ async function processFile(file: File): Promise<{
     mimeType = 'image/jpeg'
   }
 
-  console.log(`📁 Processing file: ${file.name} (${file.size} bytes)`)
+  console.log(`📁 Processing file: ${file.name} (${file.size} bytes)${retryCount > 0 ? ` [Retry ${retryCount}]` : ''}`)
 
-  // GPT-4o Vision API 호출
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `이 이미지는 반려동물의 혈액검사 결과지입니다.
-다음 정보를 정확하게 추출하여 JSON 형식으로 반환해주세요:
+  try {
+    // GPT-4o Vision API 호출
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `당신은 수의학 검사 결과지에서 데이터를 정확하게 추출하는 전문가입니다.
 
-1. 검사 날짜 (test_date): YYYY-MM-DD 형식
-2. 병원명 (hospital_name): 병원 이름
-3. 장비명 (machine_type): 사용된 장비 이름 (있는 경우)
-4. 검사 항목들 (items): 배열 형태로
-   - name: 검사 항목명 (예: CREA, BUN, ALT 등)
-   - value: 검사 결과 수치 (숫자만)
-   - unit: 단위 (예: mg/dL, U/L, % 등)
-   - ref_min: 참고치 최소값 (숫자, 없으면 null)
-   - ref_max: 참고치 최대값 (숫자, 없으면 null)
-   - ref_text: 참고치 원문 (예: "0.5-1.8", 없으면 null)
+첨부된 검사 결과지 이미지에서 다음 정보를 추출해주세요:
 
-응답 형식 예시:
+## 1. 메타 정보
+- test_date: 검사일 (YYYY-MM-DD 형식)
+- hospital_name: 병원명
+- patient_name: 환자명 (동물 이름, 있는 경우)
+- machine_type: 장비명 (있는 경우)
+
+## 2. 검사 결과 (items 배열)
+각 검사 항목에 대해 다음 정보를 추출:
+- raw_name: 항목명 (검사지에 표기된 그대로, 대소문자 유지)
+- value: 결과값 (숫자, <500 같은 특수표기, *14 같은 장비표기 포함)
+- unit: 단위
+- reference: 참조범위 (원문 그대로, 예: "3-50", "<14")
+- is_abnormal: 이상 여부 (▲, ▼, H, L 표시가 있으면 true)
+- abnormal_direction: "high" (▲, H) / "low" (▼, L) / null
+
+## 출력 형식
 {
   "test_date": "2024-12-02",
   "hospital_name": "타임즈동물의료센터",
+  "patient_name": "미모",
   "machine_type": "Fuji DRI-CHEM",
   "items": [
     {
-      "name": "CREA",
-      "value": 1.2,
-      "unit": "mg/dL",
-      "ref_min": 0.5,
-      "ref_max": 1.8,
-      "ref_text": "0.5-1.8"
+      "raw_name": "ALT(GPT)*",
+      "value": "23",
+      "unit": "U/L",
+      "reference": "3-50",
+      "is_abnormal": false,
+      "abnormal_direction": null
+    },
+    {
+      "raw_name": "cPL_V100",
+      "value": "386.5",
+      "unit": "ng/ml",
+      "reference": "50-200",
+      "is_abnormal": true,
+      "abnormal_direction": "high"
     }
   ]
 }
 
-중요:
-- 모든 수치는 숫자 타입으로 반환
-- 검사 항목명은 대문자로 통일
-- 참고치가 없는 경우 null로 표시
-- JSON만 반환하고 다른 설명은 추가하지 마세요`
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${base64}`
+## 주의사항
+- 값이 비어있거나 측정되지 않은 항목은 value를 null로
+- 참조범위가 없는 항목은 reference를 빈 문자열로
+- 특수 표기(*14, <500, >1000, Low 등)는 그대로 value에 기록
+- 숫자에 천단위 구분자(,)가 있으면 제거 (1,390 → 1390)
+- 모든 항목을 빠짐없이 추출
+- JSON만 반환하고 다른 설명은 추가하지 마세요
+- 반드시 유효한 JSON 형식으로 반환하세요`
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mimeType};base64,${base64}`
+              }
             }
-          }
-        ]
-      }
-    ],
-    max_tokens: 2000,
-    temperature: 0.1,
-  })
+          ]
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.1,
+    })
 
-  const content = completion.choices[0]?.message?.content
+    const content = completion.choices[0]?.message?.content
 
-  if (!content) {
-    throw new Error(`No response from OCR service for file: ${file.name}`)
-  }
-
-  // JSON 파싱
-  let ocrResult
-  try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      ocrResult = JSON.parse(jsonMatch[0])
-    } else {
-      ocrResult = JSON.parse(content)
+    if (!content) {
+      throw new Error(`No response from OCR service for file: ${file.name}`)
     }
-  } catch (parseError) {
-    console.error(`❌ JSON parse error for ${file.name}:`, parseError)
-    throw new Error(`Failed to parse OCR result for file: ${file.name}`)
-  }
 
-  const processingTime = Date.now() - startTime
+    // JSON 파싱 (복구 로직 포함)
+    const ocrResult = cleanAndParseJson(content)
 
-  return {
-    filename: file.name,
-    items: ocrResult.items || [],
-    metadata: {
-      test_date: ocrResult.test_date,
-      hospital_name: ocrResult.hospital_name,
-      machine_type: ocrResult.machine_type,
-      pages: 1, // 단일 이미지는 1페이지로 간주
-      processingTime
+    if (!ocrResult) {
+      // 파싱 실패 시 재시도
+      if (retryCount < MAX_RETRIES) {
+        console.log(`⚠️ JSON parse failed for ${file.name}, retrying... (${retryCount + 1}/${MAX_RETRIES})`)
+        await new Promise(resolve => setTimeout(resolve, 1000)) // 1초 대기
+        return processFile(file, retryCount + 1)
+      }
+
+      console.error(`❌ JSON parse error for ${file.name} after ${MAX_RETRIES} retries`)
+      console.error(`Raw content (first 500 chars): ${content.substring(0, 500)}`)
+
+      // 실패해도 빈 결과 반환 (전체 배치가 실패하지 않도록)
+      return {
+        filename: file.name,
+        items: [],
+        metadata: {
+          pages: 1,
+          processingTime: Date.now() - startTime
+        },
+        error: `JSON 파싱 실패: ${file.name}`
+      }
+    }
+
+    const processingTime = Date.now() - startTime
+
+    // 응답 items를 OcrResult 형식으로 변환
+    const rawItems = (ocrResult.items as Array<{
+      raw_name?: string
+      name?: string
+      value?: string | number | null
+      unit?: string
+      reference?: string
+      ref_min?: number | null
+      ref_max?: number | null
+      ref_text?: string | null
+      is_abnormal?: boolean
+      abnormal_direction?: 'high' | 'low' | null
+    }>) || []
+
+    const items: OcrResult[] = rawItems.map(item => {
+      // reference에서 ref_min, ref_max 추출
+      const refRange = extractRefMinMax(item.reference)
+
+      // value 처리: 천단위 구분자 제거
+      let processedValue: number | string = item.value ?? ''
+      if (typeof processedValue === 'string') {
+        const cleaned = removeThousandsSeparator(processedValue)
+        // 순수 숫자인 경우 number로 변환
+        const numValue = parseFloat(cleaned)
+        if (!isNaN(numValue) && /^-?\d+\.?\d*$/.test(cleaned)) {
+          processedValue = numValue
+        } else {
+          processedValue = cleaned
+        }
+      }
+
+      return {
+        name: item.raw_name?.toUpperCase() || item.name?.toUpperCase() || '',
+        raw_name: item.raw_name || item.name || '',
+        value: processedValue,
+        unit: item.unit || '',
+        ref_min: item.ref_min ?? refRange.ref_min,
+        ref_max: item.ref_max ?? refRange.ref_max,
+        ref_text: item.ref_text ?? refRange.ref_text,
+        reference: item.reference,
+        is_abnormal: item.is_abnormal,
+        abnormal_direction: item.abnormal_direction
+      }
+    })
+
+    return {
+      filename: file.name,
+      items,
+      metadata: {
+        test_date: ocrResult.test_date as string | undefined,
+        hospital_name: ocrResult.hospital_name as string | undefined,
+        machine_type: ocrResult.machine_type as string | undefined,
+        pages: 1,
+        processingTime
+      }
+    }
+  } catch (error) {
+    console.error(`❌ OCR processing error for ${file.name}:`, error)
+
+    // API 오류 시 재시도
+    if (retryCount < MAX_RETRIES) {
+      console.log(`⚠️ Retrying ${file.name}... (${retryCount + 1}/${MAX_RETRIES})`)
+      await new Promise(resolve => setTimeout(resolve, 2000)) // 2초 대기
+      return processFile(file, retryCount + 1)
+    }
+
+    // 최종 실패 시 빈 결과 반환
+    return {
+      filename: file.name,
+      items: [],
+      metadata: {
+        pages: 1,
+        processingTime: Date.now() - startTime
+      },
+      error: error instanceof Error ? error.message : 'OCR 처리 실패'
     }
   }
 }
@@ -181,17 +362,33 @@ export async function POST(request: NextRequest) {
       files.map(file => processFile(file))
     )
 
-    console.log(`✅ Successfully processed ${results.length} files`)
+    // 실패한 파일 확인
+    const successfulResults = results.filter(r => !r.error)
+    const failedResults = results.filter(r => r.error)
+
+    console.log(`✅ Successfully processed ${successfulResults.length}/${results.length} files`)
+    if (failedResults.length > 0) {
+      console.log(`⚠️ Failed files: ${failedResults.map(r => r.filename).join(', ')}`)
+    }
 
     // 메타데이터 일치성 검증
     const warnings: Array<{
-      type: 'date_mismatch' | 'duplicate_item'
+      type: 'date_mismatch' | 'duplicate_item' | 'parse_error'
       message: string
       files: string[]
     }> = []
 
-    // 검사 날짜 일치 확인
-    const testDates = results
+    // 실패한 파일들에 대한 경고 추가
+    if (failedResults.length > 0) {
+      warnings.push({
+        type: 'parse_error',
+        message: `일부 파일 처리에 실패했습니다: ${failedResults.map(r => r.error).join(', ')}`,
+        files: failedResults.map(r => r.filename)
+      })
+    }
+
+    // 검사 날짜 일치 확인 (성공한 결과만)
+    const testDates = successfulResults
       .map(r => r.metadata.test_date)
       .filter(Boolean) as string[]
 
@@ -206,14 +403,16 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // 중복 항목 검출
+    // 중복 항목 검출 (성공한 결과만)
     const allItemNames: Record<string, string[]> = {}
-    results.forEach(result => {
+    successfulResults.forEach(result => {
       result.items.forEach(item => {
-        if (!allItemNames[item.name]) {
-          allItemNames[item.name] = []
+        const itemKey = item.name || item.raw_name || ''
+        if (!itemKey) return
+        if (!allItemNames[itemKey]) {
+          allItemNames[itemKey] = []
         }
-        allItemNames[item.name].push(result.filename)
+        allItemNames[itemKey].push(result.filename)
       })
     })
 
@@ -230,8 +429,9 @@ export async function POST(request: NextRequest) {
     // 배치 ID 생성 (타임스탬프 기반)
     const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(7)}`
 
-    // 대표 메타데이터 선택 (첫 번째 파일의 데이터 우선)
-    const primaryMetadata = results[0].metadata
+    // 대표 메타데이터 선택 (첫 번째 성공 파일의 데이터 우선)
+    const primaryResult = successfulResults[0] || results[0]
+    const primaryMetadata = primaryResult.metadata
 
     return NextResponse.json({
       success: true,
