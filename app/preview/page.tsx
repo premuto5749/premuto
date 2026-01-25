@@ -47,8 +47,8 @@ function PreviewContent() {
         // 모든 결과를 평탄화하면서 test_date, hospital_name 보존
         const flattenedItems: EditableItem[] = []
         data.results.forEach(result => {
-          const testDate = result.metadata.test_date || 'Unknown'
-          const hospitalName = result.metadata.hospital_name || 'Unknown'
+          const testDate = result.metadata?.test_date ?? 'Unknown'
+          const hospitalName = result.metadata?.hospital_name ?? 'Unknown'
 
           result.items.forEach(item => {
             flattenedItems.push({
@@ -127,8 +127,12 @@ function PreviewContent() {
       })
     })
 
-    // 날짜순 정렬
-    groups.sort((a, b) => a.date.localeCompare(b.date))
+    // 날짜순 정렬 (null 체크 추가)
+    groups.sort((a, b) => {
+      const dateA = a.date || ''
+      const dateB = b.date || ''
+      return dateA.localeCompare(dateB)
+    })
 
     return groups
   }, [allItems, groupHospitalOverrides])
