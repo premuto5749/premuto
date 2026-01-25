@@ -38,7 +38,7 @@ export interface OcrBatchResponse {
       }
     }>
     warnings: Array<{
-      type: 'date_mismatch' | 'duplicate_item'
+      type: 'date_mismatch' | 'duplicate_item' | 'parse_error'
       message: string
       files: string[]
     }>
