@@ -49,6 +49,8 @@ interface DateGroup {
   hospital: string
   sequence: number // 같은 날짜의 순번 (1, 2, 3...)
   items: EditableItem[]
+  _stableKey?: string // 안정적인 키 (병원 변경해도 유지)
+  _originalHospital?: string // 원본 병원명
 }
 
 function PreviewContent() {
@@ -60,6 +62,8 @@ function PreviewContent() {
   const [activeTab, setActiveTab] = useState<string>('')
   const [hospitals, setHospitals] = useState<Hospital[]>([])
   const [groupHospitalOverrides, setGroupHospitalOverrides] = useState<Map<string, string>>(new Map())
+  const [groupDateOverrides, setGroupDateOverrides] = useState<Map<string, string>>(new Map())
+  const [editingDateKey, setEditingDateKey] = useState<string | null>(null)
 
   useEffect(() => {
     // 세션 스토리지에서 OCR 배치 결과 로드
@@ -86,11 +90,10 @@ function PreviewContent() {
         })
         setAllItems(flattenedItems)
 
-        // 첫 번째 탭을 기본 선택
+        // 첫 번째 탭을 기본 선택 (안정적인 키 형식 사용)
         if (flattenedItems.length > 0) {
           const firstDate = flattenedItems[0].test_date
-          const firstHospital = flattenedItems[0].hospital_name
-          setActiveTab(`${firstDate}-${firstHospital}-1`)
+          setActiveTab(`${firstDate}-1`)
         }
       } catch (error) {
         console.error('Failed to parse batch data:', error)
@@ -135,18 +138,23 @@ function PreviewContent() {
     })
 
     // DateGroup 배열로 변환 (같은 날짜는 순번 부여)
-    dateMap.forEach((hospitalMap, date) => {
+    dateMap.forEach((hospitalMap, originalDate) => {
       let sequence = 1
-      hospitalMap.forEach((items, hospital) => {
-        const groupKey = `${date}-${hospital}-${sequence}`
+      hospitalMap.forEach((items, originalHospital) => {
+        // 안정적인 키 생성 (원본 날짜+순번 기반, 변경되지 않음)
+        const stableKey = `${originalDate}-${sequence}`
         // 사용자가 병원을 선택한 경우 override 사용
-        const finalHospital = groupHospitalOverrides.get(groupKey) || hospital
+        const finalHospital = groupHospitalOverrides.get(stableKey) || originalHospital
+        // 사용자가 날짜를 변경한 경우 override 사용
+        const finalDate = groupDateOverrides.get(stableKey) || originalDate
 
         groups.push({
-          date,
+          date: finalDate,
           hospital: finalHospital,
           sequence,
-          items
+          items,
+          _stableKey: stableKey,
+          _originalHospital: originalHospital
         })
         sequence++
       })
@@ -160,7 +168,7 @@ function PreviewContent() {
     })
 
     return groups
-  }, [allItems, groupHospitalOverrides])
+  }, [allItems, groupHospitalOverrides, groupDateOverrides])
 
   const handleEdit = (index: number) => {
     setEditingIndex(index)
@@ -191,6 +199,15 @@ function PreviewContent() {
 
   const handleHospitalCreated = (hospital: Hospital) => {
     setHospitals(prev => [...prev, hospital])
+  }
+
+  const handleDateChange = (stableKey: string, newDate: string) => {
+    setGroupDateOverrides(prev => {
+      const updated = new Map(prev)
+      updated.set(stableKey, newDate)
+      return updated
+    })
+    setEditingDateKey(null)
   }
 
   const handleSaveAll = async () => {
@@ -409,13 +426,13 @@ function PreviewContent() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList className="mb-4">
           {dateGroups.map((group) => {
-            const tabId = `${group.date}-${group.hospital}-${group.sequence}`
+            const stableKey = group._stableKey || `${group.date}-${group.sequence}`
             const displayName = group.sequence > 1
               ? `${group.date} (${group.hospital}) (${group.sequence})`
               : `${group.date} (${group.hospital})`
 
             return (
-              <TabsTrigger key={tabId} value={tabId}>
+              <TabsTrigger key={stableKey} value={stableKey}>
                 {displayName}
               </TabsTrigger>
             )
@@ -423,15 +440,44 @@ function PreviewContent() {
         </TabsList>
 
         {dateGroups.map((group) => {
-          const tabId = `${group.date}-${group.hospital}-${group.sequence}`
+          // 안정적인 키 사용 (병원 변경 시에도 유지)
+          const stableKey = group._stableKey || `${group.date}-${group.sequence}`
+          const tabId = stableKey
 
           return (
             <TabsContent key={tabId} value={tabId}>
               <Card>
                 <CardHeader>
                   <CardTitle>추출된 검사 항목 ({group.items.length}개)</CardTitle>
-                  <CardDescription>
-                    {group.date} - {group.hospital} {group.sequence > 1 && `(${group.sequence}번째)`}
+                  <CardDescription className="flex items-center gap-2">
+                    {/* 날짜 편집 */}
+                    {editingDateKey === stableKey ? (
+                      <Input
+                        type="date"
+                        defaultValue={group.date}
+                        className="w-40 h-7 text-sm"
+                        onBlur={(e) => handleDateChange(stableKey, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleDateChange(stableKey, e.currentTarget.value)
+                          } else if (e.key === 'Escape') {
+                            setEditingDateKey(null)
+                          }
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <span
+                        className="cursor-pointer hover:underline hover:text-primary"
+                        onClick={() => setEditingDateKey(stableKey)}
+                        title="클릭하여 날짜 변경"
+                      >
+                        {group.date}
+                      </span>
+                    )}
+                    <span>-</span>
+                    <span>{group.hospital}</span>
+                    {group.sequence > 1 && <span>({group.sequence}번째)</span>}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -440,7 +486,7 @@ function PreviewContent() {
                     <Label className="text-sm font-medium mb-2 block">병원</Label>
                     <HospitalSelector
                       value={group.hospital}
-                      onValueChange={(value) => handleHospitalChange(tabId, value)}
+                      onValueChange={(value) => handleHospitalChange(stableKey, value)}
                       hospitals={hospitals}
                       onHospitalCreated={handleHospitalCreated}
                     />

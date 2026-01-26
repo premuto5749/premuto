@@ -58,12 +58,28 @@ export async function POST(request: NextRequest) {
         // 상태 계산 (Low/Normal/High/Unknown)
         let status: 'Low' | 'Normal' | 'High' | 'Unknown' = 'Unknown'
 
-        // value를 숫자로 변환 (string일 수 있음)
-        const numericValue = typeof result.value === 'number'
-          ? result.value
-          : parseFloat(String(result.value).replace(/[<>*,]/g, ''))
+        // 원본 값 보존
+        const rawValue = String(result.value ?? '')
 
-        if (result.ref_min !== null && result.ref_max !== null && !isNaN(numericValue)) {
+        // value를 숫자로 변환 (string일 수 있음)
+        let numericValue: number | null = null
+
+        if (typeof result.value === 'number' && !isNaN(result.value)) {
+          numericValue = result.value
+        } else if (typeof result.value === 'string' && result.value.trim() !== '') {
+          // 특수문자 제거 후 파싱 (<, >, *, 쉼표 등)
+          const cleaned = result.value.replace(/[<>*,\s]/g, '')
+          const parsed = parseFloat(cleaned)
+          numericValue = isNaN(parsed) ? null : parsed
+        }
+
+        // 빈 값이거나 파싱 실패 시 스킵
+        if (numericValue === null) {
+          console.warn(`⚠️ Skipping invalid value for item ${result.standard_item_id}: "${rawValue}"`)
+          return null
+        }
+
+        if (result.ref_min !== null && result.ref_max !== null) {
           if (numericValue < result.ref_min) {
             status = 'Low'
           } else if (numericValue > result.ref_max) {
@@ -76,7 +92,7 @@ export async function POST(request: NextRequest) {
         return {
           record_id: recordId,
           standard_item_id: result.standard_item_id,
-          value: result.value,
+          value: numericValue,
           ref_min: result.ref_min,
           ref_max: result.ref_max,
           ref_text: result.ref_text,
@@ -86,9 +102,11 @@ export async function POST(request: NextRequest) {
           source_filename: result.source_filename || null,
           ocr_raw_name: result.ocr_raw_name || null,
           mapping_confidence: result.mapping_confidence || null,
-          user_verified: result.user_verified || false
+          user_verified: result.user_verified || false,
+          // 원본 값 저장 (특수값 보존용)
+          raw_value: rawValue || null
         }
-      })
+      }).filter((item): item is NonNullable<typeof item> => item !== null)
 
       // 3. test_results 일괄 삽입
       const { data: resultsData, error: resultsError } = await supabase
