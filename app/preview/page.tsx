@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { HospitalSelector } from '@/components/ui/hospital-selector'
-import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, Merge } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import type { OcrBatchResponse, OcrResult, Hospital } from '@/types'
 
@@ -64,6 +65,9 @@ function PreviewContent() {
   const [groupHospitalOverrides, setGroupHospitalOverrides] = useState<Map<string, string>>(new Map())
   const [groupDateOverrides, setGroupDateOverrides] = useState<Map<string, string>>(new Map())
   const [editingDateKey, setEditingDateKey] = useState<string | null>(null)
+  // 그룹 병합 관련 상태
+  const [mergedGroups, setMergedGroups] = useState<Map<string, string>>(new Map()) // sourceKey -> targetKey
+  const [showMergeSelect, setShowMergeSelect] = useState<string | null>(null)
 
   useEffect(() => {
     // 세션 스토리지에서 OCR 배치 결과 로드
@@ -138,6 +142,7 @@ function PreviewContent() {
     })
 
     // DateGroup 배열로 변환 (같은 날짜는 순번 부여)
+    const tempGroups: DateGroup[] = []
     dateMap.forEach((hospitalMap, originalDate) => {
       let sequence = 1
       hospitalMap.forEach((items, originalHospital) => {
@@ -148,16 +153,36 @@ function PreviewContent() {
         // 사용자가 날짜를 변경한 경우 override 사용
         const finalDate = groupDateOverrides.get(stableKey) || originalDate
 
-        groups.push({
+        tempGroups.push({
           date: finalDate,
           hospital: finalHospital,
           sequence,
-          items,
+          items: [...items], // 복사본 생성
           _stableKey: stableKey,
           _originalHospital: originalHospital
         })
         sequence++
       })
+    })
+
+    // 병합 처리: source의 아이템을 target으로 이동
+    mergedGroups.forEach((targetKey, sourceKey) => {
+      const sourceGroup = tempGroups.find(g => g._stableKey === sourceKey)
+      const targetGroup = tempGroups.find(g => g._stableKey === targetKey)
+
+      if (sourceGroup && targetGroup) {
+        // source의 아이템을 target에 추가
+        targetGroup.items.push(...sourceGroup.items)
+        // source 그룹 비우기 (나중에 필터링됨)
+        sourceGroup.items = []
+      }
+    })
+
+    // 빈 그룹 제거 (병합된 source 그룹)
+    tempGroups.forEach(g => {
+      if (g.items.length > 0) {
+        groups.push(g)
+      }
     })
 
     // 날짜순 정렬 (null 체크 추가)
@@ -168,7 +193,7 @@ function PreviewContent() {
     })
 
     return groups
-  }, [allItems, groupHospitalOverrides, groupDateOverrides])
+  }, [allItems, groupHospitalOverrides, groupDateOverrides, mergedGroups])
 
   const handleEdit = (index: number) => {
     setEditingIndex(index)
@@ -208,6 +233,18 @@ function PreviewContent() {
       return updated
     })
     setEditingDateKey(null)
+  }
+
+  // 그룹 병합 핸들러
+  const handleMergeGroups = (sourceKey: string, targetKey: string) => {
+    if (sourceKey === targetKey) return
+
+    setMergedGroups(prev => {
+      const updated = new Map(prev)
+      updated.set(sourceKey, targetKey)
+      return updated
+    })
+    setShowMergeSelect(null)
   }
 
   const handleSaveAll = async () => {
@@ -481,18 +518,64 @@ function PreviewContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* 병원 선택 */}
-                  <div className="mb-6 p-4 bg-muted/50 rounded-lg">
-                    <Label className="text-sm font-medium mb-2 block">병원</Label>
-                    <HospitalSelector
-                      value={group.hospital}
-                      onValueChange={(value) => handleHospitalChange(stableKey, value)}
-                      hospitals={hospitals}
-                      onHospitalCreated={handleHospitalCreated}
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      병원명을 검색하거나 새로 추가할 수 있습니다
-                    </p>
+                  {/* 병원 선택 & 그룹 병합 */}
+                  <div className="mb-6 p-4 bg-muted/50 rounded-lg space-y-4">
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">병원</Label>
+                      <HospitalSelector
+                        value={group.hospital}
+                        onValueChange={(value) => handleHospitalChange(stableKey, value)}
+                        hospitals={hospitals}
+                        onHospitalCreated={handleHospitalCreated}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        병원명을 검색하거나 새로 추가할 수 있습니다
+                      </p>
+                    </div>
+
+                    {/* 그룹 병합 */}
+                    {dateGroups.length > 1 && (
+                      <div className="pt-3 border-t">
+                        <Label className="text-sm font-medium mb-2 block">그룹 병합</Label>
+                        {showMergeSelect === stableKey ? (
+                          <div className="flex items-center gap-2">
+                            <Select onValueChange={(targetKey) => handleMergeGroups(stableKey, targetKey)}>
+                              <SelectTrigger className="w-[280px]">
+                                <SelectValue placeholder="병합할 대상 그룹 선택..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {dateGroups
+                                  .filter(g => g._stableKey !== stableKey)
+                                  .map(g => (
+                                    <SelectItem key={g._stableKey} value={g._stableKey || ''}>
+                                      {g.date} ({g.hospital}) - {g.items.length}개 항목
+                                    </SelectItem>
+                                  ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowMergeSelect(null)}
+                            >
+                              취소
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowMergeSelect(stableKey)}
+                          >
+                            <Merge className="w-4 h-4 mr-2" />
+                            다른 그룹과 병합
+                          </Button>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          같은 검사의 여러 페이지가 분리된 경우 하나로 병합할 수 있습니다
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="overflow-x-auto">
