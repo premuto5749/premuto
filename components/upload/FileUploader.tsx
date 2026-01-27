@@ -8,9 +8,37 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import * as pdfjsLib from 'pdfjs-dist'
 
-// PDF.js worker 설정
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+// PDF.js worker 설정 - 여러 CDN 옵션 시도
+const PDF_WORKER_CDNS = [
+  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`,
+  `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`,
+  `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`,
+]
+
+let workerInitialized = false
+
+async function initializePdfWorker(): Promise<void> {
+  if (workerInitialized) return
+
+  for (const workerSrc of PDF_WORKER_CDNS) {
+    try {
+      // Worker URL 유효성 테스트
+      const response = await fetch(workerSrc, { method: 'HEAD', mode: 'cors' })
+      if (response.ok) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc
+        workerInitialized = true
+        console.log('✅ PDF.js worker 로드 성공:', workerSrc)
+        return
+      }
+    } catch (e) {
+      console.warn(`⚠️ PDF.js worker 로드 실패 (${workerSrc}):`, e)
+    }
+  }
+
+  // 모든 CDN 실패 시 worker 없이 실행 (성능 저하되지만 동작함)
+  console.warn('⚠️ 모든 CDN 실패, worker 없이 PDF.js 실행')
+  pdfjsLib.GlobalWorkerOptions.workerSrc = ''
+  workerInitialized = true
 }
 
 interface FileWithPreview {
@@ -36,26 +64,73 @@ export function FileUploader({
 
   // PDF를 이미지로 변환하는 함수
   const convertPdfToImage = async (file: File): Promise<File> => {
-    const arrayBuffer = await file.arrayBuffer()
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-    const page = await pdf.getPage(1) // 첫 페이지만 사용
+    // Worker 초기화 확인
+    await initializePdfWorker()
 
+    // 1. 파일 읽기
+    let arrayBuffer: ArrayBuffer
+    try {
+      arrayBuffer = await file.arrayBuffer()
+    } catch (e) {
+      console.error('PDF 파일 읽기 실패:', e)
+      throw new Error(`PDF 파일을 읽을 수 없습니다: ${file.name}`)
+    }
+
+    // 2. PDF 문서 로드
+    let pdf: pdfjsLib.PDFDocumentProxy
+    try {
+      pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    } catch (e) {
+      console.error('PDF 파싱 실패:', e)
+      throw new Error(`유효하지 않은 PDF 파일입니다: ${file.name}. 파일이 손상되었거나 암호로 보호되어 있을 수 있습니다.`)
+    }
+
+    // 3. PDF 페이지 수 확인
+    if (pdf.numPages === 0) {
+      throw new Error(`PDF 파일에 페이지가 없습니다: ${file.name}`)
+    }
+
+    // 4. 첫 페이지 가져오기
+    let page: pdfjsLib.PDFPageProxy
+    try {
+      page = await pdf.getPage(1)
+    } catch (e) {
+      console.error('PDF 페이지 로드 실패:', e)
+      throw new Error(`PDF 첫 페이지를 로드할 수 없습니다: ${file.name}`)
+    }
+
+    // 5. Canvas 생성 및 context 확인
     const viewport = page.getViewport({ scale: 2.0 }) // 고해상도
     const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')!
+    const context = canvas.getContext('2d')
+
+    if (!context) {
+      throw new Error('Canvas 2D 컨텍스트를 생성할 수 없습니다. 브라우저가 Canvas를 지원하는지 확인하세요.')
+    }
 
     canvas.width = viewport.width
     canvas.height = viewport.height
 
-    await page.render({
-      canvasContext: context,
-      viewport: viewport,
-      canvas: canvas
-    }).promise
+    // 6. 페이지 렌더링
+    try {
+      await page.render({
+        canvasContext: context,
+        viewport: viewport,
+        canvas: canvas
+      }).promise
+    } catch (e) {
+      console.error('PDF 렌더링 실패:', e)
+      throw new Error(`PDF 페이지 렌더링 실패: ${file.name}`)
+    }
 
-    // Canvas를 Blob으로 변환
-    return new Promise((resolve) => {
+    // 7. Canvas를 Blob으로 변환 (타임아웃 포함)
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`PDF 이미지 변환 시간 초과: ${file.name}`))
+      }, 30000) // 30초 타임아웃
+
       canvas.toBlob((blob) => {
+        clearTimeout(timeout)
         if (blob) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const imageFile = new (File as any)(
@@ -64,6 +139,8 @@ export function FileUploader({
             { type: 'image/png' }
           )
           resolve(imageFile)
+        } else {
+          reject(new Error(`PDF를 이미지로 변환할 수 없습니다: ${file.name}. 메모리가 부족하거나 파일이 너무 클 수 있습니다.`))
         }
       }, 'image/png', 0.95)
     })
@@ -130,7 +207,8 @@ export function FileUploader({
     } catch (error) {
       console.error('❌ 파일 처리 실패:', error)
       setIsConverting(false)
-      alert('파일 처리에 실패했습니다. 다른 파일을 시도해주세요.')
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류'
+      alert(`파일 처리에 실패했습니다.\n\n${errorMessage}`)
     }
   }, [selectedFiles, onFilesSelect])
 
