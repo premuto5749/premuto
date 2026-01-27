@@ -8,37 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import * as pdfjsLib from 'pdfjs-dist'
 
-// PDF.js worker 설정 - 여러 CDN 옵션 시도
-const PDF_WORKER_CDNS = [
-  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`,
-  `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`,
-  `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`,
-]
-
-let workerInitialized = false
-
-async function initializePdfWorker(): Promise<void> {
-  if (workerInitialized) return
-
-  for (const workerSrc of PDF_WORKER_CDNS) {
-    try {
-      // Worker URL 유효성 테스트
-      const response = await fetch(workerSrc, { method: 'HEAD', mode: 'cors' })
-      if (response.ok) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc
-        workerInitialized = true
-        console.log('✅ PDF.js worker 로드 성공:', workerSrc)
-        return
-      }
-    } catch (e) {
-      console.warn(`⚠️ PDF.js worker 로드 실패 (${workerSrc}):`, e)
-    }
-  }
-
-  // 모든 CDN 실패 시 worker 없이 실행 (성능 저하되지만 동작함)
-  console.warn('⚠️ 모든 CDN 실패, worker 없이 PDF.js 실행')
-  pdfjsLib.GlobalWorkerOptions.workerSrc = ''
-  workerInitialized = true
+// PDF.js worker 설정 - 직접 설정 (fetch 테스트 없이)
+if (typeof window !== 'undefined') {
+  // cdnjs가 가장 안정적이므로 직접 사용
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 }
 
 interface FileWithPreview {
@@ -64,9 +37,6 @@ export function FileUploader({
 
   // PDF를 이미지로 변환하는 함수
   const convertPdfToImage = async (file: File): Promise<File> => {
-    // Worker 초기화 확인
-    await initializePdfWorker()
-
     // 1. 파일 읽기
     let arrayBuffer: ArrayBuffer
     try {
