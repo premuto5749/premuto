@@ -116,9 +116,27 @@ async function processFile(file: File, retryCount = 0): Promise<{
     mimeType = 'image/jpeg'
   }
 
-  console.log(`📁 Processing file: ${file.name} (${file.size} bytes)${retryCount > 0 ? ` [Retry ${retryCount}]` : ''}`)
+  const isPdf = mimeType === 'application/pdf'
+
+  console.log(`📁 Processing file: ${file.name} (${file.size} bytes, ${isPdf ? 'PDF' : 'Image'})${retryCount > 0 ? ` [Retry ${retryCount}]` : ''}`)
 
   try {
+    // 파일 타입에 따라 content 구성
+    const fileContent: OpenAI.Chat.Completions.ChatCompletionContentPart = isPdf
+      ? {
+          type: 'file' as const,
+          file: {
+            filename: file.name,
+            file_data: `data:application/pdf;base64,${base64}`,
+          },
+        } as unknown as OpenAI.Chat.Completions.ChatCompletionContentPart
+      : {
+          type: 'image_url' as const,
+          image_url: {
+            url: `data:${mimeType};base64,${base64}`
+          }
+        }
+
     // GPT-4o Vision API 호출
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -182,12 +200,7 @@ async function processFile(file: File, retryCount = 0): Promise<{
 - JSON만 반환하고 다른 설명은 추가하지 마세요
 - 반드시 유효한 JSON 형식으로 반환하세요`
             },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${mimeType};base64,${base64}`
-              }
-            }
+            fileContent
           ]
         }
       ],
