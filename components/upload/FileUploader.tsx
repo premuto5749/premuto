@@ -8,10 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import * as pdfjsLib from 'pdfjs-dist'
 
-// PDF.js worker 설정 - 직접 설정 (fetch 테스트 없이)
+// PDF.js worker 설정 - 로컬 파일 사용 (CDN 의존성 제거)
 if (typeof window !== 'undefined') {
-  // cdnjs가 가장 안정적이므로 직접 사용
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 }
 
 interface FileWithPreview {
