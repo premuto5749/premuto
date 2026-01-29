@@ -4,9 +4,12 @@ import { createClient } from '@/lib/supabase/server'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
 import { matchItem } from '@/lib/ocr/item-matcher'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// OpenAI 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+}
 
 interface RequestBody {
   batch_id: string
@@ -238,7 +241,7 @@ ${ocrItem.ref_min !== null || ocrItem.ref_max !== null ? `- 참고치: ${ocrItem
 - 단위와 참고치 범위도 함께 고려
 - JSON만 반환하고 다른 설명 추가 금지`
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAIClient().chat.completions.create({
     model: 'gpt-4o',
     messages: [
       {

@@ -4,9 +4,12 @@ import type { OcrResult } from '@/types'
 import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
 import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// OpenAI 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
+function getOpenAIClient() {
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+}
 
 // JSON 문자열을 정리하고 복구하는 함수
 function cleanAndParseJson(content: string): Record<string, unknown> | null {
@@ -141,7 +144,7 @@ async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
         }
 
     // GPT-4o Vision API 호출
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
@@ -305,30 +308,34 @@ PDF에 여러 날짜의 검사 결과가 있는 경우, 모두 별도의 test_gr
     }
 
     // 다중 날짜 그룹 형식 (test_groups) 처리
-    if (ocrResult.test_groups && Array.isArray(ocrResult.test_groups)) {
+    type RawItem = {
+      raw_name?: string
+      name?: string
+      value?: string | number | null
+      unit?: string
+      reference?: string
+      ref_min?: number | null
+      ref_max?: number | null
+      ref_text?: string | null
+      is_abnormal?: boolean
+      abnormal_direction?: 'high' | 'low' | null
+    }
+
+    type TestGroup = {
+      test_date?: string
+      hospital_name?: string
+      machine_type?: string
+      items?: RawItem[]
+    }
+
+    const testGroups = ocrResult.test_groups as TestGroup[] | undefined
+
+    if (testGroups && Array.isArray(testGroups)) {
       const results: FileResult[] = []
 
-      type RawItem = {
-        raw_name?: string
-        name?: string
-        value?: string | number | null
-        unit?: string
-        reference?: string
-        ref_min?: number | null
-        ref_max?: number | null
-        ref_text?: string | null
-        is_abnormal?: boolean
-        abnormal_direction?: 'high' | 'low' | null
-      }
-
-      ocrResult.test_groups.forEach((group: {
-        test_date?: string
-        hospital_name?: string
-        machine_type?: string
-        items?: RawItem[]
-      }, index: number) => {
+      testGroups.forEach((group, index) => {
         const groupItems = convertItems(group.items || [])
-        const suffix = ocrResult.test_groups.length > 1 ? `_group${index + 1}` : ''
+        const suffix = testGroups.length > 1 ? `_group${index + 1}` : ''
 
         results.push({
           filename: `${file.name}${suffix}`,
@@ -337,7 +344,7 @@ PDF에 여러 날짜의 검사 결과가 있는 경우, 모두 별도의 test_gr
             test_date: group.test_date,
             hospital_name: group.hospital_name,
             machine_type: group.machine_type,
-            pages: ocrResult.test_groups.length,
+            pages: testGroups.length,
             processingTime
           }
         })
