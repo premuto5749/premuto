@@ -308,11 +308,24 @@ PDF에 여러 날짜의 검사 결과가 있는 경우, 모두 별도의 test_gr
     if (ocrResult.test_groups && Array.isArray(ocrResult.test_groups)) {
       const results: FileResult[] = []
 
+      type RawItem = {
+        raw_name?: string
+        name?: string
+        value?: string | number | null
+        unit?: string
+        reference?: string
+        ref_min?: number | null
+        ref_max?: number | null
+        ref_text?: string | null
+        is_abnormal?: boolean
+        abnormal_direction?: 'high' | 'low' | null
+      }
+
       ocrResult.test_groups.forEach((group: {
         test_date?: string
         hospital_name?: string
         machine_type?: string
-        items?: Array<unknown>
+        items?: RawItem[]
       }, index: number) => {
         const groupItems = convertItems(group.items || [])
         const suffix = ocrResult.test_groups.length > 1 ? `_group${index + 1}` : ''
