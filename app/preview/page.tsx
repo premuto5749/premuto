@@ -47,6 +47,7 @@ interface EditableItem extends OcrResult {
 interface DateGroup {
   date: string
   hospital: string
+  originalHospital: string // OCR에서 추출한 원래 병원명 (탭 ID용)
   sequence: number // 같은 날짜의 순번 (1, 2, 3...)
   items: EditableItem[]
 }
@@ -137,14 +138,16 @@ function PreviewContent() {
     // DateGroup 배열로 변환 (같은 날짜는 순번 부여)
     dateMap.forEach((hospitalMap, date) => {
       let sequence = 1
-      hospitalMap.forEach((items, hospital) => {
-        const groupKey = `${date}-${hospital}-${sequence}`
+      hospitalMap.forEach((items, originalHospital) => {
+        // 탭 ID에 사용할 안정적인 키 (원래 병원명 기반)
+        const groupKey = `${date}-${originalHospital}-${sequence}`
         // 사용자가 병원을 선택한 경우 override 사용
-        const finalHospital = groupHospitalOverrides.get(groupKey) || hospital
+        const finalHospital = groupHospitalOverrides.get(groupKey) || originalHospital
 
         groups.push({
           date,
           hospital: finalHospital,
+          originalHospital, // 탭 ID용 원래 병원명 저장
           sequence,
           items
         })
@@ -409,7 +412,8 @@ function PreviewContent() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList className="mb-4">
           {dateGroups.map((group) => {
-            const tabId = `${group.date}-${group.hospital}-${group.sequence}`
+            // 탭 ID는 원래 병원명 기반 (변경해도 안정적)
+            const tabId = `${group.date}-${group.originalHospital}-${group.sequence}`
             const displayName = group.sequence > 1
               ? `${group.date} (${group.hospital}) (${group.sequence})`
               : `${group.date} (${group.hospital})`
@@ -423,7 +427,8 @@ function PreviewContent() {
         </TabsList>
 
         {dateGroups.map((group) => {
-          const tabId = `${group.date}-${group.hospital}-${group.sequence}`
+          // 탭 ID는 원래 병원명 기반 (변경해도 안정적)
+          const tabId = `${group.date}-${group.originalHospital}-${group.sequence}`
 
           return (
             <TabsContent key={tabId} value={tabId}>

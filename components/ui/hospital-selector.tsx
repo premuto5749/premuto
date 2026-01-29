@@ -51,6 +51,8 @@ export function HospitalSelector({
   const [creating, setCreating] = React.useState(false)
 
   const selectedHospital = hospitals.find(h => h.name === value)
+  // OCR에서 추출한 병원명이 DB에 없는 경우 표시용
+  const displayValue = value && !selectedHospital ? value : selectedHospital?.name
 
   const handleCreateHospital = async () => {
     if (!newHospitalName.trim()) return
@@ -97,7 +99,7 @@ export function HospitalSelector({
             aria-expanded={open}
             className="w-full justify-between"
           >
-            {selectedHospital ? selectedHospital.name : "병원 선택..."}
+            {displayValue || "병원 선택..."}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>

@@ -89,8 +89,8 @@ function cleanAndParseJson(content: string): Record<string, unknown> | null {
   }
 }
 
-// 단일 파일 OCR 처리 함수 (재시도 지원)
-async function processFile(file: File, retryCount = 0): Promise<{
+// 파일 결과 타입
+interface FileResult {
   filename: string
   items: OcrResult[]
   metadata: {
@@ -101,7 +101,10 @@ async function processFile(file: File, retryCount = 0): Promise<{
     processingTime: number
   }
   error?: string
-}> {
+}
+
+// 단일 파일 OCR 처리 함수 (재시도 지원, 다중 날짜 지원)
+async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
   const startTime = Date.now()
   const MAX_RETRIES = 2
 
@@ -148,55 +151,69 @@ async function processFile(file: File, retryCount = 0): Promise<{
               type: 'text',
               text: `당신은 수의학 검사 결과지에서 데이터를 정확하게 추출하는 전문가입니다.
 
-첨부된 검사 결과지 이미지에서 다음 정보를 추출해주세요:
+첨부된 검사 결과지(이미지 또는 PDF)에서 **모든 페이지와 모든 검사 날짜**의 정보를 추출해주세요.
+PDF에 여러 날짜의 검사 결과가 있는 경우, 모두 별도의 test_groups로 분리해야 합니다.
 
-## 1. 메타 정보
+## 출력 형식 (다중 날짜 지원)
+{
+  "test_groups": [
+    {
+      "test_date": "2024-12-02",
+      "hospital_name": "타임즈동물의료센터",
+      "patient_name": "미모",
+      "machine_type": "Fuji DRI-CHEM",
+      "items": [
+        {
+          "raw_name": "ALT(GPT)*",
+          "value": "23",
+          "unit": "U/L",
+          "reference": "3-50",
+          "is_abnormal": false,
+          "abnormal_direction": null
+        }
+      ]
+    },
+    {
+      "test_date": "2024-12-08",
+      "hospital_name": "타임즈동물의료센터",
+      "patient_name": "미모",
+      "machine_type": null,
+      "items": [
+        {
+          "raw_name": "cPL_V100",
+          "value": "386.5",
+          "unit": "ng/ml",
+          "reference": "50-200",
+          "is_abnormal": true,
+          "abnormal_direction": "high"
+        }
+      ]
+    }
+  ]
+}
+
+## 각 test_group의 정보
 - test_date: 검사일 (YYYY-MM-DD 형식)
 - hospital_name: 병원명
 - patient_name: 환자명 (동물 이름, 있는 경우)
-- machine_type: 장비명 (있는 경우)
+- machine_type: 장비명 (있는 경우, 없으면 null)
 
-## 2. 검사 결과 (items 배열)
-각 검사 항목에 대해 다음 정보를 추출:
+## items 배열의 각 항목
 - raw_name: 항목명 (검사지에 표기된 그대로, 대소문자 유지)
-- value: 결과값 (숫자, <500 같은 특수표기, *14 같은 장비표기 포함)
+- value: 결과값 (숫자, <500, >1000, Low, Negative 등 특수표기 포함)
 - unit: 단위
 - reference: 참조범위 (원문 그대로, 예: "3-50", "<14")
 - is_abnormal: 이상 여부 (▲, ▼, H, L 표시가 있으면 true)
 - abnormal_direction: "high" (▲, H) / "low" (▼, L) / null
 
-## 출력 형식
-{
-  "test_date": "2024-12-02",
-  "hospital_name": "타임즈동물의료센터",
-  "patient_name": "미모",
-  "machine_type": "Fuji DRI-CHEM",
-  "items": [
-    {
-      "raw_name": "ALT(GPT)*",
-      "value": "23",
-      "unit": "U/L",
-      "reference": "3-50",
-      "is_abnormal": false,
-      "abnormal_direction": null
-    },
-    {
-      "raw_name": "cPL_V100",
-      "value": "386.5",
-      "unit": "ng/ml",
-      "reference": "50-200",
-      "is_abnormal": true,
-      "abnormal_direction": "high"
-    }
-  ]
-}
-
-## 주의사항
+## 중요 주의사항
+- **모든 페이지의 모든 검사 결과를 빠짐없이 추출하세요**
+- **날짜가 다른 검사는 별도의 test_group으로 분리하세요**
+- 같은 날짜의 검사는 하나의 test_group에 모든 items를 포함
 - 값이 비어있거나 측정되지 않은 항목은 value를 null로
 - 참조범위가 없는 항목은 reference를 빈 문자열로
 - 특수 표기(*14, <500, >1000, Low 등)는 그대로 value에 기록
 - 숫자에 천단위 구분자(,)가 있으면 제거 (1,390 → 1390)
-- 모든 항목을 빠짐없이 추출
 - JSON만 반환하고 다른 설명은 추가하지 마세요
 - 반드시 유효한 JSON 형식으로 반환하세요`
             },
@@ -229,7 +246,7 @@ async function processFile(file: File, retryCount = 0): Promise<{
       console.error(`Raw content (first 500 chars): ${content.substring(0, 500)}`)
 
       // 실패해도 빈 결과 반환 (전체 배치가 실패하지 않도록)
-      return {
+      return [{
         filename: file.name,
         items: [],
         metadata: {
@@ -237,13 +254,13 @@ async function processFile(file: File, retryCount = 0): Promise<{
           processingTime: Date.now() - startTime
         },
         error: `JSON 파싱 실패: ${file.name}`
-      }
+      }]
     }
 
     const processingTime = Date.now() - startTime
 
-    // 응답 items를 OcrResult 형식으로 변환
-    const rawItems = (ocrResult.items as Array<{
+    // 아이템 변환 헬퍼 함수
+    const convertItems = (rawItems: Array<{
       raw_name?: string
       name?: string
       value?: string | number | null
@@ -254,40 +271,85 @@ async function processFile(file: File, retryCount = 0): Promise<{
       ref_text?: string | null
       is_abnormal?: boolean
       abnormal_direction?: 'high' | 'low' | null
-    }>) || []
+    }>): OcrResult[] => {
+      return rawItems.map(item => {
+        // reference에서 ref_min, ref_max 추출
+        const refRange = extractRefMinMax(item.reference)
 
-    const items: OcrResult[] = rawItems.map(item => {
-      // reference에서 ref_min, ref_max 추출
-      const refRange = extractRefMinMax(item.reference)
-
-      // value 처리: 천단위 구분자 제거
-      let processedValue: number | string = item.value ?? ''
-      if (typeof processedValue === 'string') {
-        const cleaned = removeThousandsSeparator(processedValue)
-        // 순수 숫자인 경우 number로 변환
-        const numValue = parseFloat(cleaned)
-        if (!isNaN(numValue) && /^-?\d+\.?\d*$/.test(cleaned)) {
-          processedValue = numValue
-        } else {
-          processedValue = cleaned
+        // value 처리: 천단위 구분자 제거
+        let processedValue: number | string = item.value ?? ''
+        if (typeof processedValue === 'string') {
+          const cleaned = removeThousandsSeparator(processedValue)
+          // 순수 숫자인 경우 number로 변환
+          const numValue = parseFloat(cleaned)
+          if (!isNaN(numValue) && /^-?\d+\.?\d*$/.test(cleaned)) {
+            processedValue = numValue
+          } else {
+            processedValue = cleaned
+          }
         }
-      }
 
-      return {
-        name: item.raw_name?.toUpperCase() || item.name?.toUpperCase() || '',
-        raw_name: item.raw_name || item.name || '',
-        value: processedValue,
-        unit: item.unit || '',
-        ref_min: item.ref_min ?? refRange.ref_min,
-        ref_max: item.ref_max ?? refRange.ref_max,
-        ref_text: item.ref_text ?? refRange.ref_text,
-        reference: item.reference,
-        is_abnormal: item.is_abnormal,
-        abnormal_direction: item.abnormal_direction
-      }
-    })
+        return {
+          name: item.raw_name?.toUpperCase() || item.name?.toUpperCase() || '',
+          raw_name: item.raw_name || item.name || '',
+          value: processedValue,
+          unit: item.unit || '',
+          ref_min: item.ref_min ?? refRange.ref_min,
+          ref_max: item.ref_max ?? refRange.ref_max,
+          ref_text: item.ref_text ?? refRange.ref_text,
+          reference: item.reference,
+          is_abnormal: item.is_abnormal,
+          abnormal_direction: item.abnormal_direction
+        }
+      })
+    }
 
-    return {
+    // 다중 날짜 그룹 형식 (test_groups) 처리
+    if (ocrResult.test_groups && Array.isArray(ocrResult.test_groups)) {
+      const results: FileResult[] = []
+
+      ocrResult.test_groups.forEach((group: {
+        test_date?: string
+        hospital_name?: string
+        machine_type?: string
+        items?: Array<unknown>
+      }, index: number) => {
+        const groupItems = convertItems(group.items || [])
+        const suffix = ocrResult.test_groups.length > 1 ? `_group${index + 1}` : ''
+
+        results.push({
+          filename: `${file.name}${suffix}`,
+          items: groupItems,
+          metadata: {
+            test_date: group.test_date,
+            hospital_name: group.hospital_name,
+            machine_type: group.machine_type,
+            pages: ocrResult.test_groups.length,
+            processingTime
+          }
+        })
+      })
+
+      console.log(`✅ Extracted ${results.length} date group(s) from ${file.name}`)
+      return results
+    }
+
+    // 기존 단일 날짜 형식 (items) 처리 - 하위 호환성
+    const rawItems = (ocrResult.items || []) as Array<{
+      raw_name?: string
+      name?: string
+      value?: string | number | null
+      unit?: string
+      reference?: string
+      ref_min?: number | null
+      ref_max?: number | null
+      ref_text?: string | null
+      is_abnormal?: boolean
+      abnormal_direction?: 'high' | 'low' | null
+    }>
+    const items = convertItems(rawItems)
+
+    return [{
       filename: file.name,
       items,
       metadata: {
@@ -297,7 +359,7 @@ async function processFile(file: File, retryCount = 0): Promise<{
         pages: 1,
         processingTime
       }
-    }
+    }]
   } catch (error) {
     console.error(`❌ OCR processing error for ${file.name}:`, error)
 
@@ -309,7 +371,7 @@ async function processFile(file: File, retryCount = 0): Promise<{
     }
 
     // 최종 실패 시 빈 결과 반환
-    return {
+    return [{
       filename: file.name,
       items: [],
       metadata: {
@@ -317,7 +379,7 @@ async function processFile(file: File, retryCount = 0): Promise<{
         processingTime: Date.now() - startTime
       },
       error: error instanceof Error ? error.message : 'OCR 처리 실패'
-    }
+    }]
   }
 }
 
@@ -370,10 +432,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`🚀 Processing ${files.length} files in parallel...`)
 
-    // 모든 파일을 병렬로 처리
-    const results = await Promise.all(
+    // 모든 파일을 병렬로 처리 (각 파일이 여러 결과를 반환할 수 있음)
+    const nestedResults = await Promise.all(
       files.map(file => processFile(file))
     )
+
+    // 중첩 배열을 평탄화 (한 파일에서 여러 날짜 그룹이 나올 수 있음)
+    const results = nestedResults.flat()
 
     // 실패한 파일 확인
     const successfulResults = results.filter(r => !r.error)
