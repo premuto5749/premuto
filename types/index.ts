@@ -192,3 +192,97 @@ export interface BatchSaveResponse {
     saved_count: number
   }
 }
+
+// ============================================
+// 일일 건강 기록 (Daily Log) 타입
+// ============================================
+
+export type LogCategory = 'meal' | 'water' | 'medicine' | 'poop' | 'pee' | 'breathing'
+
+export interface DailyLog {
+  id: string
+  category: LogCategory
+  logged_at: string          // ISO 날짜/시간
+  amount: number | null      // 양 (g, ml, 회/분 등)
+  unit: string | null        // 단위
+  memo: string | null        // 메모
+  photo_url: string | null   // 사진 URL
+  medicine_name: string | null  // 약 이름 (category가 medicine일 때)
+  created_at: string
+  updated_at: string
+}
+
+export interface DailyLogInput {
+  category: LogCategory
+  logged_at?: string         // 기본값: 현재 시간
+  amount?: number | null
+  unit?: string | null
+  memo?: string | null
+  photo_url?: string | null
+  medicine_name?: string | null
+}
+
+export interface DailyStats {
+  log_date: string
+  total_meal_amount: number
+  meal_count: number
+  total_water_amount: number
+  water_count: number
+  medicine_count: number
+  poop_count: number
+  pee_count: number
+  avg_breathing_rate: number | null
+  breathing_count: number
+}
+
+// 카테고리별 설정
+export const LOG_CATEGORY_CONFIG: Record<LogCategory, {
+  label: string
+  icon: string
+  unit: string
+  placeholder: string
+  color: string
+}> = {
+  meal: {
+    label: '식사',
+    icon: '🍚',
+    unit: 'g',
+    placeholder: '섭취량 (g)',
+    color: 'bg-orange-100 text-orange-700'
+  },
+  water: {
+    label: '음수',
+    icon: '💧',
+    unit: 'ml',
+    placeholder: '음수량 (ml)',
+    color: 'bg-blue-100 text-blue-700'
+  },
+  medicine: {
+    label: '약',
+    icon: '💊',
+    unit: '정',
+    placeholder: '복용량',
+    color: 'bg-purple-100 text-purple-700'
+  },
+  poop: {
+    label: '배변',
+    icon: '💩',
+    unit: '회',
+    placeholder: '',
+    color: 'bg-amber-100 text-amber-700'
+  },
+  pee: {
+    label: '배뇨',
+    icon: '🚽',
+    unit: '회',
+    placeholder: '',
+    color: 'bg-yellow-100 text-yellow-700'
+  },
+  breathing: {
+    label: '호흡수',
+    icon: '🫁',
+    unit: '회/분',
+    placeholder: '분당 호흡수',
+    color: 'bg-teal-100 text-teal-700'
+  }
+}
