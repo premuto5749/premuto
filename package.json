@@ -16,6 +16,7 @@
     "@humanwhocodes/object-schema": "npm:@eslint/object-schema@^2.1.5"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.72.1",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

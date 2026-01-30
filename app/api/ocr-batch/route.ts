@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import type { OcrResult } from '@/types'
 import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
 import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 
-// OpenAI 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+// Anthropic 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
+function getAnthropicClient() {
+  return new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
   })
 }
 
@@ -106,56 +106,11 @@ interface FileResult {
   error?: string
 }
 
-// 단일 파일 OCR 처리 함수 (재시도 지원, 다중 날짜 지원)
-async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
-  const startTime = Date.now()
-  const MAX_RETRIES = 2
+// OCR 프롬프트
+const OCR_PROMPT = `당신은 수의학 검사 결과지에서 데이터를 정확하게 추출하는 전문가입니다.
 
-  // 파일을 Base64로 인코딩
-  const bytes = await file.arrayBuffer()
-  const buffer = Buffer.from(bytes)
-  const base64 = buffer.toString('base64')
-
-  // MIME type 정규화
-  let mimeType = file.type
-  if (mimeType === 'image/jpg') {
-    mimeType = 'image/jpeg'
-  }
-
-  const isPdf = mimeType === 'application/pdf'
-
-  console.log(`📁 Processing file: ${file.name} (${file.size} bytes, ${isPdf ? 'PDF' : 'Image'})${retryCount > 0 ? ` [Retry ${retryCount}]` : ''}`)
-
-  try {
-    // 파일 타입에 따라 content 구성
-    const fileContent: OpenAI.Chat.Completions.ChatCompletionContentPart = isPdf
-      ? {
-          type: 'file' as const,
-          file: {
-            filename: file.name,
-            file_data: `data:application/pdf;base64,${base64}`,
-          },
-        } as unknown as OpenAI.Chat.Completions.ChatCompletionContentPart
-      : {
-          type: 'image_url' as const,
-          image_url: {
-            url: `data:${mimeType};base64,${base64}`
-          }
-        }
-
-    // GPT-4o Vision API 호출
-    const completion = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: `당신은 수의학 검사 결과지에서 데이터를 정확하게 추출하는 전문가입니다.
-
-첨부된 검사 결과지(이미지 또는 PDF)에서 **모든 페이지와 모든 검사 날짜**의 정보를 추출해주세요.
-PDF에 여러 날짜의 검사 결과가 있는 경우, 모두 별도의 test_groups로 분리해야 합니다.
+첨부된 검사 결과지(이미지 또는 PDF)에서 **모든 페이지와 모든 검사 날짜**의 정보를 순서대로 추출해주세요.
+PDF에 여러 날짜의 검사 결과가 있는 경우, 문서에 나타나는 순서대로 별도의 test_groups로 분리해야 합니다.
 
 ## 출력 형식 (다중 날짜 지원)
 {
@@ -210,6 +165,7 @@ PDF에 여러 날짜의 검사 결과가 있는 경우, 모두 별도의 test_gr
 - abnormal_direction: "high" (▲, H) / "low" (▼, L) / null
 
 ## 중요 주의사항
+- **문서에 나타나는 순서대로 추출하세요** (페이지 순서, 항목 순서 유지)
 - **모든 페이지의 모든 검사 결과를 빠짐없이 추출하세요**
 - **날짜가 다른 검사는 별도의 test_group으로 분리하세요**
 - 같은 날짜의 검사는 하나의 test_group에 모든 items를 포함
@@ -219,16 +175,68 @@ PDF에 여러 날짜의 검사 결과가 있는 경우, 모두 별도의 test_gr
 - 숫자에 천단위 구분자(,)가 있으면 제거 (1,390 → 1390)
 - JSON만 반환하고 다른 설명은 추가하지 마세요
 - 반드시 유효한 JSON 형식으로 반환하세요`
-            },
-            fileContent
-          ]
+
+// 단일 파일 OCR 처리 함수 (Claude API 사용, 다중 날짜 지원)
+async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
+  const startTime = Date.now()
+  const MAX_RETRIES = 2
+
+  // 파일을 Base64로 인코딩
+  const bytes = await file.arrayBuffer()
+  const buffer = Buffer.from(bytes)
+  const base64 = buffer.toString('base64')
+
+  // MIME type 정규화
+  let mimeType = file.type
+  if (mimeType === 'image/jpg') {
+    mimeType = 'image/jpeg'
+  }
+
+  const isPdf = mimeType === 'application/pdf'
+
+  console.log(`📁 Processing file: ${file.name} (${file.size} bytes, ${isPdf ? 'PDF' : 'Image'})${retryCount > 0 ? ` [Retry ${retryCount}]` : ''}`)
+
+  try {
+    // Claude API용 content 구성
+    const fileContent: Anthropic.Messages.ContentBlockParam = isPdf
+      ? {
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: base64,
+          },
         }
+      : {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+            data: base64,
+          },
+        }
+
+    // Claude API 호출
+    const message = await getAnthropicClient().messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            fileContent,
+            {
+              type: 'text',
+              text: OCR_PROMPT,
+            },
+          ],
+        },
       ],
-      max_tokens: 4000,
-      temperature: 0.1,
     })
 
-    const content = completion.choices[0]?.message?.content
+    // 응답에서 텍스트 추출
+    const textContent = message.content.find(block => block.type === 'text')
+    const content = textContent?.type === 'text' ? textContent.text : null
 
     if (!content) {
       throw new Error(`No response from OCR service for file: ${file.name}`)
@@ -450,7 +458,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`🚀 Processing ${files.length} files in parallel...`)
+    console.log(`🚀 Processing ${files.length} files with Claude API...`)
 
     // 모든 파일을 병렬로 처리 (각 파일이 여러 결과를 반환할 수 있음)
     const nestedResults = await Promise.all(
@@ -494,7 +502,7 @@ export async function POST(request: NextRequest) {
     if (uniqueDates.length > 1) {
       warnings.push({
         type: 'date_mismatch',
-        message: `여러 검사 날짜가 발견되었습니다: ${uniqueDates.join(', ')}. 정말 같은 검사인가요?`,
+        message: `여러 검사 날짜가 발견되었습니다: ${uniqueDates.join(', ')}. 각 날짜별로 별도 탭에서 확인하세요.`,
         files: results
           .filter(r => r.metadata.test_date && uniqueDates.includes(r.metadata.test_date))
           .map(r => r.filename)
