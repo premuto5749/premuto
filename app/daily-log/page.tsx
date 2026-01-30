@@ -30,33 +30,35 @@ export default function DailyLogPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
-      // 기록과 통계를 병렬로 가져오기
-      const [logsRes, statsRes] = await Promise.all([
-        fetch(`/api/daily-logs?date=${selectedDate}`),
-        fetch(`/api/daily-logs?date=${selectedDate}&stats=true`),
-      ])
-
+      // 기록 조회
+      const logsRes = await fetch(`/api/daily-logs?date=${selectedDate}`)
       if (logsRes.ok) {
         const logsData = await logsRes.json()
         setLogs(logsData.data || [])
+      } else {
+        setLogs([])
       }
 
-      if (statsRes.ok) {
-        const statsData = await statsRes.json()
-        const dayStats = statsData.data?.[0] || null
-        setStats(dayStats)
+      // 통계 조회 (별도 처리 - 뷰가 없을 수 있음)
+      try {
+        const statsRes = await fetch(`/api/daily-logs?date=${selectedDate}&stats=true`)
+        if (statsRes.ok) {
+          const statsData = await statsRes.json()
+          setStats(statsData.data?.[0] || null)
+        } else {
+          setStats(null)
+        }
+      } catch {
+        setStats(null)
       }
     } catch (error) {
       console.error('Failed to fetch data:', error)
-      toast({
-        title: '데이터 로드 실패',
-        description: '데이터를 불러오는데 실패했습니다.',
-        variant: 'destructive',
-      })
+      setLogs([])
+      setStats(null)
     } finally {
       setIsLoading(false)
     }
-  }, [selectedDate, toast])
+  }, [selectedDate])
 
   useEffect(() => {
     fetchData()

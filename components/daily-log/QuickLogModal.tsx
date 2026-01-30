@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,13 +15,35 @@ interface QuickLogModalProps {
   onSuccess?: () => void
 }
 
+// 현재 시간을 HH:MM 형식으로 반환
+const getCurrentTime = () => {
+  const now = new Date()
+  return now.toTimeString().slice(0, 5)
+}
+
+// 오늘 날짜를 YYYY-MM-DD 형식으로 반환
+const getCurrentDate = () => {
+  const now = new Date()
+  return now.toISOString().slice(0, 10)
+}
+
 export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const [amount, setAmount] = useState('')
   const [memo, setMemo] = useState('')
   const [medicineName, setMedicineName] = useState('')
+  const [logTime, setLogTime] = useState(getCurrentTime())
+  const [logDate, setLogDate] = useState(getCurrentDate())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
+
+  // 모달이 열릴 때마다 현재 시간으로 초기화
+  useEffect(() => {
+    if (open) {
+      setLogTime(getCurrentTime())
+      setLogDate(getCurrentDate())
+    }
+  }, [open])
 
   const categories: LogCategory[] = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing']
 
@@ -30,6 +52,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
     setAmount('')
     setMemo('')
     setMedicineName('')
+    setLogTime(getCurrentTime())
+    setLogDate(getCurrentDate())
+  }
+
+  // 날짜와 시간을 ISO 문자열로 변환
+  const getLoggedAtISO = () => {
+    return `${logDate}T${logTime}:00`
   }
 
   const handleSubmit = async () => {
@@ -41,6 +70,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
       const config = LOG_CATEGORY_CONFIG[selectedCategory]
       const logData: DailyLogInput = {
         category: selectedCategory,
+        logged_at: getLoggedAtISO(),
         amount: amount ? parseFloat(amount) : (selectedCategory === 'poop' || selectedCategory === 'pee' ? 1 : null),
         unit: config.unit,
         memo: memo || null,
@@ -98,6 +128,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           category,
+          logged_at: getLoggedAtISO(),
           amount: 1,
           unit: config.unit,
         }),
@@ -156,6 +187,25 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
         ) : (
           // 입력 화면
           <div className="space-y-4 py-4">
+            {/* 시간 선택 */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">시간</label>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={logDate}
+                  onChange={(e) => setLogDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  type="time"
+                  value={logTime}
+                  onChange={(e) => setLogTime(e.target.value)}
+                  className="w-28"
+                />
+              </div>
+            </div>
+
             {/* 양 입력 (배변/배뇨 제외) */}
             {selectedCategory !== 'poop' && selectedCategory !== 'pee' && (
               <div>
