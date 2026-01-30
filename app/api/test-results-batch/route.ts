@@ -73,22 +73,10 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // 특수값 타입 매핑
-        let specialValueType: string | null = null
-        if (parsed.type === 'less_than') specialValueType = 'less_than'
-        else if (parsed.type === 'greater_than') specialValueType = 'greater_than'
-        else if (parsed.type === 'special') specialValueType = 'flagged'
-        else if (parsed.type === 'text') specialValueType = 'qualitative'
-
         return {
           record_id: recordId,
           standard_item_id: result.standard_item_id,
-          // value 컬럼이 NUMERIC NOT NULL이므로 null인 경우 0 저장
-          // 실제 값은 raw_value에 저장
           value: numericValue ?? 0,
-          raw_value: parsed.display || String(result.value),
-          is_special_value: parsed.type !== 'numeric',
-          special_value_type: specialValueType,
           ref_min: result.ref_min,
           ref_max: result.ref_max,
           ref_text: result.ref_text,

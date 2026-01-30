@@ -17,6 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface TimelineProps {
   logs: DailyLog[]
@@ -25,10 +31,22 @@ interface TimelineProps {
 
 export function Timeline({ logs, onDelete }: TimelineProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null)
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr)
     return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const formatDateTime = (dateStr: string) => {
+    const d = new Date(dateStr)
+    return d.toLocaleString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
   const formatValue = (log: DailyLog) => {
@@ -66,7 +84,11 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
         {logs.map((log) => {
           const config = LOG_CATEGORY_CONFIG[log.category]
           return (
-            <Card key={log.id} className="overflow-hidden">
+            <Card
+              key={log.id}
+              className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => setSelectedLog(log)}
+            >
               <CardContent className="p-0">
                 <div className="flex items-center">
                   {/* 시간 */}
@@ -102,29 +124,9 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
                       )}
                     </div>
                     {log.memo && (
-                      <p className="text-sm text-muted-foreground mt-0.5">
+                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
                         {log.memo}
                       </p>
-                    )}
-                    {/* 사진 미리보기 */}
-                    {log.photo_urls && log.photo_urls.length > 0 && (
-                      <div className="flex gap-1 mt-2">
-                        {log.photo_urls.slice(0, 3).map((url, idx) => (
-                          <div key={idx} className="relative w-12 h-12">
-                            <Image
-                              src={url}
-                              alt={`사진 ${idx + 1}`}
-                              fill
-                              className="object-cover rounded"
-                            />
-                          </div>
-                        ))}
-                        {log.photo_urls.length > 3 && (
-                          <div className="w-12 h-12 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">
-                            +{log.photo_urls.length - 3}
-                          </div>
-                        )}
-                      </div>
                     )}
                   </div>
 
@@ -134,7 +136,10 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
                       variant="ghost"
                       size="sm"
                       className="mr-2 text-muted-foreground hover:text-destructive"
-                      onClick={() => setDeleteId(log.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeleteId(log.id)
+                      }}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -163,6 +168,93 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 상세 정보 모달 */}
+      <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
+        <DialogContent className="sm:max-w-md">
+          {selectedLog && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <span className="text-2xl">{LOG_CATEGORY_CONFIG[selectedLog.category].icon}</span>
+                  {LOG_CATEGORY_CONFIG[selectedLog.category].label}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {/* 시간 */}
+                <div>
+                  <p className="text-sm text-muted-foreground">기록 시간</p>
+                  <p className="font-medium">{formatDateTime(selectedLog.logged_at)}</p>
+                </div>
+
+                {/* 양 (배변/배뇨 제외) */}
+                {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.amount !== null && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedLog.category === 'breathing' ? '호흡수' : '양'}
+                    </p>
+                    <p className="font-medium">
+                      {selectedLog.amount} {selectedLog.unit || LOG_CATEGORY_CONFIG[selectedLog.category].unit}
+                    </p>
+                  </div>
+                )}
+
+                {/* 약 이름 */}
+                {selectedLog.category === 'medicine' && selectedLog.medicine_name && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">약 이름</p>
+                    <p className="font-medium">{selectedLog.medicine_name}</p>
+                  </div>
+                )}
+
+                {/* 메모 */}
+                {selectedLog.memo && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">메모</p>
+                    <p className="font-medium whitespace-pre-wrap">{selectedLog.memo}</p>
+                  </div>
+                )}
+
+                {/* 사진 */}
+                {selectedLog.photo_urls && selectedLog.photo_urls.length > 0 && (
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      사진 ({selectedLog.photo_urls.length}장)
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {selectedLog.photo_urls.map((url, idx) => (
+                        <div key={idx} className="relative aspect-square">
+                          <Image
+                            src={url}
+                            alt={`사진 ${idx + 1}`}
+                            fill
+                            className="object-cover rounded-lg"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 삭제 버튼 */}
+                {onDelete && (
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={() => {
+                      setDeleteId(selectedLog.id)
+                      setSelectedLog(null)
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    기록 삭제
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

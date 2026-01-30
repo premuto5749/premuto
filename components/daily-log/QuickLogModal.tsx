@@ -25,10 +25,13 @@ const getCurrentTime = () => {
   return now.toTimeString().slice(0, 5)
 }
 
-// 오늘 날짜를 YYYY-MM-DD 형식으로 반환
+// 오늘 날짜를 YYYY-MM-DD 형식으로 반환 (로컬 타임존)
 const getCurrentDate = () => {
   const now = new Date()
-  return now.toISOString().slice(0, 10)
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalProps) {
@@ -161,9 +164,11 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
     }
   }
 
-  // 날짜와 시간을 ISO 문자열로 변환
+  // 날짜와 시간을 ISO 문자열로 변환 (로컬 타임존 반영)
   const getLoggedAtISO = () => {
-    return `${logDate}T${logTime}:00`
+    // 로컬 시간으로 Date 객체 생성
+    const localDate = new Date(`${logDate}T${logTime}:00`)
+    return localDate.toISOString()
   }
 
   const handleSubmit = async () => {
@@ -221,52 +226,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
   }
 
   const handleCategoryClick = (category: LogCategory) => {
-    // 배변/배뇨는 바로 저장 (양 입력 불필요)
-    if (category === 'poop' || category === 'pee') {
-      setSelectedCategory(category)
-      // 바로 저장
-      saveQuickLog(category)
-    } else {
-      setSelectedCategory(category)
-    }
-  }
-
-  const saveQuickLog = async (category: LogCategory) => {
-    setIsSubmitting(true)
-    try {
-      const config = LOG_CATEGORY_CONFIG[category]
-      const response = await fetch('/api/daily-logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category,
-          logged_at: getLoggedAtISO(),
-          amount: 1,
-          unit: config.unit,
-        }),
-      })
-
-      if (!response.ok) throw new Error('Failed to save')
-
-      toast({
-        title: '기록 완료',
-        description: `${config.icon} ${config.label} 기록이 저장되었습니다.`,
-      })
-
-      resetForm()
-      onOpenChange(false)
-      onSuccess?.()
-
-    } catch (error) {
-      console.error('Quick save error:', error)
-      toast({
-        title: '저장 실패',
-        description: '기록 저장에 실패했습니다.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
+    // 모든 카테고리에서 입력 화면으로 이동 (배변/배뇨도 시간 선택 가능하도록)
+    setSelectedCategory(category)
   }
 
   return (
@@ -288,7 +249,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
                   key={cat}
                   onClick={() => handleCategoryClick(cat)}
                   disabled={isSubmitting}
-                  className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 border-transparent hover:border-primary transition-all ${config.color}`}
+                  className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
                 >
                   <span className="text-3xl mb-2">{config.icon}</span>
                   <span className="text-sm font-medium">{config.label}</span>
