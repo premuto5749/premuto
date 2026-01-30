@@ -274,7 +274,7 @@ async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
     // Claude API 호출
     const message = await getAnthropicClient().messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 8000,
+      max_tokens: 16000,
       messages: [
         {
           role: 'user',

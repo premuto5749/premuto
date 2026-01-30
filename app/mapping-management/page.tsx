@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { AppHeader } from '@/components/layout/AppHeader'
 import { Loader2, Save, AlertTriangle } from 'lucide-react'
 import type { StandardItem } from '@/types'
 
@@ -113,20 +114,20 @@ function MappingManagementContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-gray-50">
+        <AppHeader title="검사항목 매핑 관리" />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container max-w-7xl mx-auto py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">검사항목 매핑 관리</h1>
-        <p className="text-muted-foreground">
-          중복되거나 유사한 검사항목들을 통합하여 데이터 품질을 향상시키세요
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader title="검사항목 매핑 관리" />
+
+      <div className="container max-w-7xl mx-auto py-10 px-4">
 
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -284,6 +285,7 @@ function MappingManagementContent() {
           <li>병합은 되돌릴 수 없으니 신중히 선택하세요</li>
           <li>정기적으로 이 페이지를 확인하여 데이터 품질을 유지하세요</li>
         </ul>
+      </div>
       </div>
     </div>
   )

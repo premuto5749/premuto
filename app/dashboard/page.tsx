@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { AppHeader } from '@/components/layout/AppHeader'
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { PivotTable } from '@/components/dashboard/PivotTable'
@@ -82,22 +83,22 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="container max-w-6xl mx-auto py-10">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-gray-50">
+        <AppHeader title="검사 결과 대시보드" />
+        <div className="container max-w-6xl mx-auto py-10">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container max-w-6xl mx-auto py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">대시보드</h1>
-        <p className="text-muted-foreground">
-          미모의 건강 데이터를 한눈에 확인하세요
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader title="검사 결과 대시보드" />
+
+      <div className="container max-w-6xl mx-auto py-10 px-4">
 
       {saved && (
         <Card className="mb-6 border-green-500 bg-green-50 dark:bg-green-950/20">
@@ -166,6 +167,7 @@ function DashboardContent() {
           />
         </div>
       )}
+      </div>
     </div>
   )
 }

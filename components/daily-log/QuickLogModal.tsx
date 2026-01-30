@@ -17,6 +17,7 @@ interface QuickLogModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  defaultDate?: string // YYYY-MM-DD 형식, 선택된 날짜가 있으면 해당 날짜로 초기화
 }
 
 // 현재 시간을 HH:MM 형식으로 반환
@@ -34,7 +35,7 @@ const getCurrentDate = () => {
   return `${year}-${month}-${day}`
 }
 
-export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalProps) {
+export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate }: QuickLogModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const [amount, setAmount] = useState('')
   const [memo, setMemo] = useState('')
@@ -48,13 +49,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  // 모달이 열릴 때마다 현재 시간으로 초기화
+  // 모달이 열릴 때마다 현재 시간으로 초기화 (defaultDate가 있으면 해당 날짜 사용)
   useEffect(() => {
     if (open) {
       setLogTime(getCurrentTime())
-      setLogDate(getCurrentDate())
+      setLogDate(defaultDate || getCurrentDate())
     }
-  }, [open])
+  }, [open, defaultDate])
 
   // 사진 미리보기 URL cleanup
   useEffect(() => {
@@ -71,7 +72,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
     setMemo('')
     setMedicineName('')
     setLogTime(getCurrentTime())
-    setLogDate(getCurrentDate())
+    setLogDate(defaultDate || getCurrentDate())
     // 사진 미리보기 URL 정리
     photoPreviews.forEach(url => URL.revokeObjectURL(url))
     setPhotos([])

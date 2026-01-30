@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { HospitalSelector } from '@/components/ui/hospital-selector'
+import { AppHeader } from '@/components/layout/AppHeader'
 import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { OcrBatchResponse, OcrResult, Hospital } from '@/types'
@@ -372,20 +373,20 @@ function PreviewContent() {
 
   if (!batchData || allItems.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-gray-50">
+        <AppHeader title="OCR 결과 확인" showBack backHref="/upload" />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container max-w-6xl mx-auto py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">OCR 결과 확인</h1>
-        <p className="text-muted-foreground">
-          AI가 추출한 결과를 날짜별로 확인하고 필요시 수정하세요
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader title="OCR 결과 확인" showBack backHref="/upload" />
+
+      <div className="container max-w-6xl mx-auto py-10 px-4">
 
       {/* 경고 메시지 */}
       {batchData.warnings && batchData.warnings.length > 0 && (
@@ -641,6 +642,7 @@ function PreviewContent() {
           <li>매칭되지 않은 항목은 &apos;Unmapped&apos; 카테고리로 자동 생성됩니다</li>
           <li>각 날짜 그룹은 독립적으로 저장됩니다</li>
         </ul>
+      </div>
       </div>
     </div>
   )

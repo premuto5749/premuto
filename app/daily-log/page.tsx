@@ -245,6 +245,7 @@ export default function DailyLogPage() {
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
         onSuccess={fetchData}
+        defaultDate={selectedDate}
       />
     </div>
   )

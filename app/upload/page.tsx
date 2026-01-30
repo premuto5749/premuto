@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AppHeader } from '@/components/layout/AppHeader'
 import { Loader2, ArrowRight, AlertCircle } from 'lucide-react'
 
 const FileUploader = dynamic(
@@ -72,13 +73,10 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">검사지 업로드</h1>
-        <p className="text-muted-foreground">
-          한 번의 검사에 해당하는 모든 결과지를 업로드하면 AI가 자동으로 분석합니다
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader title="검사지 업로드" />
+
+      <div className="container max-w-4xl mx-auto py-10 px-4">
 
       <Card className="mb-6">
         <CardHeader>
@@ -160,6 +158,7 @@ export default function UploadPage() {
           <li>글씨가 흐리거나 잘린 경우 인식 정확도가 낮을 수 있습니다</li>
           <li>분석 후 AI가 자동으로 항목을 매칭하며, 검수 페이지에서 확인 및 수정할 수 있습니다</li>
         </ul>
+      </div>
       </div>
     </div>
   )
