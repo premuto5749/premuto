@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
+import { Camera, X, Loader2 } from 'lucide-react'
 import type { LogCategory, DailyLogInput } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
+
+const MAX_PHOTOS = 5
 
 interface QuickLogModalProps {
   open: boolean
@@ -34,7 +38,11 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
   const [medicineName, setMedicineName] = useState('')
   const [logTime, setLogTime] = useState(getCurrentTime())
   const [logDate, setLogDate] = useState(getCurrentDate())
+  const [photos, setPhotos] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   // 모달이 열릴 때마다 현재 시간으로 초기화
@@ -45,6 +53,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
     }
   }, [open])
 
+  // 사진 미리보기 URL cleanup
+  useEffect(() => {
+    return () => {
+      photoPreviews.forEach(url => URL.revokeObjectURL(url))
+    }
+  }, [photoPreviews])
+
   const categories: LogCategory[] = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing']
 
   const resetForm = () => {
@@ -54,6 +69,96 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
     setMedicineName('')
     setLogTime(getCurrentTime())
     setLogDate(getCurrentDate())
+    // 사진 미리보기 URL 정리
+    photoPreviews.forEach(url => URL.revokeObjectURL(url))
+    setPhotos([])
+    setPhotoPreviews([])
+  }
+
+  // 사진 선택 핸들러
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    const remainingSlots = MAX_PHOTOS - photos.length
+    if (files.length > remainingSlots) {
+      toast({
+        title: '사진 개수 초과',
+        description: `최대 ${MAX_PHOTOS}장까지만 첨부할 수 있습니다.`,
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 파일 크기 및 타입 검증
+    const validFiles: File[] = []
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: '파일 크기 초과',
+          description: `${file.name}은(는) 5MB를 초과합니다.`,
+          variant: 'destructive',
+        })
+        continue
+      }
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        toast({
+          title: '지원하지 않는 형식',
+          description: `${file.name}은(는) 지원하지 않는 이미지 형식입니다.`,
+          variant: 'destructive',
+        })
+        continue
+      }
+      validFiles.push(file)
+    }
+
+    if (validFiles.length === 0) return
+
+    // 미리보기 URL 생성
+    const newPreviews = validFiles.map(file => URL.createObjectURL(file))
+
+    setPhotos(prev => [...prev, ...validFiles])
+    setPhotoPreviews(prev => [...prev, ...newPreviews])
+
+    // input 초기화
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  // 사진 제거 핸들러
+  const handlePhotoRemove = (index: number) => {
+    URL.revokeObjectURL(photoPreviews[index])
+    setPhotos(prev => prev.filter((_, i) => i !== index))
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // 사진 업로드 함수
+  const uploadPhotos = async (): Promise<string[]> => {
+    if (photos.length === 0) return []
+
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      photos.forEach((photo, index) => {
+        formData.append(`photo${index}`, photo)
+      })
+
+      const response = await fetch('/api/daily-logs/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '사진 업로드 실패')
+      }
+
+      return result.data.urls
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   // 날짜와 시간을 ISO 문자열로 변환
@@ -67,6 +172,12 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
     setIsSubmitting(true)
 
     try {
+      // 사진이 있으면 먼저 업로드
+      let photoUrls: string[] = []
+      if (photos.length > 0) {
+        photoUrls = await uploadPhotos()
+      }
+
       const config = LOG_CATEGORY_CONFIG[selectedCategory]
       const logData: DailyLogInput = {
         category: selectedCategory,
@@ -74,6 +185,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
         amount: amount ? parseFloat(amount) : (selectedCategory === 'poop' || selectedCategory === 'pee' ? 1 : null),
         unit: config.unit,
         memo: memo || null,
+        photo_urls: photoUrls,
         medicine_name: selectedCategory === 'medicine' ? medicineName : null,
       }
 
@@ -250,21 +362,86 @@ export function QuickLogModal({ open, onOpenChange, onSuccess }: QuickLogModalPr
               />
             </div>
 
+            {/* 사진 첨부 */}
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                사진 (선택, 최대 {MAX_PHOTOS}장)
+              </label>
+
+              {/* 사진 미리보기 */}
+              {photoPreviews.length > 0 && (
+                <div className="grid grid-cols-5 gap-2 mb-2">
+                  {photoPreviews.map((preview, index) => (
+                    <div key={index} className="relative aspect-square">
+                      <Image
+                        src={preview}
+                        alt={`사진 ${index + 1}`}
+                        fill
+                        className="object-cover rounded-md"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handlePhotoRemove(index)}
+                        className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 사진 추가 버튼 */}
+              {photos.length < MAX_PHOTOS && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSubmitting || isUploading}
+                    className="w-full"
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    사진 추가 ({photos.length}/{MAX_PHOTOS})
+                  </Button>
+                </>
+              )}
+            </div>
+
             {/* 버튼 */}
             <div className="flex gap-2 pt-2">
               <Button
                 variant="outline"
                 onClick={() => setSelectedCategory(null)}
+                disabled={isSubmitting || isUploading}
                 className="flex-1"
               >
                 뒤로
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploading}
                 className="flex-1"
               >
-                {isSubmitting ? '저장 중...' : '저장'}
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    사진 업로드 중...
+                  </>
+                ) : isSubmitting ? (
+                  '저장 중...'
+                ) : (
+                  '저장'
+                )}
               </Button>
             </div>
           </div>

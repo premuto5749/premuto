@@ -33,7 +33,7 @@ CREATE TABLE daily_logs (
   amount DECIMAL(10, 2),             -- 양 (g, ml, 회/분 등)
   unit VARCHAR(20),                  -- 단위
   memo TEXT,                         -- 메모
-  photo_url TEXT,                    -- 사진 URL
+  photo_urls JSONB DEFAULT '[]',     -- 사진 URL 배열 (최대 5장)
   medicine_name VARCHAR(100),        -- 약 이름 (category='medicine'일 때)
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

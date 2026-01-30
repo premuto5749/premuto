@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const body: DailyLogInput = await request.json()
 
-    const { category, logged_at, amount, unit, memo, photo_url, medicine_name } = body
+    const { category, logged_at, amount, unit, memo, photo_urls, medicine_name } = body
 
     if (!category) {
       return NextResponse.json(
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         amount,
         unit,
         memo,
-        photo_url,
+        photo_urls: photo_urls || [],
         medicine_name: category === 'medicine' ? medicine_name : null
       })
       .select()

@@ -206,7 +206,7 @@ export interface DailyLog {
   amount: number | null      // 양 (g, ml, 회/분 등)
   unit: string | null        // 단위
   memo: string | null        // 메모
-  photo_url: string | null   // 사진 URL
+  photo_urls: string[]       // 사진 URL 배열 (최대 5장)
   medicine_name: string | null  // 약 이름 (category가 medicine일 때)
   created_at: string
   updated_at: string
@@ -218,7 +218,7 @@ export interface DailyLogInput {
   amount?: number | null
   unit?: string | null
   memo?: string | null
-  photo_url?: string | null
+  photo_urls?: string[]      // 사진 URL 배열 (최대 5장)
   medicine_name?: string | null
 }
 

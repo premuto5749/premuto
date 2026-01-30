@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Trash2, ImageIcon } from 'lucide-react'
 import type { DailyLog } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import {
@@ -92,11 +93,38 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
                           ({log.medicine_name})
                         </span>
                       )}
+                      {/* 사진 아이콘 표시 */}
+                      {log.photo_urls && log.photo_urls.length > 0 && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                          <ImageIcon className="w-3 h-3" />
+                          {log.photo_urls.length}
+                        </span>
+                      )}
                     </div>
                     {log.memo && (
                       <p className="text-sm text-muted-foreground mt-0.5">
                         {log.memo}
                       </p>
+                    )}
+                    {/* 사진 미리보기 */}
+                    {log.photo_urls && log.photo_urls.length > 0 && (
+                      <div className="flex gap-1 mt-2">
+                        {log.photo_urls.slice(0, 3).map((url, idx) => (
+                          <div key={idx} className="relative w-12 h-12">
+                            <Image
+                              src={url}
+                              alt={`사진 ${idx + 1}`}
+                              fill
+                              className="object-cover rounded"
+                            />
+                          </div>
+                        ))}
+                        {log.photo_urls.length > 3 && (
+                          <div className="w-12 h-12 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">
+                            +{log.photo_urls.length - 3}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
