@@ -130,8 +130,9 @@ export function HospitalSelector({
                   <CommandItem
                     key={hospital.id}
                     value={hospital.name}
-                    onSelect={(currentValue) => {
-                      onValueChange(currentValue === value ? "" : currentValue)
+                    onSelect={() => {
+                      // cmdk lowercases values in onSelect, so use hospital.name directly
+                      onValueChange(hospital.name === value ? "" : hospital.name)
                       setOpen(false)
                     }}
                   >

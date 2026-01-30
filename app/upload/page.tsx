@@ -115,7 +115,7 @@ export default function UploadPage() {
         <CardHeader>
           <CardTitle>2단계: AI 일괄 분석</CardTitle>
           <CardDescription>
-            GPT-4o Vision이 모든 검사지를 동시에 분석하여 항목별 결과를 추출합니다
+            Claude AI가 모든 검사지를 동시에 분석하여 항목별 결과를 추출합니다
           </CardDescription>
         </CardHeader>
         <CardContent>
