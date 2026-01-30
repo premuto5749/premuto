@@ -55,7 +55,57 @@ function cleanAndParseJson(content: string): Record<string, unknown> | null {
   try {
     return JSON.parse(cleaned)
   } catch {
-    // 5. 더 공격적인 복구: items 배열만 추출
+    // 5. test_groups 형식 복구 시도 (다중 날짜 지원)
+    try {
+      const testGroupsMatch = cleaned.match(/"test_groups"\s*:\s*\[([\s\S]*)$/)
+      if (testGroupsMatch) {
+        const groupsContent = testGroupsMatch[1]
+        // 각 그룹 객체 추출 (중첩된 객체 처리)
+        const groups: Array<Record<string, unknown>> = []
+        let depth = 0
+        let currentGroup = ''
+        let inGroup = false
+
+        for (let i = 0; i < groupsContent.length; i++) {
+          const char = groupsContent[i]
+
+          if (char === '{') {
+            if (depth === 0) {
+              inGroup = true
+              currentGroup = '{'
+            } else {
+              currentGroup += char
+            }
+            depth++
+          } else if (char === '}') {
+            depth--
+            currentGroup += char
+            if (depth === 0 && inGroup) {
+              // 그룹 완료 - 파싱 시도
+              try {
+                const group = JSON.parse(currentGroup)
+                groups.push(group)
+              } catch {
+                // 개별 그룹 파싱 실패 - 무시
+              }
+              currentGroup = ''
+              inGroup = false
+            }
+          } else if (inGroup) {
+            currentGroup += char
+          }
+        }
+
+        if (groups.length > 0) {
+          console.log(`✅ Recovered ${groups.length} test_groups from malformed JSON`)
+          return { test_groups: groups }
+        }
+      }
+    } catch {
+      // test_groups 복구 실패, 기존 items 복구 시도
+    }
+
+    // 6. 기존 items 배열만 추출 (단일 날짜 형식 하위 호환성)
     try {
       const itemsMatch = cleaned.match(/"items"\s*:\s*\[([\s\S]*?)(?:\]|$)/)
       if (itemsMatch) {
