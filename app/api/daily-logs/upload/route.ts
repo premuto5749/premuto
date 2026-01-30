@@ -9,6 +9,16 @@ const BUCKET_NAME = 'daily-log-photos'
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
+
+    // 인증된 사용자 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      )
+    }
+
     const formData = await request.formData()
 
     const files: File[] = []
@@ -51,7 +61,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 파일 업로드
+    // 파일 업로드 (사용자별 폴더)
     const uploadedUrls: string[] = []
     const timestamp = Date.now()
 
@@ -59,7 +69,7 @@ export async function POST(request: NextRequest) {
       const file = files[i]
       const ext = file.name.split('.').pop() || 'jpg'
       const fileName = `${timestamp}_${i}.${ext}`
-      const filePath = `uploads/${fileName}`
+      const filePath = `uploads/${user.id}/${fileName}`
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
@@ -74,7 +84,7 @@ export async function POST(request: NextRequest) {
         if (uploadedUrls.length > 0) {
           const pathsToDelete = uploadedUrls.map(url => {
             const parts = url.split('/')
-            return `uploads/${parts[parts.length - 1]}`
+            return `uploads/${user.id}/${parts[parts.length - 1]}`
           })
           await supabase.storage.from(BUCKET_NAME).remove(pathsToDelete)
         }

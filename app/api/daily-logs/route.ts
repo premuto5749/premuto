@@ -78,6 +78,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
+
+    // 인증된 사용자 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      )
+    }
+
     const body: DailyLogInput = await request.json()
 
     const { category, logged_at, amount, unit, memo, photo_urls, medicine_name } = body
@@ -92,6 +102,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('daily_logs')
       .insert({
+        user_id: user.id,
         category,
         logged_at: logged_at || new Date().toISOString(),
         amount,

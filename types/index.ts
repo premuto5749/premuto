@@ -201,6 +201,7 @@ export type LogCategory = 'meal' | 'water' | 'medicine' | 'poop' | 'pee' | 'brea
 
 export interface DailyLog {
   id: string
+  user_id: string            // 소유자 ID (RLS로 본인 기록만 조회 가능)
   category: LogCategory
   logged_at: string          // ISO 날짜/시간
   amount: number | null      // 양 (g, ml, 회/분 등)
@@ -223,6 +224,7 @@ export interface DailyLogInput {
 }
 
 export interface DailyStats {
+  user_id: string            // 소유자 ID
   log_date: string
   total_meal_amount: number
   meal_count: number
