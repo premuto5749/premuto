@@ -1,6 +1,19 @@
-# Mimo Health Log (미모 맞춤형 혈액검사 아카이브)
+# Mimo Health Log (미모 건강 기록)
 
-반려동물 '미모'의 혈액검사 결과를 OCR로 분석하고 시계열 트렌드를 관리하는 웹 애플리케이션입니다.
+반려동물 '미모'의 건강을 종합적으로 관리하는 웹 애플리케이션입니다.
+
+## 🌟 주요 기능
+
+### 1. 일일 건강 기록 (Daily Log)
+- **빠른 기록**: 식사, 음수, 약, 배변, 배뇨, 호흡수를 원터치로 기록
+- **타임라인 뷰**: 날짜별 기록 목록 표시
+- **일일 통계**: 하루 섭취량, 횟수, 평균 호흡수 자동 집계
+
+### 2. 혈액검사 아카이브
+- **OCR 분석**: 검사지(PDF/이미지)를 Claude AI로 자동 판독
+- **다중 날짜 지원**: 한 번에 여러 날짜의 검사지를 업로드하고 자동 분류
+- **AI 매칭**: 병원/장비마다 다른 항목명을 표준화하여 매핑
+- **시계열 트렌드**: 피벗 테이블과 그래프로 건강 변화 추적
 
 ## 📚 프로젝트 문서
 
@@ -59,7 +72,8 @@
 
 - **Frontend**: Next.js 14, Tailwind CSS, Shadcn/ui
 - **Backend/DB**: Supabase (PostgreSQL)
-- **AI/OCR**: GPT-4o (Vision API)
+- **AI/OCR**: Claude API (Anthropic) - PDF/이미지 판독
+- **AI Mapping**: GPT-4o (OpenAI) - 검사항목 자동 매핑
 ## 🚀 빠른 시작
 
 ### 1. 의존성 설치
@@ -74,8 +88,16 @@ npm install
 
 간단 요약:
 1. Supabase 프로젝트 생성
-2. `.env.local` 파일에 API 키 설정
-3. SQL Editor에서 `supabase/migrations/001_initial_schema.sql` 실행
+2. `.env.local` 파일에 API 키 설정:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=...
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+   ANTHROPIC_API_KEY=...
+   OPENAI_API_KEY=...
+   ```
+3. SQL Editor에서 마이그레이션 파일 실행:
+   - `001_initial_schema.sql` (기본 스키마)
+   - `005_daily_logs.sql` (일일 기록)
 
 ### 3. 개발 서버 실행
 
@@ -112,8 +134,14 @@ npm run lint
 ```
 mimo-health-log/
 ├── app/                  # Next.js 페이지 (App Router)
+│   ├── daily-log/       # 일일 건강 기록 페이지 (메인)
+│   ├── upload/          # 검사지 업로드
+│   ├── preview/         # OCR 결과 미리보기
+│   ├── dashboard/       # 검사 결과 대시보드
+│   └── api/             # API 라우트
 ├── components/           # React 컴포넌트
 │   ├── ui/              # Shadcn/ui 기본 컴포넌트
+│   ├── daily-log/       # 일일 기록 관련 컴포넌트
 │   ├── upload/          # 파일 업로드 관련
 │   ├── staging/         # 검수 페이지
 │   └── dashboard/       # 시각화 대시보드
@@ -121,6 +149,7 @@ mimo-health-log/
 │   ├── supabase/        # Supabase 클라이언트
 │   ├── ocr/             # OCR 처리 로직
 │   └── utils.ts         # 유틸리티 함수
+├── hooks/               # Custom React Hooks
 ├── types/               # TypeScript 타입 정의
 └── supabase/
     └── migrations/      # 데이터베이스 마이그레이션

@@ -2,10 +2,25 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# Project: Mimo Health Log (미모 맞춤형 혈액검사 아카이브)
+# Project: Mimo Health Log (미모 건강 기록)
 
 ## 1. 프로젝트 목표
-반려동물 '미모'의 다년간 누적된 혈액검사지(PDF/이미지)를 OCR로 판독하여 DB화하고, 병원/장비마다 다른 참고치(Reference Range)와 항목명(Alias)을 표준화하여 시계열 트렌드를 분석한다.
+반려동물 '미모'의 건강을 종합적으로 관리하는 애플리케이션.
+
+### 1-1. 일일 건강 기록 (v3 신규)
+- 식사, 음수, 약, 배변, 배뇨, 호흡수를 빠르게 기록
+- 날짜별 타임라인으로 기록 확인
+- 일일 통계로 섭취량, 횟수, 평균 호흡수 추적
+
+### 1-2. 혈액검사 아카이브
+- 다년간 누적된 혈액검사지(PDF/이미지)를 OCR로 판독하여 DB화
+- 병원/장비마다 다른 참고치(Reference Range)와 항목명(Alias)을 표준화
+- 시계열 트렌드 분석
+
+**v3 핵심 개선사항**:
+- 일일 건강 기록 서비스 추가 (메인 페이지)
+- OCR 엔진 Claude API로 변경 (PDF 구조 이해 향상)
+- 햄버거 메뉴로 서비스 간 이동
 
 **v2 핵심 개선사항**:
 - 여러 날짜의 검사를 한 번에 업로드하고 자동으로 날짜별 그룹화
@@ -18,14 +33,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 이 프로젝트는 다음 문서들로 구성되어 있습니다:
 - **CLAUDE.md** (이 파일): 개발 가이드라인 및 핵심 도메인 규칙
-- **PRD.md**: 제품 요구사항 명세서 - 사용자 워크플로우(Upload → AI Parsing → Staging & Mapping → Save)와 UI 요구사항
-- **SCHEMA.md**: 데이터베이스 스키마 - 4개 핵심 테이블(standard_items, item_mappings, test_records, test_results)
+- **PRD.md**: 제품 요구사항 명세서 - 사용자 워크플로우와 UI 요구사항
+- **SCHEMA.md**: 데이터베이스 스키마 - 5개 핵심 테이블(daily_logs, standard_items, item_mappings, test_records, test_results)
 - **README.md**: 프로젝트 개요 및 Claude Code 설정 가이드
 - **settings.json**: Claude Code 자동 실행 권한 설정
 
 ## 3. 아키텍처 개요
 
-### 데이터 흐름 (Data Flow) - v2 개선 버전
+### 일일 건강 기록 흐름 (Daily Log Flow) - v3 신규
+
+```
+[+ 버튼] → [카테고리 선택] → [양/메모 입력] → [저장]
+                ↓
+        [타임라인에 표시]
+                ↓
+        [일일 통계 자동 집계]
+```
+
+**카테고리**:
+| 카테고리 | 아이콘 | 단위 | 입력 방식 |
+|---------|--------|------|----------|
+| meal (식사) | 🍚 | g | 양 입력 |
+| water (음수) | 💧 | ml | 양 입력 |
+| medicine (약) | 💊 | 정 | 양 + 약 이름 |
+| poop (배변) | 💩 | 회 | 원터치 |
+| pee (배뇨) | 🚽 | 회 | 원터치 |
+| breathing (호흡수) | 🫁 | 회/분 | 분당 호흡수 |
+
+**API 엔드포인트**: `/api/daily-logs`
+- GET: 날짜별 기록 조회, 통계 조회 (`?stats=true`)
+- POST: 새 기록 추가
+- PATCH: 기록 수정
+- DELETE: 기록 삭제
+
+---
+
+### 혈액검사 데이터 흐름 (Data Flow) - v2 개선 버전
 
 #### Phase 1: 다중 파일 업로드 및 일괄 분석
 1. **다중 파일 입력**: 사용자가 여러 검사의 문서들을 한 번에 업로드 (최대 10개)

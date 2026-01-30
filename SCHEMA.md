@@ -1,11 +1,72 @@
 # Database Schema: Mimo Health Log
 
 ## Overview
-참고치(Reference)를 장비마다 다르게 저장하고, 이름이 달라도 같은 항목으로 처리하기 위한 고도화된 DB 구조입니다.
+반려동물 '미모'의 건강을 종합적으로 관리하기 위한 데이터베이스 구조입니다.
+
+**주요 기능**:
+1. **일일 건강 기록**: 식사, 음수, 약, 배변, 배뇨, 호흡수 기록 (`daily_logs`)
+2. **혈액검사 아카이브**: 검사지 OCR 분석 및 시계열 관리 (`test_records`, `test_results`)
 
 **v2 업데이트**: 다중 파일 업로드 지원 및 AI 기반 매칭 신뢰도 저장 기능 추가
+**v3 업데이트**: 일일 건강 기록 기능 추가
 
 ## Tables
+
+### 0. 일일 건강 기록 (Daily Logs) - **v3 추가**
+반려동물의 일일 건강 상태를 기록하는 테이블
+
+```sql
+-- 기록 카테고리 enum
+CREATE TYPE log_category AS ENUM (
+  'meal',      -- 식사
+  'water',     -- 음수
+  'medicine',  -- 약
+  'poop',      -- 배변
+  'pee',       -- 배뇨
+  'breathing'  -- 호흡수
+);
+
+CREATE TABLE daily_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category log_category NOT NULL,    -- 기록 유형
+  logged_at TIMESTAMPTZ NOT NULL,    -- 기록 시간
+  amount DECIMAL(10, 2),             -- 양 (g, ml, 회/분 등)
+  unit VARCHAR(20),                  -- 단위
+  memo TEXT,                         -- 메모
+  photo_url TEXT,                    -- 사진 URL
+  medicine_name VARCHAR(100),        -- 약 이름 (category='medicine'일 때)
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 일일 통계 뷰
+CREATE VIEW daily_stats AS
+SELECT
+  (logged_at AT TIME ZONE 'UTC')::date as log_date,
+  SUM(CASE WHEN category = 'meal' THEN amount ELSE 0 END) as total_meal_amount,
+  COUNT(CASE WHEN category = 'meal' THEN 1 END) as meal_count,
+  SUM(CASE WHEN category = 'water' THEN amount ELSE 0 END) as total_water_amount,
+  COUNT(CASE WHEN category = 'water' THEN 1 END) as water_count,
+  COUNT(CASE WHEN category = 'medicine' THEN 1 END) as medicine_count,
+  COUNT(CASE WHEN category = 'poop' THEN 1 END) as poop_count,
+  COUNT(CASE WHEN category = 'pee' THEN 1 END) as pee_count,
+  AVG(CASE WHEN category = 'breathing' THEN amount END) as avg_breathing_rate,
+  COUNT(CASE WHEN category = 'breathing' THEN 1 END) as breathing_count
+FROM daily_logs
+GROUP BY (logged_at AT TIME ZONE 'UTC')::date;
+```
+
+**카테고리별 기록 항목**:
+| 카테고리 | 설명 | 단위 | 비고 |
+|---------|------|------|------|
+| `meal` | 식사 | g | 사료/간식 섭취량 |
+| `water` | 음수 | ml | 물 섭취량 |
+| `medicine` | 약 | 정/ml | `medicine_name`에 약 이름 기록 |
+| `poop` | 배변 | 회 | 양보다 횟수 중심 |
+| `pee` | 배뇨 | 회 | 양보다 횟수 중심 |
+| `breathing` | 호흡수 | 회/분 | 분당 호흡수 |
+
+---
 
 ### 1. 표준 항목 마스터 (Standard Items)
 미모 데이터의 'Category'와 'Item'을 관리하는 기준 테이블
