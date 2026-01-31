@@ -1,0 +1,983 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { AppHeader } from '@/components/layout/AppHeader'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle } from 'lucide-react'
+import { UserSettings, MedicinePreset, Medicine, Hospital } from '@/types'
+
+// 투약 빈도 옵션
+const FREQUENCY_OPTIONS = [
+  { value: 'qd', label: 'QD (1일 1회)' },
+  { value: 'bid', label: 'BID (1일 2회)' },
+  { value: 'tid', label: 'TID (1일 3회)' },
+  { value: 'qid', label: 'QID (1일 4회)' },
+  { value: 'prn', label: 'PRN (필요시)' },
+]
+
+export default function SettingsPage() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [settings, setSettings] = useState<UserSettings | null>(null)
+  const [presets, setPresets] = useState<MedicinePreset[]>([])
+  const [hospitals, setHospitals] = useState<Hospital[]>([])
+
+  // 데이터 로드
+  const loadData = useCallback(async () => {
+    try {
+      const [settingsRes, presetsRes, hospitalsRes] = await Promise.all([
+        fetch('/api/settings'),
+        fetch('/api/medicine-presets'),
+        fetch('/api/hospitals')
+      ])
+
+      const [settingsData, presetsData, hospitalsData] = await Promise.all([
+        settingsRes.json(),
+        presetsRes.json(),
+        hospitalsRes.json()
+      ])
+
+      if (settingsData.success) setSettings(settingsData.data)
+      if (presetsData.success) setPresets(presetsData.data)
+      if (hospitalsData.success) setHospitals(hospitalsData.data)
+    } catch (error) {
+      console.error('Failed to load settings:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <AppHeader title="설정" />
+        <div className="container max-w-4xl mx-auto py-10">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppHeader title="설정" />
+
+      <div className="container max-w-4xl mx-auto py-6 px-4">
+        <Tabs defaultValue="pet" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="pet" className="text-xs sm:text-sm">
+              <PawPrint className="w-4 h-4 mr-1 hidden sm:inline" />
+              반려동물
+            </TabsTrigger>
+            <TabsTrigger value="medicine" className="text-xs sm:text-sm">
+              <Pill className="w-4 h-4 mr-1 hidden sm:inline" />
+              약 프리셋
+            </TabsTrigger>
+            <TabsTrigger value="hospital" className="text-xs sm:text-sm">
+              <Building2 className="w-4 h-4 mr-1 hidden sm:inline" />
+              병원
+            </TabsTrigger>
+            <TabsTrigger value="theme" className="text-xs sm:text-sm">
+              <Palette className="w-4 h-4 mr-1 hidden sm:inline" />
+              테마
+            </TabsTrigger>
+            <TabsTrigger value="data" className="text-xs sm:text-sm">
+              <Database className="w-4 h-4 mr-1 hidden sm:inline" />
+              데이터
+            </TabsTrigger>
+          </TabsList>
+
+          {/* 반려동물 프로필 */}
+          <TabsContent value="pet">
+            <PetProfileSection
+              settings={settings}
+              setSettings={setSettings}
+              saving={saving}
+              setSaving={setSaving}
+            />
+          </TabsContent>
+
+          {/* 약 프리셋 */}
+          <TabsContent value="medicine">
+            <MedicinePresetSection
+              presets={presets}
+              setPresets={setPresets}
+            />
+          </TabsContent>
+
+          {/* 병원 관리 */}
+          <TabsContent value="hospital">
+            <HospitalSection
+              hospitals={hospitals}
+              setHospitals={setHospitals}
+            />
+          </TabsContent>
+
+          {/* 테마 설정 */}
+          <TabsContent value="theme">
+            <ThemeSection
+              settings={settings}
+              setSettings={setSettings}
+              saving={saving}
+              setSaving={setSaving}
+            />
+          </TabsContent>
+
+          {/* 데이터 관리 */}
+          <TabsContent value="data">
+            <DataManagementSection />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}
+
+// 반려동물 프로필 섹션
+function PetProfileSection({
+  settings,
+  setSettings,
+  saving,
+  setSaving
+}: {
+  settings: UserSettings | null
+  setSettings: (s: UserSettings | null) => void
+  saving: boolean
+  setSaving: (s: boolean) => void
+}) {
+  const [form, setForm] = useState({
+    pet_name: settings?.pet_name || '미모',
+    pet_type: settings?.pet_type || '',
+    pet_breed: settings?.pet_breed || '',
+    pet_birth_date: settings?.pet_birth_date || '',
+    pet_weight_kg: settings?.pet_weight_kg?.toString() || '',
+  })
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          pet_weight_kg: form.pet_weight_kg ? parseFloat(form.pet_weight_kg) : null
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSettings(data.data)
+      }
+    } catch (error) {
+      console.error('Failed to save:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <PawPrint className="w-5 h-5" />
+          반려동물 프로필
+        </CardTitle>
+        <CardDescription>반려동물의 기본 정보를 입력하세요</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="pet_name">이름</Label>
+            <Input
+              id="pet_name"
+              value={form.pet_name}
+              onChange={(e) => setForm({ ...form, pet_name: e.target.value })}
+              placeholder="반려동물 이름"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pet_type">종류</Label>
+            <Select
+              value={form.pet_type}
+              onValueChange={(value) => setForm({ ...form, pet_type: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="종류 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="고양이">고양이</SelectItem>
+                <SelectItem value="강아지">강아지</SelectItem>
+                <SelectItem value="기타">기타</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pet_breed">품종</Label>
+            <Input
+              id="pet_breed"
+              value={form.pet_breed}
+              onChange={(e) => setForm({ ...form, pet_breed: e.target.value })}
+              placeholder="예: 코리안 숏헤어"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pet_birth_date">생년월일</Label>
+            <Input
+              id="pet_birth_date"
+              type="date"
+              value={form.pet_birth_date}
+              onChange={(e) => setForm({ ...form, pet_birth_date: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="pet_weight_kg">체중 (kg)</Label>
+            <Input
+              id="pet_weight_kg"
+              type="number"
+              step="0.1"
+              value={form.pet_weight_kg}
+              onChange={(e) => setForm({ ...form, pet_weight_kg: e.target.value })}
+              placeholder="예: 4.5"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-4">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            저장
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// 약 프리셋 섹션
+function MedicinePresetSection({
+  presets,
+  setPresets
+}: {
+  presets: MedicinePreset[]
+  setPresets: (p: MedicinePreset[]) => void
+}) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingPreset, setEditingPreset] = useState<MedicinePreset | null>(null)
+  const [presetName, setPresetName] = useState('')
+  const [medicines, setMedicines] = useState<Medicine[]>([])
+  const [saving, setSaving] = useState(false)
+
+  const resetForm = () => {
+    setPresetName('')
+    setMedicines([])
+    setEditingPreset(null)
+  }
+
+  const addMedicine = () => {
+    setMedicines([...medicines, { name: '', dosage: 0, dosage_unit: 'mg', frequency: 'qd' }])
+  }
+
+  const removeMedicine = (index: number) => {
+    setMedicines(medicines.filter((_, i) => i !== index))
+  }
+
+  const updateMedicine = (index: number, field: keyof Medicine, value: string | number) => {
+    const updated = [...medicines]
+    updated[index] = { ...updated[index], [field]: value }
+    setMedicines(updated)
+  }
+
+  const handleSave = async () => {
+    if (!presetName.trim()) return
+    setSaving(true)
+
+    try {
+      const url = '/api/medicine-presets'
+      const method = editingPreset ? 'PATCH' : 'POST'
+      const body = editingPreset
+        ? { id: editingPreset.id, preset_name: presetName, medicines }
+        : { preset_name: presetName, medicines }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        if (editingPreset) {
+          setPresets(presets.map(p => p.id === data.data.id ? data.data : p))
+        } else {
+          setPresets([...presets, data.data])
+        }
+        setIsDialogOpen(false)
+        resetForm()
+      }
+    } catch (error) {
+      console.error('Failed to save preset:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/medicine-presets?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        setPresets(presets.filter(p => p.id !== id))
+      }
+    } catch (error) {
+      console.error('Failed to delete preset:', error)
+    }
+  }
+
+  const openEditDialog = (preset: MedicinePreset) => {
+    setEditingPreset(preset)
+    setPresetName(preset.preset_name)
+    setMedicines(preset.medicines)
+    setIsDialogOpen(true)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Pill className="w-5 h-5" />
+              약 프리셋
+            </CardTitle>
+            <CardDescription>자주 사용하는 약 조합을 저장하세요</CardDescription>
+          </div>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open)
+            if (!open) resetForm()
+          }}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="w-4 h-4 mr-1" />
+                추가
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingPreset ? '프리셋 수정' : '새 프리셋 추가'}</DialogTitle>
+                <DialogDescription>약물 정보를 입력하세요</DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="preset_name">프리셋 이름</Label>
+                  <Input
+                    id="preset_name"
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    placeholder="예: 아침 약, 저녁 약"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>약물 목록</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={addMedicine}>
+                      <Plus className="w-3 h-3 mr-1" />
+                      약물 추가
+                    </Button>
+                  </div>
+
+                  {medicines.map((med, index) => (
+                    <div key={index} className="p-3 border rounded-lg space-y-2 bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">약물 {index + 1}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeMedicine(index)}
+                        >
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          placeholder="약물명"
+                          value={med.name}
+                          onChange={(e) => updateMedicine(index, 'name', e.target.value)}
+                        />
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            placeholder="용량"
+                            value={med.dosage || ''}
+                            onChange={(e) => updateMedicine(index, 'dosage', parseFloat(e.target.value) || 0)}
+                            className="w-20"
+                          />
+                          <Select
+                            value={med.dosage_unit}
+                            onValueChange={(value) => updateMedicine(index, 'dosage_unit', value)}
+                          >
+                            <SelectTrigger className="w-24">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="mg">mg</SelectItem>
+                              <SelectItem value="tablet">정</SelectItem>
+                              <SelectItem value="ml">ml</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <Select
+                        value={med.frequency}
+                        onValueChange={(value) => updateMedicine(index, 'frequency', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="투약 빈도" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FREQUENCY_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+
+                  {medicines.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      약물 추가 버튼을 눌러 약물을 추가하세요
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>취소</Button>
+                <Button onClick={handleSave} disabled={saving || !presetName.trim()}>
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  저장
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {presets.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            등록된 프리셋이 없습니다
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {presets.map((preset) => (
+              <div key={preset.id} className="p-4 border rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-medium">{preset.preset_name}</h4>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openEditDialog(preset)}>
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>프리셋 삭제</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            &quot;{preset.preset_name}&quot; 프리셋을 삭제하시겠습니까?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>취소</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(preset.id)}>삭제</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  {preset.medicines.map((med, idx) => (
+                    <div key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
+                      <span>💊</span>
+                      <span>{med.name}</span>
+                      <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                        {med.dosage} {med.dosage_unit}
+                      </span>
+                      <span className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                        {FREQUENCY_OPTIONS.find(f => f.value === med.frequency)?.label || med.frequency}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// 병원 관리 섹션
+function HospitalSection({
+  hospitals,
+  setHospitals
+}: {
+  hospitals: Hospital[]
+  setHospitals: (h: Hospital[]) => void
+}) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingHospital, setEditingHospital] = useState<Hospital | null>(null)
+  const [form, setForm] = useState({ name: '', phone: '', notes: '' })
+  const [saving, setSaving] = useState(false)
+
+  const resetForm = () => {
+    setForm({ name: '', phone: '', notes: '' })
+    setEditingHospital(null)
+  }
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return
+    setSaving(true)
+
+    try {
+      const method = editingHospital ? 'PATCH' : 'POST'
+      const body = editingHospital
+        ? { id: editingHospital.id, ...form }
+        : form
+
+      const res = await fetch('/api/hospitals', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        if (editingHospital) {
+          setHospitals(hospitals.map(h => h.id === data.data.id ? data.data : h))
+        } else {
+          setHospitals([...hospitals, data.data])
+        }
+        setIsDialogOpen(false)
+        resetForm()
+      }
+    } catch (error) {
+      console.error('Failed to save hospital:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/hospitals?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        setHospitals(hospitals.filter(h => h.id !== id))
+      }
+    } catch (error) {
+      console.error('Failed to delete hospital:', error)
+    }
+  }
+
+  const openEditDialog = (hospital: Hospital) => {
+    setEditingHospital(hospital)
+    setForm({
+      name: hospital.name,
+      phone: hospital.phone || '',
+      notes: hospital.notes || ''
+    })
+    setIsDialogOpen(true)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              병원 관리
+            </CardTitle>
+            <CardDescription>자주 가는 병원 정보를 관리하세요</CardDescription>
+          </div>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open)
+            if (!open) resetForm()
+          }}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="w-4 h-4 mr-1" />
+                추가
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingHospital ? '병원 정보 수정' : '새 병원 추가'}</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="hospital_name">병원 이름</Label>
+                  <Input
+                    id="hospital_name"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="병원 이름"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hospital_phone">연락처</Label>
+                  <Input
+                    id="hospital_phone"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="02-XXX-XXXX"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hospital_notes">비고</Label>
+                  <Textarea
+                    id="hospital_notes"
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    placeholder="메모"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>취소</Button>
+                <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  저장
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {hospitals.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            등록된 병원이 없습니다
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {hospitals.map((hospital) => (
+              <div key={hospital.id} className="p-4 border rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-medium">{hospital.name}</h4>
+                    {hospital.phone && (
+                      <p className="text-sm text-muted-foreground mt-1">📞 {hospital.phone}</p>
+                    )}
+                    {hospital.notes && (
+                      <p className="text-sm text-muted-foreground mt-1">📝 {hospital.notes}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openEditDialog(hospital)}>
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>병원 삭제</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            &quot;{hospital.name}&quot;을(를) 삭제하시겠습니까?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>취소</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(hospital.id)}>삭제</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// 테마 설정 섹션
+function ThemeSection({
+  settings,
+  setSettings,
+  saving,
+  setSaving
+}: {
+  settings: UserSettings | null
+  setSettings: (s: UserSettings | null) => void
+  saving: boolean
+  setSaving: (s: boolean) => void
+}) {
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(settings?.theme || 'system')
+
+  const handleThemeChange = async (newTheme: 'light' | 'dark' | 'system') => {
+    setTheme(newTheme)
+    setSaving(true)
+
+    // 실제 테마 적용
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else if (newTheme === 'light') {
+      document.documentElement.classList.remove('dark')
+    } else {
+      // system
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    }
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: newTheme })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSettings(data.data)
+      }
+    } catch (error) {
+      console.error('Failed to save theme:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Palette className="w-5 h-5" />
+          테마 설정
+        </CardTitle>
+        <CardDescription>앱의 외관을 설정하세요</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-4">
+          <button
+            onClick={() => handleThemeChange('light')}
+            className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
+              theme === 'light' ? 'border-primary bg-primary/5' : 'hover:bg-muted'
+            }`}
+            disabled={saving}
+          >
+            <Sun className="w-6 h-6" />
+            <span className="text-sm">라이트</span>
+          </button>
+          <button
+            onClick={() => handleThemeChange('dark')}
+            className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
+              theme === 'dark' ? 'border-primary bg-primary/5' : 'hover:bg-muted'
+            }`}
+            disabled={saving}
+          >
+            <Moon className="w-6 h-6" />
+            <span className="text-sm">다크</span>
+          </button>
+          <button
+            onClick={() => handleThemeChange('system')}
+            className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
+              theme === 'system' ? 'border-primary bg-primary/5' : 'hover:bg-muted'
+            }`}
+            disabled={saving}
+          >
+            <Monitor className="w-6 h-6" />
+            <span className="text-sm">시스템</span>
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// 데이터 관리 섹션
+function DataManagementSection() {
+  const [exporting, setExporting] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const handleExport = async (type: 'daily-log' | 'test-results') => {
+    setExporting(type)
+    try {
+      if (type === 'test-results') {
+        // 검사결과 Excel 내보내기
+        const response = await fetch('/api/export-excel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            options: { format: 'pivot', includeReference: true, includeStatus: true }
+          })
+        })
+
+        if (!response.ok) throw new Error('Export failed')
+
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `mimo-test-results-${new Date().toISOString().split('T')[0]}.xlsx`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      } else {
+        // Daily log 내보내기
+        const response = await fetch('/api/daily-logs?all=true')
+        const data = await response.json()
+
+        if (!data.success) throw new Error('Export failed')
+
+        const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `mimo-daily-logs-${new Date().toISOString().split('T')[0]}.json`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      }
+    } catch (error) {
+      console.error('Export failed:', error)
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/settings', { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        // 로그아웃 처리
+        window.location.href = '/auth/signout'
+      }
+    } catch (error) {
+      console.error('Failed to delete account:', error)
+    } finally {
+      setDeleting(false)
+      setDeleteDialogOpen(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="w-5 h-5" />
+            데이터 내보내기
+          </CardTitle>
+          <CardDescription>기록된 데이터를 파일로 내보냅니다</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={() => handleExport('daily-log')}
+            disabled={exporting !== null}
+          >
+            {exporting === 'daily-log' ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            일일 기록 내보내기 (JSON)
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-start"
+            onClick={() => handleExport('test-results')}
+            disabled={exporting !== null}
+          >
+            {exporting === 'test-results' ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            검사 결과 내보내기 (Excel)
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            계정 삭제
+          </CardTitle>
+          <CardDescription>
+            모든 데이터가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">
+                <Trash2 className="w-4 h-4 mr-2" />
+                계정 및 모든 데이터 삭제
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  이 작업은 되돌릴 수 없습니다. 모든 일일 기록, 검사 결과, 설정이 영구적으로 삭제됩니다.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  삭제
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
