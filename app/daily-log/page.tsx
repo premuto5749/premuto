@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Menu, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Menu, ChevronLeft, ChevronRight, Copy, CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
 import { Timeline } from '@/components/daily-log/Timeline'
 import { useToast } from '@/hooks/use-toast'
 import type { DailyLog, DailyStats } from '@/types'
+import { LOG_CATEGORY_CONFIG } from '@/types'
 import {
   Sheet,
   SheetContent,
@@ -15,6 +16,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Calendar } from '@/components/ui/calendar'
 import Link from 'next/link'
 
 export default function DailyLogPage() {
@@ -25,6 +32,7 @@ export default function DailyLogPage() {
     return new Date().toISOString().split('T')[0]
   })
   const [isLoading, setIsLoading] = useState(true)
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const { toast } = useToast()
 
   const fetchData = useCallback(async () => {
@@ -124,6 +132,78 @@ export default function DailyLogPage() {
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0]
 
+  const handleCalendarSelect = (date: Date) => {
+    setSelectedDate(date.toISOString().split('T')[0])
+    setIsCalendarOpen(false)
+  }
+
+  const exportLogsToText = () => {
+    if (logs.length === 0) {
+      toast({
+        title: '내보낼 기록 없음',
+        description: '해당 날짜에 기록이 없습니다.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // 시간순 정렬
+    const sortedLogs = [...logs].sort((a, b) =>
+      new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime()
+    )
+
+    // 날짜 헤더
+    const dateHeader = new Date(selectedDate).toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long'
+    })
+
+    const lines = [`📋 ${dateHeader} 기록`, '']
+
+    for (const log of sortedLogs) {
+      const config = LOG_CATEGORY_CONFIG[log.category]
+      const time = new Date(log.logged_at).toLocaleTimeString('ko-KR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+
+      let content = `${config.icon} ${config.label}`
+
+      // 양 표시 (배변/배뇨 제외)
+      if (log.amount !== null && log.category !== 'poop' && log.category !== 'pee') {
+        content += ` ${log.amount}${log.unit || config.unit}`
+      }
+
+      // 약 이름
+      if (log.medicine_name) {
+        content += ` (${log.medicine_name})`
+      }
+
+      // 메모
+      const memo = log.memo ? ` - ${log.memo}` : ''
+
+      lines.push(`${time} | ${content}${memo}`)
+    }
+
+    const text = lines.join('\n')
+
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: '복사 완료',
+        description: '기록이 클립보드에 복사되었습니다.',
+      })
+    }).catch(() => {
+      toast({
+        title: '복사 실패',
+        description: '클립보드 복사에 실패했습니다.',
+        variant: 'destructive',
+      })
+    })
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
@@ -185,7 +265,9 @@ export default function DailyLogPage() {
 
           <h1 className="font-semibold text-lg">미모 건강 기록</h1>
 
-          <div className="w-10" /> {/* 균형 맞추기 */}
+          <Button variant="ghost" size="icon" onClick={exportLogsToText} title="기록 내보내기">
+            <Copy className="w-5 h-5" />
+          </Button>
         </div>
       </header>
 
@@ -196,15 +278,35 @@ export default function DailyLogPage() {
             <ChevronLeft className="w-5 h-5" />
           </Button>
 
-          <button
-            onClick={goToToday}
-            className="font-medium text-center"
-          >
-            {formatDateHeader(selectedDate)}
-            {!isToday && (
-              <span className="block text-xs text-muted-foreground">탭하여 오늘로</span>
-            )}
-          </button>
+          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+            <PopoverTrigger asChild>
+              <button className="font-medium text-center flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                {formatDateHeader(selectedDate)}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <Calendar
+                selected={new Date(selectedDate)}
+                onSelect={handleCalendarSelect}
+                maxDate={new Date()}
+              />
+              {!isToday && (
+                <div className="px-3 pb-3">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      goToToday()
+                      setIsCalendarOpen(false)
+                    }}
+                  >
+                    오늘로 이동
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
 
           <Button
             variant="ghost"

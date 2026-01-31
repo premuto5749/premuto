@@ -1,18 +1,16 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -21,11 +19,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { Hospital } from "@/types"
@@ -43,16 +36,16 @@ export function HospitalSelector({
   hospitals,
   onHospitalCreated
 }: HospitalSelectorProps) {
-  const [open, setOpen] = React.useState(false)
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [newHospitalName, setNewHospitalName] = React.useState("")
   const [newHospitalAddress, setNewHospitalAddress] = React.useState("")
   const [newHospitalPhone, setNewHospitalPhone] = React.useState("")
   const [creating, setCreating] = React.useState(false)
 
+  // 현재 선택된 병원이 목록에 있는지 확인
   const selectedHospital = hospitals.find(h => h.name === value)
-  // OCR에서 추출한 병원명이 DB에 없는 경우 표시용
-  const displayValue = value && !selectedHospital ? value : selectedHospital?.name
+  // OCR에서 추출한 병원명이 DB에 없는 경우를 위한 표시값
+  const displayValue = selectedHospital ? value : undefined
 
   const handleCreateHospital = async () => {
     if (!newHospitalName.trim()) return
@@ -89,85 +82,66 @@ export function HospitalSelector({
     }
   }
 
+  // 새 병원 추가 다이얼로그 열 때 OCR 값으로 미리 채우기
+  const openNewHospitalDialog = () => {
+    // value가 있지만 목록에 없으면 (OCR 추출값) 해당 값으로 미리 채움
+    if (value && !selectedHospital && value !== 'Unknown') {
+      setNewHospitalName(value)
+    }
+    setDialogOpen(true)
+  }
+
   return (
-    <>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between"
-          >
-            {displayValue || "병원 선택..."}
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[400px] p-0">
-          <Command>
-            <CommandInput placeholder="병원 검색..." />
-            <CommandList>
-              <CommandEmpty>
-                <div className="p-2 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    병원을 찾을 수 없습니다
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setOpen(false)
-                      setDialogOpen(true)
-                    }}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    새 병원 추가
-                  </Button>
-                </div>
-              </CommandEmpty>
-              <CommandGroup>
-                {hospitals.map((hospital) => (
-                  <CommandItem
-                    key={hospital.id}
-                    value={hospital.name}
-                    onSelect={() => {
-                      // cmdk lowercases values in onSelect, so use hospital.name directly
-                      onValueChange(hospital.name === value ? "" : hospital.name)
-                      setOpen(false)
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === hospital.name ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    <div className="flex-1">
-                      <div className="font-medium">{hospital.name}</div>
-                      {hospital.address && (
-                        <div className="text-xs text-muted-foreground">
-                          {hospital.address}
-                        </div>
-                      )}
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-              <CommandGroup>
-                <CommandItem
-                  onSelect={() => {
-                    setOpen(false)
-                    setDialogOpen(true)
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  새 병원 추가
-                </CommandItem>
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <Select value={displayValue} onValueChange={onValueChange}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder={value && !selectedHospital ? `${value} (미등록)` : "병원 선택..."} />
+          </SelectTrigger>
+          <SelectContent>
+            {hospitals.length === 0 ? (
+              <div className="py-2 px-2 text-sm text-muted-foreground text-center">
+                등록된 병원이 없습니다
+              </div>
+            ) : (
+              hospitals.map((hospital) => (
+                <SelectItem key={hospital.id} value={hospital.name}>
+                  <div className="flex flex-col items-start">
+                    <span>{hospital.name}</span>
+                    {hospital.address && (
+                      <span className="text-xs text-muted-foreground">
+                        {hospital.address}
+                      </span>
+                    )}
+                  </div>
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={openNewHospitalDialog}
+          title="새 병원 추가"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* 미등록 병원명 표시 */}
+      {value && !selectedHospital && value !== 'Unknown' && (
+        <p className="text-xs text-amber-600">
+          &quot;{value}&quot;은(는) 미등록 병원입니다. 목록에서 선택하거나 새로 추가해주세요.
+        </p>
+      )}
+      {value === 'Unknown' && (
+        <p className="text-xs text-amber-600">
+          병원명이 인식되지 않았습니다. 병원을 선택해주세요.
+        </p>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -223,6 +197,6 @@ export function HospitalSelector({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }
