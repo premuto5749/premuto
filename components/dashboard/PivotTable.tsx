@@ -34,6 +34,13 @@ interface PivotTableProps {
 }
 
 export function PivotTable({ records, onItemClick }: PivotTableProps) {
+  // 날짜순으로 정렬 (오래된 날짜가 왼쪽, 최신이 오른쪽)
+  const sortedRecords = useMemo(() => {
+    return [...records].sort((a, b) =>
+      new Date(a.test_date).getTime() - new Date(b.test_date).getTime()
+    )
+  }, [records])
+
   // 피벗 데이터 구조 생성
   const pivotData = useMemo(() => {
     // 모든 고유 항목 수집
@@ -43,7 +50,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
     // 각 항목별로 고유한 참고치 개수 추적
     const refRangesByItem = new Map<string, Set<string>>()
 
-    records.forEach(record => {
+    sortedRecords.forEach(record => {
       record.test_results.forEach(result => {
         const itemName = result.standard_items.name
         allItems.add(itemName)
@@ -103,7 +110,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
 
     // 날짜별 데이터 맵 생성
     const dateMap = new Map<string, Map<string, TestResult>>()
-    records.forEach(record => {
+    sortedRecords.forEach(record => {
       const resultMap = new Map<string, TestResult>()
       record.test_results.forEach(result => {
         resultMap.set(result.standard_items.name, result)
@@ -112,7 +119,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
     })
 
     return { itemsByCategory, itemDetails, dateMap }
-  }, [records])
+  }, [sortedRecords])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -142,7 +149,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
 
   // 이전 검사와 참고치가 변경되었는지 확인
   const hasRefRangeChanged = (currentRecord: TestRecord, itemName: string): { changed: boolean; previousRef: string | null } => {
-    const currentIndex = records.findIndex(r => r.id === currentRecord.id)
+    const currentIndex = sortedRecords.findIndex(r => r.id === currentRecord.id)
     if (currentIndex <= 0) return { changed: false, previousRef: null }
 
     const currentResult = currentRecord.test_results.find(r => r.standard_items.name === itemName)
@@ -150,7 +157,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
 
     // 이전 검사 결과 찾기
     for (let i = currentIndex - 1; i >= 0; i--) {
-      const previousResult = records[i].test_results.find(r => r.standard_items.name === itemName)
+      const previousResult = sortedRecords[i].test_results.find(r => r.standard_items.name === itemName)
       if (previousResult) {
         const currentRef = currentResult.ref_text || `${currentResult.ref_min}-${currentResult.ref_max}`
         const previousRef = previousResult.ref_text || `${previousResult.ref_min}-${previousResult.ref_max}`
@@ -165,7 +172,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
     return { changed: false, previousRef: null }
   }
 
-  if (records.length === 0) {
+  if (sortedRecords.length === 0) {
     return (
       <Card>
         <CardContent className="pt-6">
@@ -183,17 +190,17 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
           항목을 클릭하면 시계열 그래프를 볼 수 있습니다
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0 sm:px-6">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-xs sm:text-sm">
             <thead>
               <tr className="border-b">
-                <th className="sticky left-0 bg-background p-3 text-left font-medium border-r">
+                <th className="sticky left-0 z-20 bg-background p-2 sm:p-3 text-left font-medium border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[100px] sm:min-w-[150px]">
                   항목
                 </th>
-                {records.map((record) => (
-                  <th key={record.id} className="p-3 text-center font-medium min-w-[120px]">
-                    <div>
+                {sortedRecords.map((record) => (
+                  <th key={record.id} className="p-2 sm:p-3 text-center font-medium min-w-[70px] sm:min-w-[100px]">
+                    <div className="text-xs sm:text-sm">
                       {new Date(record.test_date).toLocaleDateString('ko-KR', {
                         year: '2-digit',
                         month: 'numeric',
@@ -201,7 +208,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                       })}
                     </div>
                     {record.hospital_name && (
-                      <div className="text-xs text-muted-foreground font-normal mt-1">
+                      <div className="text-[10px] sm:text-xs text-muted-foreground font-normal mt-0.5 sm:mt-1 truncate max-w-[65px] sm:max-w-[95px]">
                         {record.hospital_name}
                       </div>
                     )}
@@ -213,7 +220,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
               {Array.from(pivotData.itemsByCategory.entries()).map(([category, items]) => (
                 <React.Fragment key={category}>
                   <tr className="bg-muted/50">
-                    <td colSpan={records.length + 1} className="p-2 font-semibold text-xs uppercase">
+                    <td colSpan={sortedRecords.length + 1} className="sticky left-0 z-10 p-2 font-semibold text-[10px] sm:text-xs uppercase bg-muted/50">
                       {category}
                     </td>
                   </tr>
@@ -222,25 +229,25 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                     return (
                       <tr key={itemName} className="border-b hover:bg-muted/50">
                         <td
-                          className="sticky left-0 bg-background p-3 border-r cursor-pointer hover:bg-accent"
+                          className="sticky left-0 z-10 bg-background p-2 sm:p-3 border-r cursor-pointer hover:bg-accent shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] align-top min-w-[100px] sm:min-w-[150px]"
                           onClick={() => onItemClick?.(itemName)}
                         >
-                          <div className="font-medium">{detail.name}</div>
-                          <div className="text-xs text-muted-foreground">{detail.ko}</div>
+                          <div className="font-medium text-xs sm:text-sm truncate max-w-[90px] sm:max-w-none">{detail.name}</div>
+                          <div className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[90px] sm:max-w-none">{detail.ko}</div>
                           {detail.refRangeDisplay && (
-                            <div className={`text-xs mt-1 ${detail.refRangeDisplay === '여러 참고치 적용됨' ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                            <div className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 truncate max-w-[90px] sm:max-w-none ${detail.refRangeDisplay === '여러 참고치 적용됨' ? 'text-orange-600' : 'text-muted-foreground'}`}>
                               {detail.refRangeDisplay}
                             </div>
                           )}
                         </td>
-                        {records.map((record) => {
+                        {sortedRecords.map((record) => {
                           const result = pivotData.dateMap.get(record.test_date)?.get(itemName)
                           const refChange = result ? hasRefRangeChanged(record, itemName) : { changed: false, previousRef: null }
 
                           return (
                             <td
                               key={`${record.id}-${itemName}`}
-                              className={`p-3 text-center ${result ? getStatusColor(result.status) : ''}`}
+                              className={`p-1 sm:p-3 text-center align-top ${result ? getStatusColor(result.status) : ''}`}
                             >
                               {result ? (
                                 <SimpleTooltip

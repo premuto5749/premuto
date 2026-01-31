@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { Toaster } from "sonner";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -16,7 +16,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "Mimo Health Log",
-  description: "미모 맞춤형 혈액검사 아카이브",
+  description: "미모 건강 기록",
 };
 
 export default function RootLayout({
@@ -29,12 +29,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1">
-            {children}
-          </main>
-        </div>
+        {children}
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

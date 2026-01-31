@@ -3,15 +3,9 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import Image from 'next/image'
-import { Upload, File, X, Loader2 } from 'lucide-react'
+import { Upload, File, X, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import * as pdfjsLib from 'pdfjs-dist'
-
-// PDF.js worker 설정
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-}
 
 interface FileWithPreview {
   file: File
@@ -32,42 +26,6 @@ export function FileUploader({
   isProcessing = false
 }: FileUploaderProps) {
   const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
-  const [isConverting, setIsConverting] = useState(false)
-
-  // PDF를 이미지로 변환하는 함수
-  const convertPdfToImage = async (file: File): Promise<File> => {
-    const arrayBuffer = await file.arrayBuffer()
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-    const page = await pdf.getPage(1) // 첫 페이지만 사용
-
-    const viewport = page.getViewport({ scale: 2.0 }) // 고해상도
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')!
-
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-
-    await page.render({
-      canvasContext: context,
-      viewport: viewport,
-      canvas: canvas
-    }).promise
-
-    // Canvas를 Blob으로 변환
-    return new Promise((resolve) => {
-      canvas.toBlob((blob) => {
-        if (blob) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const imageFile = new (File as any)(
-            [blob],
-            file.name.replace('.pdf', '.png'),
-            { type: 'image/png' }
-          )
-          resolve(imageFile)
-        }
-      }, 'image/png', 0.95)
-    })
-  }
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return
@@ -78,60 +36,34 @@ export function FileUploader({
       return
     }
 
-    try {
-      setIsConverting(true)
-      const processedFiles: File[] = []
+    // PDF는 변환 없이 그대로 전달 (서버에서 GPT-4o가 직접 처리)
+    const allFiles = [...selectedFiles, ...acceptedFiles]
+    onFilesSelect(allFiles)
 
-      // 모든 파일 처리 (PDF 변환 포함)
-      for (const file of acceptedFiles) {
-        let processedFile = file
-
-        // PDF 파일이면 이미지로 변환
-        if (file.type === 'application/pdf') {
-          console.log(`📄 PDF 파일 감지: ${file.name}, 이미지로 변환 중...`)
-          processedFile = await convertPdfToImage(file)
-          console.log('✅ PDF → PNG 변환 완료')
-        }
-
-        processedFiles.push(processedFile)
-      }
-
-      setIsConverting(false)
-
-      // 부모 컴포넌트에 전체 파일 목록 전달
-      const allFiles = [...selectedFiles, ...processedFiles]
-      onFilesSelect(allFiles)
-
-      // 각 파일의 미리보기 생성
-      const newFilesWithPreview = await Promise.all(
-        processedFiles.map(async (file) => {
-          if (file.type.startsWith('image/')) {
-            return new Promise<FileWithPreview>((resolve) => {
-              const reader = new FileReader()
-              reader.onloadend = () => {
-                resolve({
-                  file,
-                  preview: reader.result as string
-                })
-              }
-              reader.readAsDataURL(file)
-            })
-          } else {
-            return {
-              file,
-              preview: null
+    // 각 파일의 미리보기 생성 (이미지만)
+    const newFilesWithPreview = await Promise.all(
+      acceptedFiles.map(async (file) => {
+        if (file.type.startsWith('image/')) {
+          return new Promise<FileWithPreview>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              resolve({
+                file,
+                preview: reader.result as string
+              })
             }
+            reader.readAsDataURL(file)
+          })
+        } else {
+          return {
+            file,
+            preview: null
           }
-        })
-      )
+        }
+      })
+    )
 
-      setFilesWithPreview(prev => [...prev, ...newFilesWithPreview])
-
-    } catch (error) {
-      console.error('❌ 파일 처리 실패:', error)
-      setIsConverting(false)
-      alert('파일 처리에 실패했습니다. 다른 파일을 시도해주세요.')
-    }
+    setFilesWithPreview(prev => [...prev, ...newFilesWithPreview])
   }, [selectedFiles, onFilesSelect])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -143,7 +75,7 @@ export function FileUploader({
     maxFiles: 10,
     maxSize: 10 * 1024 * 1024, // 10MB
     multiple: true,
-    disabled: isProcessing || isConverting
+    disabled: isProcessing
   })
 
   const handleRemove = (index: number) => {
@@ -175,6 +107,7 @@ export function FileUploader({
           {selectedFiles.map((file, index) => {
             const fileWithPreview = filesWithPreview.find(f => f.file === file)
             const preview = fileWithPreview?.preview
+            const isPdf = file.type === 'application/pdf'
 
             return (
               <Card key={`${file.name}-${index}`} className="p-4">
@@ -189,7 +122,11 @@ export function FileUploader({
                     />
                   ) : (
                     <div className="w-20 h-20 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
-                      <File className="w-8 h-8 text-muted-foreground" />
+                      {isPdf ? (
+                        <FileText className="w-8 h-8 text-red-500" />
+                      ) : (
+                        <File className="w-8 h-8 text-muted-foreground" />
+                      )}
                     </div>
                   )}
 
@@ -201,7 +138,7 @@ export function FileUploader({
                       {(file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {file.type}
+                      {isPdf ? 'PDF 문서' : file.type}
                     </p>
                   </div>
 
@@ -238,18 +175,6 @@ export function FileUploader({
     )
   }
 
-  if (isConverting) {
-    return (
-      <Card className="p-12">
-        <div className="flex flex-col items-center justify-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-          <p className="text-lg font-medium mb-2">PDF를 이미지로 변환 중...</p>
-          <p className="text-sm text-muted-foreground">잠시만 기다려주세요</p>
-        </div>
-      </Card>
-    )
-  }
-
   return (
     <div
       {...getRootProps()}
@@ -275,10 +200,7 @@ export function FileUploader({
           <p className="text-xs text-muted-foreground">
             지원 형식: JPG, PNG, PDF (각 파일 최대 10MB, 최대 10개)
           </p>
-          <p className="text-xs text-green-600 mt-2">
-            ✅ PDF는 자동으로 이미지로 변환됩니다
-          </p>
-          <p className="text-xs text-blue-600 mt-1">
+          <p className="text-xs text-blue-600 mt-2">
             💡 예: CBC 결과지 + Chemistry 결과지 + 특수 검사 결과지
           </p>
         </>

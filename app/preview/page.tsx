@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { HospitalSelector } from '@/components/ui/hospital-selector'
+import { AppHeader } from '@/components/layout/AppHeader'
 import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import type { OcrBatchResponse, OcrResult, Hospital } from '@/types'
@@ -47,6 +48,7 @@ interface EditableItem extends OcrResult {
 interface DateGroup {
   date: string
   hospital: string
+  originalHospital: string // OCR에서 추출한 원래 병원명 (탭 ID용)
   sequence: number // 같은 날짜의 순번 (1, 2, 3...)
   items: EditableItem[]
 }
@@ -137,14 +139,16 @@ function PreviewContent() {
     // DateGroup 배열로 변환 (같은 날짜는 순번 부여)
     dateMap.forEach((hospitalMap, date) => {
       let sequence = 1
-      hospitalMap.forEach((items, hospital) => {
-        const groupKey = `${date}-${hospital}-${sequence}`
+      hospitalMap.forEach((items, originalHospital) => {
+        // 탭 ID에 사용할 안정적인 키 (원래 병원명 기반)
+        const groupKey = `${date}-${originalHospital}-${sequence}`
         // 사용자가 병원을 선택한 경우 override 사용
-        const finalHospital = groupHospitalOverrides.get(groupKey) || hospital
+        const finalHospital = groupHospitalOverrides.get(groupKey) || originalHospital
 
         groups.push({
           date,
           hospital: finalHospital,
+          originalHospital, // 탭 ID용 원래 병원명 저장
           sequence,
           items
         })
@@ -369,20 +373,20 @@ function PreviewContent() {
 
   if (!batchData || allItems.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-gray-50">
+        <AppHeader title="OCR 결과 확인" showBack backHref="/upload" />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container max-w-6xl mx-auto py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">OCR 결과 확인</h1>
-        <p className="text-muted-foreground">
-          AI가 추출한 결과를 날짜별로 확인하고 필요시 수정하세요
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader title="OCR 결과 확인" showBack backHref="/upload" />
+
+      <div className="container max-w-6xl mx-auto py-10 px-4">
 
       {/* 경고 메시지 */}
       {batchData.warnings && batchData.warnings.length > 0 && (
@@ -409,7 +413,8 @@ function PreviewContent() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList className="mb-4">
           {dateGroups.map((group) => {
-            const tabId = `${group.date}-${group.hospital}-${group.sequence}`
+            // 탭 ID는 원래 병원명 기반 (변경해도 안정적)
+            const tabId = `${group.date}-${group.originalHospital}-${group.sequence}`
             const displayName = group.sequence > 1
               ? `${group.date} (${group.hospital}) (${group.sequence})`
               : `${group.date} (${group.hospital})`
@@ -423,7 +428,8 @@ function PreviewContent() {
         </TabsList>
 
         {dateGroups.map((group) => {
-          const tabId = `${group.date}-${group.hospital}-${group.sequence}`
+          // 탭 ID는 원래 병원명 기반 (변경해도 안정적)
+          const tabId = `${group.date}-${group.originalHospital}-${group.sequence}`
 
           return (
             <TabsContent key={tabId} value={tabId}>
@@ -636,6 +642,7 @@ function PreviewContent() {
           <li>매칭되지 않은 항목은 &apos;Unmapped&apos; 카테고리로 자동 생성됩니다</li>
           <li>각 날짜 그룹은 독립적으로 저장됩니다</li>
         </ul>
+      </div>
       </div>
     </div>
   )

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { BatchSaveRequest } from '@/types'
+import { parseValue } from '@/lib/ocr/value-parser'
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,15 +56,14 @@ export async function POST(request: NextRequest) {
 
       // 2. 각 결과의 상태 계산 및 test_results 생성
       const testResultsToInsert = results.map(result => {
+        // parseValue를 사용하여 값 파싱 (Lo, Low, <500 등 특수값 처리)
+        const parsed = parseValue(result.value)
+        const numericValue = parsed.numeric
+
         // 상태 계산 (Low/Normal/High/Unknown)
         let status: 'Low' | 'Normal' | 'High' | 'Unknown' = 'Unknown'
 
-        // value를 숫자로 변환 (string일 수 있음)
-        const numericValue = typeof result.value === 'number'
-          ? result.value
-          : parseFloat(String(result.value).replace(/[<>*,]/g, ''))
-
-        if (result.ref_min !== null && result.ref_max !== null && !isNaN(numericValue)) {
+        if (numericValue !== null && result.ref_min !== null && result.ref_max !== null) {
           if (numericValue < result.ref_min) {
             status = 'Low'
           } else if (numericValue > result.ref_max) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         return {
           record_id: recordId,
           standard_item_id: result.standard_item_id,
-          value: result.value,
+          value: numericValue ?? 0,
           ref_min: result.ref_min,
           ref_max: result.ref_max,
           ref_text: result.ref_text,

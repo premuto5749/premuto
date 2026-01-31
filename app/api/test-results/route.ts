@@ -169,3 +169,50 @@ export async function GET() {
     )
   }
 }
+
+// DELETE: 검사 기록 삭제
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const recordId = searchParams.get('id')
+
+    if (!recordId) {
+      return NextResponse.json(
+        { error: '삭제할 검사 기록 ID가 필요합니다' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = await createClient()
+
+    // test_results가 CASCADE DELETE로 설정되어 있으므로
+    // test_records만 삭제하면 관련 결과도 자동 삭제됨
+    const { error } = await supabase
+      .from('test_records')
+      .delete()
+      .eq('id', recordId)
+
+    if (error) {
+      console.error('Failed to delete test record:', error)
+      return NextResponse.json(
+        { error: '검사 기록 삭제에 실패했습니다', details: error.message },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: '검사 기록이 삭제되었습니다'
+    })
+
+  } catch (error) {
+    console.error('Delete test record error:', error)
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
+  }
+}
