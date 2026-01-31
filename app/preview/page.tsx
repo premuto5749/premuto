@@ -10,8 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { HospitalSelector } from '@/components/ui/hospital-selector'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, CalendarIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
 import type { OcrBatchResponse, OcrResult, Hospital } from '@/types'
 
 // 이상여부 배지 컴포넌트
@@ -48,6 +50,7 @@ interface EditableItem extends OcrResult {
 interface DateGroup {
   date: string
   hospital: string
+  originalDate: string // OCR에서 추출한 원래 날짜 (탭 ID용)
   originalHospital: string // OCR에서 추출한 원래 병원명 (탭 ID용)
   sequence: number // 같은 날짜의 순번 (1, 2, 3...)
   items: EditableItem[]
@@ -62,6 +65,7 @@ function PreviewContent() {
   const [activeTab, setActiveTab] = useState<string>('')
   const [hospitals, setHospitals] = useState<Hospital[]>([])
   const [groupHospitalOverrides, setGroupHospitalOverrides] = useState<Map<string, string>>(new Map())
+  const [groupDateOverrides, setGroupDateOverrides] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
     // 세션 스토리지에서 OCR 배치 결과 로드
@@ -137,17 +141,20 @@ function PreviewContent() {
     })
 
     // DateGroup 배열로 변환 (같은 날짜는 순번 부여)
-    dateMap.forEach((hospitalMap, date) => {
+    dateMap.forEach((hospitalMap, originalDate) => {
       let sequence = 1
       hospitalMap.forEach((items, originalHospital) => {
-        // 탭 ID에 사용할 안정적인 키 (원래 병원명 기반)
-        const groupKey = `${date}-${originalHospital}-${sequence}`
+        // 탭 ID에 사용할 안정적인 키 (원래 날짜와 병원명 기반)
+        const groupKey = `${originalDate}-${originalHospital}-${sequence}`
+        // 사용자가 날짜를 선택한 경우 override 사용
+        const finalDate = groupDateOverrides.get(groupKey) || originalDate
         // 사용자가 병원을 선택한 경우 override 사용
         const finalHospital = groupHospitalOverrides.get(groupKey) || originalHospital
 
         groups.push({
-          date,
+          date: finalDate,
           hospital: finalHospital,
+          originalDate, // 탭 ID용 원래 날짜 저장
           originalHospital, // 탭 ID용 원래 병원명 저장
           sequence,
           items
@@ -164,7 +171,7 @@ function PreviewContent() {
     })
 
     return groups
-  }, [allItems, groupHospitalOverrides])
+  }, [allItems, groupHospitalOverrides, groupDateOverrides])
 
   const handleEdit = (index: number) => {
     setEditingIndex(index)
@@ -193,12 +200,33 @@ function PreviewContent() {
     })
   }
 
+  const handleDateChange = (groupKey: string, date: Date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    setGroupDateOverrides(prev => {
+      const updated = new Map(prev)
+      updated.set(groupKey, dateStr)
+      return updated
+    })
+  }
+
   const handleHospitalCreated = (hospital: Hospital) => {
     setHospitals(prev => [...prev, hospital])
   }
 
   const handleSaveAll = async () => {
     if (!batchData) return
+
+    // 날짜와 병원이 Unknown인 그룹이 있는지 확인
+    const invalidGroups = dateGroups.filter(g => g.date === 'Unknown' || g.hospital === 'Unknown')
+    if (invalidGroups.length > 0) {
+      const messages: string[] = []
+      invalidGroups.forEach(g => {
+        if (g.date === 'Unknown') messages.push('- 날짜가 선택되지 않은 검사가 있습니다')
+        if (g.hospital === 'Unknown') messages.push('- 병원이 선택되지 않은 검사가 있습니다')
+      })
+      alert('저장 전에 다음 항목을 입력해주세요:\n\n' + [...new Set(messages)].join('\n'))
+      return
+    }
 
     setIsProcessing(true)
 
@@ -413,23 +441,29 @@ function PreviewContent() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList className="mb-4">
           {dateGroups.map((group) => {
-            // 탭 ID는 원래 병원명 기반 (변경해도 안정적)
-            const tabId = `${group.date}-${group.originalHospital}-${group.sequence}`
+            // 탭 ID는 원래 날짜와 병원명 기반 (변경해도 안정적)
+            const tabId = `${group.originalDate}-${group.originalHospital}-${group.sequence}`
+            const displayDate = group.date === 'Unknown' ? '날짜 미인식' : group.date
             const displayName = group.sequence > 1
-              ? `${group.date} (${group.hospital}) (${group.sequence})`
-              : `${group.date} (${group.hospital})`
+              ? `${displayDate} (${group.hospital}) (${group.sequence})`
+              : `${displayDate} (${group.hospital})`
 
             return (
               <TabsTrigger key={tabId} value={tabId}>
                 {displayName}
+                {(group.date === 'Unknown' || group.hospital === 'Unknown') && (
+                  <Badge variant="destructive" className="ml-1 text-[10px] px-1">!</Badge>
+                )}
               </TabsTrigger>
             )
           })}
         </TabsList>
 
         {dateGroups.map((group) => {
-          // 탭 ID는 원래 병원명 기반 (변경해도 안정적)
-          const tabId = `${group.date}-${group.originalHospital}-${group.sequence}`
+          // 탭 ID는 원래 날짜와 병원명 기반 (변경해도 안정적)
+          const tabId = `${group.originalDate}-${group.originalHospital}-${group.sequence}`
+          const isDateUnknown = group.date === 'Unknown'
+          const isHospitalUnknown = group.hospital === 'Unknown'
 
           return (
             <TabsContent key={tabId} value={tabId}>
@@ -437,22 +471,49 @@ function PreviewContent() {
                 <CardHeader>
                   <CardTitle>추출된 검사 항목 ({group.items.length}개)</CardTitle>
                   <CardDescription>
-                    {group.date} - {group.hospital} {group.sequence > 1 && `(${group.sequence}번째)`}
+                    {isDateUnknown ? '날짜 미인식' : group.date} - {isHospitalUnknown ? '병원 미인식' : group.hospital} {group.sequence > 1 && `(${group.sequence}번째)`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* 병원 선택 */}
-                  <div className="mb-6 p-4 bg-muted/50 rounded-lg">
-                    <Label className="text-sm font-medium mb-2 block">병원</Label>
-                    <HospitalSelector
-                      value={group.hospital}
-                      onValueChange={(value) => handleHospitalChange(tabId, value)}
-                      hospitals={hospitals}
-                      onHospitalCreated={handleHospitalCreated}
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      병원명을 검색하거나 새로 추가할 수 있습니다
-                    </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {/* 날짜 선택 */}
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <Label className="text-sm font-medium mb-2 block">검사일</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={`w-full justify-start text-left font-normal ${isDateUnknown ? 'border-destructive text-destructive' : ''}`}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {isDateUnknown ? '날짜를 선택하세요' : group.date}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            selected={isDateUnknown ? undefined : new Date(group.date)}
+                            onSelect={(date) => handleDateChange(tabId, date)}
+                            maxDate={new Date()}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {isDateUnknown && (
+                        <p className="text-xs text-destructive mt-2">
+                          날짜가 인식되지 않았습니다. 캘린더에서 선택해주세요.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* 병원 선택 */}
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <Label className="text-sm font-medium mb-2 block">병원</Label>
+                      <HospitalSelector
+                        value={group.hospital}
+                        onValueChange={(value) => handleHospitalChange(tabId, value)}
+                        hospitals={hospitals}
+                        onHospitalCreated={handleHospitalCreated}
+                      />
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto">
