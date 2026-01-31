@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import imageCompression from 'browser-image-compression'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppHeader } from '@/components/layout/AppHeader'
@@ -12,6 +13,13 @@ const FileUploader = dynamic(
   () => import('@/components/upload/FileUploader').then(mod => ({ default: mod.FileUploader })),
   { ssr: false, loading: () => <div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" /></div> }
 )
+
+// 이미지 압축 옵션
+const compressionOptions = {
+  maxSizeMB: 0.5, // 각 파일 최대 500KB로 압축
+  maxWidthOrHeight: 2048,
+  useWebWorker: true,
+}
 
 export default function UploadPage() {
   const router = useRouter()
@@ -38,17 +46,41 @@ export default function UploadPage() {
     try {
       const formData = new FormData()
 
-      // 여러 파일을 FormData에 추가
-      selectedFiles.forEach((file, index) => {
-        formData.append(`file${index}`, file)
-      })
+      // 이미지 압축 후 FormData에 추가
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i]
+        let processedFile = file
+
+        // 이미지 파일만 압축 (PDF는 제외)
+        if (file.type.startsWith('image/')) {
+          try {
+            processedFile = await imageCompression(file, compressionOptions)
+            console.log(`Compressed ${file.name}: ${(file.size / 1024).toFixed(1)}KB -> ${(processedFile.size / 1024).toFixed(1)}KB`)
+          } catch (compressError) {
+            console.warn(`Failed to compress ${file.name}, using original`, compressError)
+          }
+        }
+
+        formData.append(`file${i}`, processedFile)
+      }
 
       const response = await fetch('/api/ocr-batch', {
         method: 'POST',
         body: formData,
       })
 
-      const result = await response.json()
+      // 413 에러 처리 (Payload Too Large)
+      if (response.status === 413) {
+        throw new Error('파일 크기가 너무 큽니다. 파일 개수를 줄이거나 더 작은 이미지를 사용해주세요. (최대 4MB)')
+      }
+
+      // JSON 파싱 시도
+      let result
+      try {
+        result = await response.json()
+      } catch {
+        throw new Error('서버 응답을 처리할 수 없습니다. 파일 크기가 너무 크거나 서버에 문제가 있을 수 있습니다.')
+      }
 
       if (!response.ok) {
         throw new Error(result.error || 'OCR 처리 중 오류가 발생했습니다')
@@ -143,7 +175,7 @@ export default function UploadPage() {
           {isProcessing && (
             <div className="mt-4 p-4 bg-muted rounded-lg">
               <p className="text-sm text-center text-muted-foreground">
-                {selectedFiles.length}개의 검사지를 병렬로 분석하고 있습니다. 파일 수에 따라 20-60초 정도 소요됩니다...
+                이미지 압축 및 {selectedFiles.length}개의 검사지를 분석하고 있습니다. 파일 수에 따라 20-60초 정도 소요됩니다...
               </p>
             </div>
           )}
