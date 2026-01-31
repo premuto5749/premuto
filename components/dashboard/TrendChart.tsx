@@ -202,6 +202,17 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 </p>
               </div>
             </div>
+            {(chartData.refMin !== null || chartData.refMax !== null) && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-sm">
+                  <span className="text-muted-foreground">참고치 범위: </span>
+                  <span className="font-medium">
+                    {chartData.refMin !== null ? chartData.refMin : '-'} ~ {chartData.refMax !== null ? chartData.refMax : '-'} {chartData.unit}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-2">(최근 검사 기준)</span>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
