@@ -96,6 +96,30 @@ export default function DailyLogPage() {
     }
   }
 
+  const handleUpdate = async (id: string, data: Partial<DailyLog>) => {
+    const response = await fetch('/api/daily-logs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...data }),
+    })
+
+    if (!response.ok) {
+      toast({
+        title: '수정 실패',
+        description: '기록 수정에 실패했습니다.',
+        variant: 'destructive',
+      })
+      throw new Error('Update failed')
+    }
+
+    toast({
+      title: '수정 완료',
+      description: '기록이 수정되었습니다.',
+    })
+
+    fetchData()
+  }
+
   const goToPrevDay = () => {
     const d = new Date(selectedDate)
     d.setDate(d.getDate() - 1)
@@ -161,6 +185,34 @@ export default function DailyLogPage() {
     })
 
     const lines = [`📋 ${dateHeader} 기록`, '']
+
+    // 오늘 요약 추가
+    if (stats) {
+      lines.push('📊 오늘 요약')
+
+      if (stats.meal_count > 0) {
+        lines.push(`🍚 식사: ${stats.total_meal_amount}g (${stats.meal_count}회)`)
+      }
+      if (stats.water_count > 0) {
+        lines.push(`💧 음수: ${stats.total_water_amount}ml (${stats.water_count}회)`)
+      }
+      if (stats.medicine_count > 0) {
+        lines.push(`💊 약: ${stats.medicine_count}회`)
+      }
+      if (stats.poop_count > 0) {
+        lines.push(`💩 배변: ${stats.poop_count}회`)
+      }
+      if (stats.pee_count > 0) {
+        lines.push(`🚽 배뇨: ${stats.pee_count}회`)
+      }
+      if (stats.breathing_count > 0 && stats.avg_breathing_rate) {
+        lines.push(`🫁 호흡수: 평균 ${Math.round(stats.avg_breathing_rate)}회/분 (${stats.breathing_count}회 측정)`)
+      }
+
+      lines.push('')
+    }
+
+    lines.push('📝 상세 기록')
 
     for (const log of sortedLogs) {
       const config = LOG_CATEGORY_CONFIG[log.category]
@@ -333,7 +385,7 @@ export default function DailyLogPage() {
             {/* 타임라인 */}
             <div>
               <h2 className="font-medium mb-3">기록 목록</h2>
-              <Timeline logs={logs} onDelete={handleDelete} />
+              <Timeline logs={logs} onDelete={handleDelete} onUpdate={handleUpdate} />
             </div>
           </div>
         )}

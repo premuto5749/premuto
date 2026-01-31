@@ -93,7 +93,7 @@ export function DailyStatsCard({ stats, date }: DailyStatsCardProps) {
           {statItems.map((item) => (
             <div
               key={item.label}
-              className={`p-3 rounded-lg text-center ${item.color}`}
+              className="p-3 rounded-lg text-center bg-muted/50"
             >
               <div className="text-2xl mb-1">{item.icon}</div>
               <div className="text-xs text-muted-foreground">{item.label}</div>
