@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Upload, LineChart, Settings, Home, Menu, X } from 'lucide-react'
+import { Upload, LineChart, Settings, Home, Menu, X, Cog } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 
@@ -12,6 +12,7 @@ const navigation = [
   { name: '대시보드', href: '/dashboard', icon: LineChart },
   { name: '업로드', href: '/upload', icon: Upload },
   { name: '검사항목 매핑', href: '/mapping-management', icon: Settings },
+  { name: '설정', href: '/settings', icon: Cog },
 ]
 
 export function Sidebar() {

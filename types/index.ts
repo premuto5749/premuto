@@ -237,6 +237,57 @@ export interface DailyStats {
   breathing_count: number
 }
 
+// ============================================
+// 설정 관련 타입
+// ============================================
+
+export interface UserSettings {
+  id: string
+  user_id: string
+  // 반려동물 프로필
+  pet_name: string
+  pet_type: string | null
+  pet_breed: string | null
+  pet_birth_date: string | null
+  pet_weight_kg: number | null
+  pet_photo_url: string | null
+  // 테마 설정
+  theme: 'light' | 'dark' | 'system'
+  created_at: string
+  updated_at: string
+}
+
+export interface UserSettingsInput {
+  pet_name?: string
+  pet_type?: string | null
+  pet_breed?: string | null
+  pet_birth_date?: string | null
+  pet_weight_kg?: number | null
+  pet_photo_url?: string | null
+  theme?: 'light' | 'dark' | 'system'
+}
+
+export interface Medicine {
+  name: string
+  dosage: number
+  dosage_unit: 'mg' | 'tablet' | 'ml'
+  frequency: 'qd' | 'bid' | 'tid' | 'qid' | 'prn' | string  // qd=1일1회, bid=1일2회, tid=1일3회, qid=1일4회, prn=필요시
+}
+
+export interface MedicinePreset {
+  id: string
+  user_id: string
+  preset_name: string
+  medicines: Medicine[]
+  created_at: string
+  updated_at: string
+}
+
+export interface MedicinePresetInput {
+  preset_name: string
+  medicines: Medicine[]
+}
+
 // 카테고리별 설정
 export const LOG_CATEGORY_CONFIG: Record<LogCategory, {
   label: string

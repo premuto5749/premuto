@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { MedicinePresetInput } from '@/types'
 
+// 약 프리셋 목록 조회
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -10,37 +12,35 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: hospitals, error } = await supabase
-      .from('hospitals')
+    const { data: presets, error } = await supabase
+      .from('medicine_presets')
       .select('*')
-      .or(`user_id.eq.${user.id},user_id.is.null`)
-      .order('name')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true })
 
     if (error) {
-      console.error('Failed to fetch hospitals:', error)
+      console.error('Failed to fetch presets:', error)
       return NextResponse.json(
-        { error: 'Failed to fetch hospitals' },
+        { error: 'Failed to fetch presets' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      data: hospitals
+      data: presets || []
     })
 
   } catch (error) {
-    console.error('Hospitals API error:', error)
+    console.error('Medicine presets GET error:', error)
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
 }
 
+// 새 프리셋 생성
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -50,69 +50,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
-    const { name, phone, notes } = body
+    const body: MedicinePresetInput = await request.json()
 
-    if (!name) {
+    if (!body.preset_name) {
       return NextResponse.json(
-        { error: 'Hospital name is required' },
+        { error: 'Preset name is required' },
         { status: 400 }
       )
     }
 
-    // 중복 체크 (동일 사용자 내에서만)
-    const { data: existing } = await supabase
-      .from('hospitals')
-      .select('id, name')
-      .eq('name', name)
-      .eq('user_id', user.id)
-      .single()
-
-    if (existing) {
-      return NextResponse.json({
-        success: true,
-        data: existing,
-        message: 'Hospital already exists'
-      })
-    }
-
-    // 새 병원 생성
-    const { data: newHospital, error } = await supabase
-      .from('hospitals')
+    const { data: preset, error } = await supabase
+      .from('medicine_presets')
       .insert({
-        name,
-        phone,
-        notes,
-        user_id: user.id
+        user_id: user.id,
+        preset_name: body.preset_name,
+        medicines: body.medicines || []
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Failed to create hospital:', error)
+      console.error('Failed to create preset:', error)
       return NextResponse.json(
-        { error: 'Failed to create hospital' },
+        { error: 'Failed to create preset' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      data: newHospital
+      data: preset
     })
 
   } catch (error) {
-    console.error('Hospitals POST error:', error)
+    console.error('Medicine presets POST error:', error)
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
 }
 
+// 프리셋 수정
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -127,13 +106,13 @@ export async function PATCH(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'Hospital ID is required' },
+        { error: 'Preset ID is required' },
         { status: 400 }
       )
     }
 
-    const { data: hospital, error } = await supabase
-      .from('hospitals')
+    const { data: preset, error } = await supabase
+      .from('medicine_presets')
       .update(updateData)
       .eq('id', id)
       .eq('user_id', user.id)
@@ -141,30 +120,28 @@ export async function PATCH(request: NextRequest) {
       .single()
 
     if (error) {
-      console.error('Failed to update hospital:', error)
+      console.error('Failed to update preset:', error)
       return NextResponse.json(
-        { error: 'Failed to update hospital' },
+        { error: 'Failed to update preset' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      data: hospital
+      data: preset
     })
 
   } catch (error) {
-    console.error('Hospitals PATCH error:', error)
+    console.error('Medicine presets PATCH error:', error)
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
 }
 
+// 프리셋 삭제
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -179,37 +156,34 @@ export async function DELETE(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'Hospital ID is required' },
+        { error: 'Preset ID is required' },
         { status: 400 }
       )
     }
 
     const { error } = await supabase
-      .from('hospitals')
+      .from('medicine_presets')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id)
 
     if (error) {
-      console.error('Failed to delete hospital:', error)
+      console.error('Failed to delete preset:', error)
       return NextResponse.json(
-        { error: 'Failed to delete hospital' },
+        { error: 'Failed to delete preset' },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Hospital deleted successfully'
+      message: 'Preset deleted successfully'
     })
 
   } catch (error) {
-    console.error('Hospitals DELETE error:', error)
+    console.error('Medicine presets DELETE error:', error)
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
