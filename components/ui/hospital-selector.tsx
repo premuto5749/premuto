@@ -98,7 +98,7 @@ export function HospitalSelector({
           <SelectTrigger className="flex-1">
             <SelectValue placeholder={value && !selectedHospital ? `${value} (미등록)` : "병원 선택..."} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper" sideOffset={4} className="max-h-[300px]">
             {hospitals.length === 0 ? (
               <div className="py-2 px-2 text-sm text-muted-foreground text-center">
                 등록된 병원이 없습니다
