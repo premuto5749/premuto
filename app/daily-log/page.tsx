@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Menu, ChevronLeft, ChevronRight, Copy, CalendarIcon } from 'lucide-react'
+import { Plus, Menu, ChevronLeft, ChevronRight, Copy, CalendarIcon, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
@@ -21,18 +21,33 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Calendar } from '@/components/ui/calendar'
 import Link from 'next/link'
+
+// 한국 시간(KST, UTC+9) 기준 오늘 날짜 반환
+function getKSTToday(): string {
+  // Intl.DateTimeFormat을 사용하여 명시적으로 Asia/Seoul 타임존 적용
+  // 'sv-SE' 로케일은 YYYY-MM-DD 형식을 반환
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+}
 
 export default function DailyLogPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [logs, setLogs] = useState<DailyLog[]>([])
   const [stats, setStats] = useState<DailyStats | null>(null)
   const [selectedDate, setSelectedDate] = useState(() => {
-    return new Date().toISOString().split('T')[0]
+    return getKSTToday()
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [isDonateOpen, setIsDonateOpen] = useState(false)
   const { toast } = useToast()
 
   const fetchData = useCallback(async () => {
@@ -129,32 +144,35 @@ export default function DailyLogPage() {
   const goToNextDay = () => {
     const d = new Date(selectedDate)
     d.setDate(d.getDate() + 1)
-    const today = new Date().toISOString().split('T')[0]
-    if (d.toISOString().split('T')[0] <= today) {
-      setSelectedDate(d.toISOString().split('T')[0])
-    }
+    setSelectedDate(d.toISOString().split('T')[0])
   }
 
   const goToToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0])
+    setSelectedDate(getKSTToday())
   }
 
   const formatDateHeader = (dateStr: string) => {
     const d = new Date(dateStr)
-    const today = new Date().toISOString().split('T')[0]
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
+    const today = getKSTToday()
+    const yesterdayDate = new Date(today)
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+    const yesterday = yesterdayDate.toISOString().split('T')[0]
+    const tomorrowDate = new Date(today)
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+    const tomorrow = tomorrowDate.toISOString().split('T')[0]
 
     if (dateStr === today) {
       return '오늘'
-    } else if (dateStr === yesterday.toISOString().split('T')[0]) {
+    } else if (dateStr === yesterday) {
       return '어제'
+    } else if (dateStr === tomorrow) {
+      return '내일'
     }
 
     return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })
   }
 
-  const isToday = selectedDate === new Date().toISOString().split('T')[0]
+  const isToday = selectedDate === getKSTToday()
 
   const handleCalendarSelect = (date: Date) => {
     setSelectedDate(date.toISOString().split('T')[0])
@@ -302,7 +320,20 @@ export default function DailyLogPage() {
                 >
                   ⚙️ 검사항목 매핑 관리
                 </Link>
+                <Link
+                  href="/settings"
+                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
+                >
+                  🔧 설정
+                </Link>
                 <hr className="my-4" />
+                <button
+                  onClick={() => setIsDonateOpen(true)}
+                  className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
+                >
+                  <Heart className="w-4 h-4 mr-2 text-pink-500" />
+                  후원하기
+                </button>
                 <form action="/auth/signout" method="post">
                   <button
                     type="submit"
@@ -341,7 +372,6 @@ export default function DailyLogPage() {
               <Calendar
                 selected={new Date(selectedDate)}
                 onSelect={handleCalendarSelect}
-                maxDate={new Date()}
               />
               {!isToday && (
                 <div className="px-3 pb-3">
@@ -364,7 +394,6 @@ export default function DailyLogPage() {
             variant="ghost"
             size="icon"
             onClick={goToNextDay}
-            disabled={isToday}
           >
             <ChevronRight className="w-5 h-5" />
           </Button>
@@ -407,6 +436,50 @@ export default function DailyLogPage() {
         onSuccess={fetchData}
         defaultDate={selectedDate}
       />
+
+      {/* 후원하기 다이얼로그 */}
+      <Dialog open={isDonateOpen} onOpenChange={setIsDonateOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Heart className="w-5 h-5 text-pink-500" />
+              후원하기
+            </DialogTitle>
+            <DialogDescription>
+              우리 아가들에게 더 건강한 하루를 선물하는데 쓰입니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">은행</span>
+                <span className="font-medium">우리은행</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">계좌번호</span>
+                <span className="font-medium">1002-533-391083</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">예금주</span>
+                <span className="font-medium">김민수</span>
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                navigator.clipboard.writeText('1002533391083')
+                toast({
+                  title: '복사 완료',
+                  description: '계좌번호가 클립보드에 복사되었습니다.',
+                })
+              }}
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              계좌번호 복사
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
