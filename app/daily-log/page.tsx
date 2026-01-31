@@ -24,12 +24,21 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import Link from 'next/link'
 
+// 한국 시간(KST) 기준 오늘 날짜 반환
+function getKSTToday(): string {
+  const now = new Date()
+  // UTC+9 (한국 시간)
+  const kstOffset = 9 * 60 * 60 * 1000
+  const kstDate = new Date(now.getTime() + kstOffset + now.getTimezoneOffset() * 60 * 1000)
+  return kstDate.toISOString().split('T')[0]
+}
+
 export default function DailyLogPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [logs, setLogs] = useState<DailyLog[]>([])
   const [stats, setStats] = useState<DailyStats | null>(null)
   const [selectedDate, setSelectedDate] = useState(() => {
-    return new Date().toISOString().split('T')[0]
+    return getKSTToday()
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
@@ -129,32 +138,35 @@ export default function DailyLogPage() {
   const goToNextDay = () => {
     const d = new Date(selectedDate)
     d.setDate(d.getDate() + 1)
-    const today = new Date().toISOString().split('T')[0]
-    if (d.toISOString().split('T')[0] <= today) {
-      setSelectedDate(d.toISOString().split('T')[0])
-    }
+    setSelectedDate(d.toISOString().split('T')[0])
   }
 
   const goToToday = () => {
-    setSelectedDate(new Date().toISOString().split('T')[0])
+    setSelectedDate(getKSTToday())
   }
 
   const formatDateHeader = (dateStr: string) => {
     const d = new Date(dateStr)
-    const today = new Date().toISOString().split('T')[0]
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
+    const today = getKSTToday()
+    const yesterdayDate = new Date(today)
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+    const yesterday = yesterdayDate.toISOString().split('T')[0]
+    const tomorrowDate = new Date(today)
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1)
+    const tomorrow = tomorrowDate.toISOString().split('T')[0]
 
     if (dateStr === today) {
       return '오늘'
-    } else if (dateStr === yesterday.toISOString().split('T')[0]) {
+    } else if (dateStr === yesterday) {
       return '어제'
+    } else if (dateStr === tomorrow) {
+      return '내일'
     }
 
     return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })
   }
 
-  const isToday = selectedDate === new Date().toISOString().split('T')[0]
+  const isToday = selectedDate === getKSTToday()
 
   const handleCalendarSelect = (date: Date) => {
     setSelectedDate(date.toISOString().split('T')[0])
@@ -341,7 +353,6 @@ export default function DailyLogPage() {
               <Calendar
                 selected={new Date(selectedDate)}
                 onSelect={handleCalendarSelect}
-                maxDate={new Date()}
               />
               {!isToday && (
                 <div className="px-3 pb-3">
@@ -364,7 +375,6 @@ export default function DailyLogPage() {
             variant="ghost"
             size="icon"
             onClick={goToNextDay}
-            disabled={isToday}
           >
             <ChevronRight className="w-5 h-5" />
           </Button>
