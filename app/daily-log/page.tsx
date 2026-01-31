@@ -31,13 +31,11 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import Link from 'next/link'
 
-// 한국 시간(KST) 기준 오늘 날짜 반환
+// 한국 시간(KST, UTC+9) 기준 오늘 날짜 반환
 function getKSTToday(): string {
-  const now = new Date()
-  // UTC+9 (한국 시간)
-  const kstOffset = 9 * 60 * 60 * 1000
-  const kstDate = new Date(now.getTime() + kstOffset + now.getTimezoneOffset() * 60 * 1000)
-  return kstDate.toISOString().split('T')[0]
+  // Intl.DateTimeFormat을 사용하여 명시적으로 Asia/Seoul 타임존 적용
+  // 'sv-SE' 로케일은 YYYY-MM-DD 형식을 반환
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 }
 
 export default function DailyLogPage() {
