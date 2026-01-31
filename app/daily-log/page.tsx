@@ -186,6 +186,34 @@ export default function DailyLogPage() {
 
     const lines = [`📋 ${dateHeader} 기록`, '']
 
+    // 오늘 요약 추가
+    if (stats) {
+      lines.push('📊 오늘 요약')
+
+      if (stats.meal_count > 0) {
+        lines.push(`🍚 식사: ${stats.total_meal_amount}g (${stats.meal_count}회)`)
+      }
+      if (stats.water_count > 0) {
+        lines.push(`💧 음수: ${stats.total_water_amount}ml (${stats.water_count}회)`)
+      }
+      if (stats.medicine_count > 0) {
+        lines.push(`💊 약: ${stats.medicine_count}회`)
+      }
+      if (stats.poop_count > 0) {
+        lines.push(`💩 배변: ${stats.poop_count}회`)
+      }
+      if (stats.pee_count > 0) {
+        lines.push(`🚽 배뇨: ${stats.pee_count}회`)
+      }
+      if (stats.breathing_count > 0 && stats.avg_breathing_rate) {
+        lines.push(`🫁 호흡수: 평균 ${Math.round(stats.avg_breathing_rate)}회/분 (${stats.breathing_count}회 측정)`)
+      }
+
+      lines.push('')
+    }
+
+    lines.push('📝 상세 기록')
+
     for (const log of sortedLogs) {
       const config = LOG_CATEGORY_CONFIG[log.category]
       const time = new Date(log.logged_at).toLocaleTimeString('ko-KR', {
