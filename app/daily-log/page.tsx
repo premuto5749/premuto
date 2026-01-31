@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Menu, ChevronLeft, ChevronRight, Copy, CalendarIcon } from 'lucide-react'
+import { Plus, Menu, ChevronLeft, ChevronRight, Copy, CalendarIcon, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
@@ -21,6 +21,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Calendar } from '@/components/ui/calendar'
 import Link from 'next/link'
 
@@ -42,6 +49,7 @@ export default function DailyLogPage() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [isDonateOpen, setIsDonateOpen] = useState(false)
   const { toast } = useToast()
 
   const fetchData = useCallback(async () => {
@@ -321,14 +329,13 @@ export default function DailyLogPage() {
                   🔧 설정
                 </Link>
                 <hr className="my-4" />
-                <a
-                  href="https://buymeacoffee.com/premuto"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
+                <button
+                  onClick={() => setIsDonateOpen(true)}
+                  className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
                 >
-                  ☕ 후원하기
-                </a>
+                  <Heart className="w-4 h-4 mr-2 text-pink-500" />
+                  후원하기
+                </button>
                 <form action="/auth/signout" method="post">
                   <button
                     type="submit"
@@ -431,6 +438,50 @@ export default function DailyLogPage() {
         onSuccess={fetchData}
         defaultDate={selectedDate}
       />
+
+      {/* 후원하기 다이얼로그 */}
+      <Dialog open={isDonateOpen} onOpenChange={setIsDonateOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Heart className="w-5 h-5 text-pink-500" />
+              후원하기
+            </DialogTitle>
+            <DialogDescription>
+              우리 아가들에게 더 건강한 하루를 선물하는데 쓰입니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">은행</span>
+                <span className="font-medium">우리은행</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">계좌번호</span>
+                <span className="font-medium">1002-533-391083</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">예금주</span>
+                <span className="font-medium">김민수</span>
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                navigator.clipboard.writeText('1002533391083')
+                toast({
+                  title: '복사 완료',
+                  description: '계좌번호가 클립보드에 복사되었습니다.',
+                })
+              }}
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              계좌번호 복사
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
