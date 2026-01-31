@@ -190,17 +190,17 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
           항목을 클릭하면 시계열 그래프를 볼 수 있습니다
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0 sm:px-6">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+          <table className="w-full border-collapse text-xs sm:text-sm">
             <thead>
               <tr className="border-b">
-                <th className="sticky left-0 bg-background p-3 text-left font-medium border-r">
+                <th className="sticky left-0 z-20 bg-background p-2 sm:p-3 text-left font-medium border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[100px] sm:min-w-[150px]">
                   항목
                 </th>
                 {sortedRecords.map((record) => (
-                  <th key={record.id} className="p-3 text-center font-medium min-w-[120px]">
-                    <div>
+                  <th key={record.id} className="p-2 sm:p-3 text-center font-medium min-w-[70px] sm:min-w-[100px]">
+                    <div className="text-xs sm:text-sm">
                       {new Date(record.test_date).toLocaleDateString('ko-KR', {
                         year: '2-digit',
                         month: 'numeric',
@@ -208,7 +208,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                       })}
                     </div>
                     {record.hospital_name && (
-                      <div className="text-xs text-muted-foreground font-normal mt-1">
+                      <div className="text-[10px] sm:text-xs text-muted-foreground font-normal mt-0.5 sm:mt-1 truncate max-w-[65px] sm:max-w-[95px]">
                         {record.hospital_name}
                       </div>
                     )}
@@ -220,7 +220,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
               {Array.from(pivotData.itemsByCategory.entries()).map(([category, items]) => (
                 <React.Fragment key={category}>
                   <tr className="bg-muted/50">
-                    <td colSpan={sortedRecords.length + 1} className="p-2 font-semibold text-xs uppercase">
+                    <td colSpan={sortedRecords.length + 1} className="sticky left-0 z-10 p-2 font-semibold text-[10px] sm:text-xs uppercase bg-muted/50">
                       {category}
                     </td>
                   </tr>
@@ -229,13 +229,13 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                     return (
                       <tr key={itemName} className="border-b hover:bg-muted/50">
                         <td
-                          className="sticky left-0 bg-background p-3 border-r cursor-pointer hover:bg-accent"
+                          className="sticky left-0 z-10 bg-background p-2 sm:p-3 border-r cursor-pointer hover:bg-accent shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] align-top min-w-[100px] sm:min-w-[150px]"
                           onClick={() => onItemClick?.(itemName)}
                         >
-                          <div className="font-medium">{detail.name}</div>
-                          <div className="text-xs text-muted-foreground">{detail.ko}</div>
+                          <div className="font-medium text-xs sm:text-sm truncate max-w-[90px] sm:max-w-none">{detail.name}</div>
+                          <div className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[90px] sm:max-w-none">{detail.ko}</div>
                           {detail.refRangeDisplay && (
-                            <div className={`text-xs mt-1 ${detail.refRangeDisplay === '여러 참고치 적용됨' ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                            <div className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 truncate max-w-[90px] sm:max-w-none ${detail.refRangeDisplay === '여러 참고치 적용됨' ? 'text-orange-600' : 'text-muted-foreground'}`}>
                               {detail.refRangeDisplay}
                             </div>
                           )}
@@ -247,7 +247,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                           return (
                             <td
                               key={`${record.id}-${itemName}`}
-                              className={`p-3 text-center ${result ? getStatusColor(result.status) : ''}`}
+                              className={`p-1 sm:p-3 text-center align-top ${result ? getStatusColor(result.status) : ''}`}
                             >
                               {result ? (
                                 <SimpleTooltip

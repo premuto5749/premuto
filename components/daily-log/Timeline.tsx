@@ -224,11 +224,11 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
                     <div className="grid grid-cols-3 gap-2">
                       {selectedLog.photo_urls.map((url, idx) => (
                         <div key={idx} className="relative aspect-square">
-                          <Image
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
                             src={url}
                             alt={`사진 ${idx + 1}`}
-                            fill
-                            className="object-cover rounded-lg"
+                            className="w-full h-full object-cover rounded-lg"
                           />
                         </div>
                       ))}

@@ -159,6 +159,12 @@ export default function DailyLogPage() {
                   📊 검사 결과 대시보드
                 </Link>
                 <Link
+                  href="/records-management"
+                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
+                >
+                  🗑️ 검사 기록 관리
+                </Link>
+                <Link
                   href="/mapping-management"
                   className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
                 >
