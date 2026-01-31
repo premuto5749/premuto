@@ -17,6 +17,12 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -33,6 +39,7 @@ export default function DailyLogPage() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [isDonationOpen, setIsDonationOpen] = useState(false)
   const { toast } = useToast()
 
   const fetchData = useCallback(async () => {
@@ -303,6 +310,13 @@ export default function DailyLogPage() {
                   ⚙️ 검사항목 매핑 관리
                 </Link>
                 <hr className="my-4" />
+                <button
+                  type="button"
+                  onClick={() => setIsDonationOpen(true)}
+                  className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
+                >
+                  💝 후원하기
+                </button>
                 <form action="/auth/signout" method="post">
                   <button
                     type="submit"
@@ -407,6 +421,55 @@ export default function DailyLogPage() {
         onSuccess={fetchData}
         defaultDate={selectedDate}
       />
+
+      {/* 후원 다이얼로그 */}
+      <Dialog open={isDonationOpen} onOpenChange={setIsDonationOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">💝 후원하기</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <p className="text-center text-muted-foreground">
+              우리 아가들에게 더 건강한 하루를<br />
+              선물하는데 쓰입니다.
+            </p>
+            <div className="bg-muted rounded-lg p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">은행</span>
+                <span className="font-medium">우리은행</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">계좌번호</span>
+                <span className="font-medium font-mono">1002-533-391083</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">예금주</span>
+                <span className="font-medium">김민수</span>
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={() => {
+                navigator.clipboard.writeText('1002533391083').then(() => {
+                  toast({
+                    title: '복사 완료',
+                    description: '계좌번호가 클립보드에 복사되었습니다.',
+                  })
+                }).catch(() => {
+                  toast({
+                    title: '복사 실패',
+                    description: '계좌번호 복사에 실패했습니다.',
+                    variant: 'destructive',
+                  })
+                })
+              }}
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              계좌번호 복사
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
