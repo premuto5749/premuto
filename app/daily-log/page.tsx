@@ -96,6 +96,30 @@ export default function DailyLogPage() {
     }
   }
 
+  const handleUpdate = async (id: string, data: Partial<DailyLog>) => {
+    const response = await fetch('/api/daily-logs', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...data }),
+    })
+
+    if (!response.ok) {
+      toast({
+        title: '수정 실패',
+        description: '기록 수정에 실패했습니다.',
+        variant: 'destructive',
+      })
+      throw new Error('Update failed')
+    }
+
+    toast({
+      title: '수정 완료',
+      description: '기록이 수정되었습니다.',
+    })
+
+    fetchData()
+  }
+
   const goToPrevDay = () => {
     const d = new Date(selectedDate)
     d.setDate(d.getDate() - 1)
@@ -333,7 +357,7 @@ export default function DailyLogPage() {
             {/* 타임라인 */}
             <div>
               <h2 className="font-medium mb-3">기록 목록</h2>
-              <Timeline logs={logs} onDelete={handleDelete} />
+              <Timeline logs={logs} onDelete={handleDelete} onUpdate={handleUpdate} />
             </div>
           </div>
         )}

@@ -3,7 +3,10 @@
 import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Trash2, ImageIcon } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Trash2, ImageIcon, Edit2, Loader2 } from 'lucide-react'
 import type { DailyLog } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import {
@@ -21,16 +24,25 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 
 interface TimelineProps {
   logs: DailyLog[]
   onDelete?: (id: string) => void
+  onUpdate?: (id: string, data: Partial<DailyLog>) => Promise<void>
 }
 
-export function Timeline({ logs, onDelete }: TimelineProps) {
+export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // 수정 폼 상태
+  const [editAmount, setEditAmount] = useState<string>('')
+  const [editMemo, setEditMemo] = useState<string>('')
+  const [editMedicineName, setEditMedicineName] = useState<string>('')
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -68,6 +80,68 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
     setDeleteId(null)
   }
 
+  const handleOpenDetail = (log: DailyLog) => {
+    setSelectedLog(log)
+    setIsEditing(false)
+    // 수정 폼 초기화
+    setEditAmount(log.amount?.toString() || '')
+    setEditMemo(log.memo || '')
+    setEditMedicineName(log.medicine_name || '')
+  }
+
+  const handleStartEdit = () => {
+    if (!selectedLog) return
+    setEditAmount(selectedLog.amount?.toString() || '')
+    setEditMemo(selectedLog.memo || '')
+    setEditMedicineName(selectedLog.medicine_name || '')
+    setIsEditing(true)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    if (selectedLog) {
+      setEditAmount(selectedLog.amount?.toString() || '')
+      setEditMemo(selectedLog.memo || '')
+      setEditMedicineName(selectedLog.medicine_name || '')
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!selectedLog || !onUpdate) return
+
+    setIsSaving(true)
+    try {
+      const updateData: Partial<DailyLog> = {
+        memo: editMemo || null,
+      }
+
+      // 배변/배뇨가 아닌 경우에만 양 업데이트
+      if (selectedLog.category !== 'poop' && selectedLog.category !== 'pee') {
+        updateData.amount = editAmount ? parseFloat(editAmount) : null
+      }
+
+      // 약인 경우 약 이름 업데이트
+      if (selectedLog.category === 'medicine') {
+        updateData.medicine_name = editMedicineName || null
+      }
+
+      await onUpdate(selectedLog.id, updateData)
+
+      // 성공 후 상태 업데이트
+      setSelectedLog(prev => prev ? { ...prev, ...updateData } : null)
+      setIsEditing(false)
+    } catch (error) {
+      console.error('Update error:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCloseDialog = () => {
+    setSelectedLog(null)
+    setIsEditing(false)
+  }
+
   if (logs.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -86,7 +160,7 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
             <Card
               key={log.id}
               className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => setSelectedLog(log)}
+              onClick={() => handleOpenDetail(log)}
             >
               <CardContent className="p-0">
                 <div className="flex items-center">
@@ -96,7 +170,7 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
                   </div>
 
                   {/* 아이콘 */}
-                  <div className={`w-14 py-3 text-center text-2xl ${config.color}`}>
+                  <div className="w-14 py-3 text-center text-2xl">
                     {config.icon}
                   </div>
 
@@ -169,7 +243,7 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
       </AlertDialog>
 
       {/* 상세 정보 모달 */}
-      <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
+      <Dialog open={!!selectedLog} onOpenChange={handleCloseDialog}>
         <DialogContent className="sm:max-w-md">
           {selectedLog && (
             <>
@@ -179,77 +253,178 @@ export function Timeline({ logs, onDelete }: TimelineProps) {
                   {LOG_CATEGORY_CONFIG[selectedLog.category].label}
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                {/* 시간 */}
-                <div>
-                  <p className="text-sm text-muted-foreground">기록 시간</p>
-                  <p className="font-medium">{formatDateTime(selectedLog.logged_at)}</p>
-                </div>
 
-                {/* 양 (배변/배뇨 제외) */}
-                {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.amount !== null && (
+              {isEditing ? (
+                /* 수정 모드 */
+                <div className="space-y-4 py-4">
+                  {/* 시간 (수정 불가) */}
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedLog.category === 'breathing' ? '호흡수' : '양'}
-                    </p>
-                    <p className="font-medium">
-                      {selectedLog.amount} {selectedLog.unit || LOG_CATEGORY_CONFIG[selectedLog.category].unit}
-                    </p>
+                    <Label className="text-sm text-muted-foreground">기록 시간</Label>
+                    <p className="font-medium">{formatDateTime(selectedLog.logged_at)}</p>
                   </div>
-                )}
 
-                {/* 약 이름 */}
-                {selectedLog.category === 'medicine' && selectedLog.medicine_name && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">약 이름</p>
-                    <p className="font-medium">{selectedLog.medicine_name}</p>
-                  </div>
-                )}
-
-                {/* 메모 */}
-                {selectedLog.memo && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">메모</p>
-                    <p className="font-medium whitespace-pre-wrap">{selectedLog.memo}</p>
-                  </div>
-                )}
-
-                {/* 사진 */}
-                {selectedLog.photo_urls && selectedLog.photo_urls.length > 0 && (
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      사진 ({selectedLog.photo_urls.length}장)
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {selectedLog.photo_urls.map((url, idx) => (
-                        <div key={idx} className="relative aspect-square">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={url}
-                            alt={`사진 ${idx + 1}`}
-                            className="w-full h-full object-cover rounded-lg"
-                          />
-                        </div>
-                      ))}
+                  {/* 양 입력 (배변/배뇨 제외) */}
+                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-amount">
+                        {selectedLog.category === 'breathing' ? '호흡수' : '양'} ({LOG_CATEGORY_CONFIG[selectedLog.category].unit})
+                      </Label>
+                      <Input
+                        id="edit-amount"
+                        type="number"
+                        value={editAmount}
+                        onChange={(e) => setEditAmount(e.target.value)}
+                        placeholder={LOG_CATEGORY_CONFIG[selectedLog.category].placeholder}
+                      />
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* 삭제 버튼 */}
-                {onDelete && (
-                  <Button
-                    variant="destructive"
-                    className="w-full"
-                    onClick={() => {
-                      setDeleteId(selectedLog.id)
-                      setSelectedLog(null)
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    기록 삭제
-                  </Button>
+                  {/* 약 이름 (약인 경우만) */}
+                  {selectedLog.category === 'medicine' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-medicine">약 이름</Label>
+                      <Input
+                        id="edit-medicine"
+                        value={editMedicineName}
+                        onChange={(e) => setEditMedicineName(e.target.value)}
+                        placeholder="약 이름 입력"
+                      />
+                    </div>
+                  )}
+
+                  {/* 메모 */}
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-memo">메모</Label>
+                    <Textarea
+                      id="edit-memo"
+                      value={editMemo}
+                      onChange={(e) => setEditMemo(e.target.value)}
+                      placeholder="메모 입력 (선택)"
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* 사진 (수정 불가, 표시만) */}
+                  {selectedLog.photo_urls && selectedLog.photo_urls.length > 0 && (
+                    <div>
+                      <Label className="text-sm text-muted-foreground mb-2 block">
+                        사진 ({selectedLog.photo_urls.length}장)
+                      </Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {selectedLog.photo_urls.map((url, idx) => (
+                          <div key={idx} className="relative aspect-square">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={`사진 ${idx + 1}`}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* 보기 모드 */
+                <div className="space-y-4 py-4">
+                  {/* 시간 */}
+                  <div>
+                    <p className="text-sm text-muted-foreground">기록 시간</p>
+                    <p className="font-medium">{formatDateTime(selectedLog.logged_at)}</p>
+                  </div>
+
+                  {/* 양 (배변/배뇨 제외) */}
+                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.amount !== null && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedLog.category === 'breathing' ? '호흡수' : '양'}
+                      </p>
+                      <p className="font-medium">
+                        {selectedLog.amount} {selectedLog.unit || LOG_CATEGORY_CONFIG[selectedLog.category].unit}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 약 이름 */}
+                  {selectedLog.category === 'medicine' && selectedLog.medicine_name && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">약 이름</p>
+                      <p className="font-medium">{selectedLog.medicine_name}</p>
+                    </div>
+                  )}
+
+                  {/* 메모 */}
+                  {selectedLog.memo && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">메모</p>
+                      <p className="font-medium whitespace-pre-wrap">{selectedLog.memo}</p>
+                    </div>
+                  )}
+
+                  {/* 사진 */}
+                  {selectedLog.photo_urls && selectedLog.photo_urls.length > 0 && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        사진 ({selectedLog.photo_urls.length}장)
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {selectedLog.photo_urls.map((url, idx) => (
+                          <div key={idx} className="relative aspect-square">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={`사진 ${idx + 1}`}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                {isEditing ? (
+                  <>
+                    <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                      취소
+                    </Button>
+                    <Button onClick={handleSaveEdit} disabled={isSaving}>
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          저장 중...
+                        </>
+                      ) : (
+                        '저장'
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    {onUpdate && (
+                      <Button variant="outline" onClick={handleStartEdit}>
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        수정
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          setDeleteId(selectedLog.id)
+                          setSelectedLog(null)
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        삭제
+                      </Button>
+                    )}
+                  </>
                 )}
-              </div>
+              </DialogFooter>
             </>
           )}
         </DialogContent>
