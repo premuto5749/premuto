@@ -416,8 +416,8 @@ function PreviewContent() {
 
       <div className="container max-w-6xl mx-auto py-10 px-4">
 
-      {/* 경고 메시지 */}
-      {batchData.warnings && batchData.warnings.length > 0 && (
+      {/* 경고 메시지 - duplicate_item 제외 (날짜 불일치 등 중요 경고만 표시) */}
+      {batchData.warnings && batchData.warnings.filter(w => w.type !== 'duplicate_item').length > 0 && (
         <Card className="mb-6 border-orange-500">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
@@ -425,7 +425,7 @@ function PreviewContent() {
               <div className="flex-1">
                 <p className="font-medium text-orange-700">경고</p>
                 <ul className="mt-2 space-y-1">
-                  {batchData.warnings.map((warning, index) => (
+                  {batchData.warnings.filter(w => w.type !== 'duplicate_item').map((warning, index) => (
                     <li key={index} className="text-sm text-muted-foreground">
                       • {warning.message}
                     </li>
