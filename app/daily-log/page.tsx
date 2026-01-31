@@ -314,7 +314,21 @@ export default function DailyLogPage() {
                 >
                   ⚙️ 검사항목 매핑 관리
                 </Link>
+                <Link
+                  href="/settings"
+                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
+                >
+                  🔧 설정
+                </Link>
                 <hr className="my-4" />
+                <a
+                  href="https://buymeacoffee.com/premuto"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
+                >
+                  ☕ 후원하기
+                </a>
                 <form action="/auth/signout" method="post">
                   <button
                     type="submit"
