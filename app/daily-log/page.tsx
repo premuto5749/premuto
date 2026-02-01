@@ -60,7 +60,20 @@ export default function DailyLogPage() {
   const { toast } = useToast()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
 
+  // 반려동물 로딩 완료 후 currentPet이 없으면 기본 반려동물 자동 선택
+  useEffect(() => {
+    if (!isPetsLoading && pets.length > 0 && !currentPet) {
+      const defaultPet = pets.find(p => p.is_default) || pets[0]
+      if (defaultPet) {
+        setCurrentPet(defaultPet)
+      }
+    }
+  }, [isPetsLoading, pets, currentPet, setCurrentPet])
+
   const fetchData = useCallback(async () => {
+    // 반려동물 로딩 중이면 대기
+    if (isPetsLoading) return
+
     setIsLoading(true)
     try {
       // pet_id 파라미터 추가
@@ -94,7 +107,7 @@ export default function DailyLogPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedDate, currentPet])
+  }, [selectedDate, currentPet, isPetsLoading])
 
   useEffect(() => {
     fetchData()
