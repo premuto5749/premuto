@@ -319,21 +319,6 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                       </p>
                     )}
                   </div>
-
-                  {/* 삭제 버튼 */}
-                  {onDelete && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mr-2 text-muted-foreground hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setDeleteId(log.id)
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
                 </div>
               </CardContent>
             </Card>
