@@ -111,8 +111,10 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
         <h1 className="font-semibold text-lg">{title}</h1>
 
         {/* 반려동물 스위처 */}
-        <div className="flex-shrink-0 flex justify-end">
-          {!isPetsLoading && pets.length > 0 && (
+        <div className="flex-shrink-0 min-w-[40px] flex justify-end">
+          {isPetsLoading ? (
+            <div className="w-6 h-6 rounded-full bg-muted animate-pulse" />
+          ) : pets.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1 px-2">
@@ -171,6 +173,14 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          ) : (
+            <Button variant="ghost" size="sm" className="px-2" asChild>
+              <Link href="/settings?tab=pet">
+                <div className="w-6 h-6 flex-shrink-0 rounded-full bg-muted flex items-center justify-center">
+                  <PawPrint className="w-3 h-3 text-muted-foreground" />
+                </div>
+              </Link>
+            </Button>
           )}
         </div>
       </div>
