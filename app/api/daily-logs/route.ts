@@ -110,22 +110,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase
+    const insertData: Record<string, unknown> = {
+      user_id: user.id,
+      pet_id: pet_id || null,
+      category,
+      logged_at: logged_at || new Date().toISOString(),
+      amount,
+      leftover_amount: category === 'meal' ? (leftover_amount || 0) : null,
+      unit,
+      memo,
+      photo_urls: photo_urls || [],
+      medicine_name: category === 'medicine' ? medicine_name : null
+    }
+
+    // 첫 번째 시도: leftover_amount 포함
+    let { data, error } = await supabase
       .from('daily_logs')
-      .insert({
-        user_id: user.id,
-        pet_id: pet_id || null,
-        category,
-        logged_at: logged_at || new Date().toISOString(),
-        amount,
-        leftover_amount: category === 'meal' ? (leftover_amount || 0) : null,
-        unit,
-        memo,
-        photo_urls: photo_urls || [],
-        medicine_name: category === 'medicine' ? medicine_name : null
-      })
+      .insert(insertData)
       .select()
       .single()
+
+    // leftover_amount 컬럼이 없으면 해당 필드 제외하고 재시도
+    if (error && error.code === 'PGRST204') {
+      const { leftover_amount: _, ...insertDataWithoutLeftover } = insertData
+      const retryResult = await supabase
+        .from('daily_logs')
+        .insert(insertDataWithoutLeftover)
+        .select()
+        .single()
+
+      data = retryResult.data
+      error = retryResult.error
+    }
 
     if (error) {
       console.error('Daily log insert error:', error)
@@ -195,12 +211,27 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase
+    // 첫 번째 시도: leftover_amount 포함
+    let { data, error } = await supabase
       .from('daily_logs')
       .update(updates)
       .eq('id', id)
       .select()
       .single()
+
+    // leftover_amount 컬럼이 없으면 해당 필드 제외하고 재시도
+    if (error && error.code === 'PGRST204' && 'leftover_amount' in updates) {
+      const { leftover_amount, ...updatesWithoutLeftover } = updates
+      const retryResult = await supabase
+        .from('daily_logs')
+        .update(updatesWithoutLeftover)
+        .eq('id', id)
+        .select()
+        .single()
+
+      data = retryResult.data
+      error = retryResult.error
+    }
 
     if (error) {
       console.error('Daily log update error:', error)
