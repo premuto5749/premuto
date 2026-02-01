@@ -241,9 +241,20 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         body: JSON.stringify(logData),
       })
 
+      const result = await response.json()
+
       if (!response.ok) {
-        throw new Error('Failed to save log')
+        console.error('Daily log save failed:', result)
+        throw new Error(result.error || 'Failed to save log')
       }
+
+      // 저장된 데이터 검증
+      if (!result.data?.id) {
+        console.error('Daily log save returned no data:', result)
+        throw new Error('저장된 데이터를 확인할 수 없습니다')
+      }
+
+      console.log('Daily log saved successfully:', result.data.id)
 
       toast({
         title: '기록 완료',
@@ -256,9 +267,10 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
 
     } catch (error) {
       console.error('Failed to save log:', error)
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류'
       toast({
         title: '저장 실패',
-        description: '기록 저장에 실패했습니다. 다시 시도해주세요.',
+        description: `기록 저장에 실패했습니다: ${errorMessage}`,
         variant: 'destructive',
       })
     } finally {

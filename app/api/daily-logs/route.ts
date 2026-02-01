@@ -42,6 +42,15 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
 
+    // 인증된 사용자 확인 (뷰 조회 시 RLS가 제대로 적용되지 않을 수 있음)
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      )
+    }
+
     const date = searchParams.get('date')           // 특정 날짜 (YYYY-MM-DD)
     const startDate = searchParams.get('start')     // 시작일
     const endDate = searchParams.get('end')         // 종료일
@@ -52,6 +61,7 @@ export async function GET(request: NextRequest) {
     // 통계 조회
     if (stats === 'true') {
       let query = supabase.from('daily_stats').select('*')
+        .eq('user_id', user.id)  // 명시적 user_id 필터링 (뷰 RLS 보완)
 
       if (date) {
         query = query.eq('log_date', date)
@@ -79,6 +89,7 @@ export async function GET(request: NextRequest) {
 
     // 일반 기록 조회
     let query = supabase.from('daily_logs').select('*')
+      .eq('user_id', user.id)  // 명시적 user_id 필터링 (RLS 보완)
 
     if (date) {
       // 특정 날짜의 기록 (KST 기준, UTC+9)
