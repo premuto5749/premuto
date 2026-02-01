@@ -50,6 +50,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const [newPhotoFiles, setNewPhotoFiles] = useState<File[]>([])
   const [newPhotoPreviews, setNewPhotoPreviews] = useState<string[]>([])
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -633,7 +634,11 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                       </p>
                       <div className="grid grid-cols-3 gap-2">
                         {selectedLog.photo_urls.map((url, idx) => (
-                          <div key={idx} className="relative aspect-square bg-muted rounded-lg overflow-hidden">
+                          <div
+                            key={idx}
+                            className="relative aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => setLightboxUrl(url)}
+                          >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={url}
@@ -695,6 +700,29 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                 )}
               </DialogFooter>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 이미지 확대 보기 (Lightbox) */}
+      <Dialog open={!!lightboxUrl} onOpenChange={() => setLightboxUrl(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 z-50 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          {lightboxUrl && (
+            <div className="w-full h-full flex items-center justify-center p-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={lightboxUrl}
+                alt="확대 이미지"
+                className="max-w-full max-h-[85vh] object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>
