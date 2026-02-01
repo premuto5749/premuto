@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Plus, Menu, ChevronLeft, ChevronRight, Copy, CalendarIcon, Heart, ChevronDown, PawPrint, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
+import { BreathingTimerModal } from '@/components/daily-log/BreathingTimerModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
 import { Timeline } from '@/components/daily-log/Timeline'
 import { useToast } from '@/hooks/use-toast'
@@ -49,6 +50,7 @@ function getKSTToday(): string {
 
 export default function DailyLogPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isBreathingTimerOpen, setIsBreathingTimerOpen] = useState(false)
   const [logs, setLogs] = useState<DailyLog[]>([])
   const [stats, setStats] = useState<DailyStats | null>(null)
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -507,6 +509,19 @@ export default function DailyLogPage() {
       <QuickLogModal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
+        onSuccess={fetchData}
+        defaultDate={selectedDate}
+        petId={currentPet?.id}
+        onBreathingSelect={() => {
+          setIsModalOpen(false)
+          setIsBreathingTimerOpen(true)
+        }}
+      />
+
+      {/* 호흡수 타이머 모달 */}
+      <BreathingTimerModal
+        open={isBreathingTimerOpen}
+        onOpenChange={setIsBreathingTimerOpen}
         onSuccess={fetchData}
         defaultDate={selectedDate}
         petId={currentPet?.id}
