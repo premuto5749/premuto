@@ -87,8 +87,20 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotoPreviews([])
   }
 
+  // 사진을 기기에 저장하는 함수
+  const savePhotoToDevice = (file: File) => {
+    const url = URL.createObjectURL(file)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `mimo_${new Date().toISOString().slice(0, 10)}_${Date.now()}.jpg`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   // 사진 선택 핸들러
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>, isFromCamera = false) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
@@ -102,26 +114,32 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
       return
     }
 
-    // 파일 크기 및 타입 검증
+    // 파일 크기 및 타입 검증 (이미지 타입 더 유연하게)
     const validFiles: File[] = []
     for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 10 * 1024 * 1024) {
         toast({
           title: '파일 크기 초과',
-          description: `${file.name}은(는) 5MB를 초과합니다.`,
+          description: `${file.name}은(는) 10MB를 초과합니다.`,
           variant: 'destructive',
         })
         continue
       }
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      // 이미지 타입 체크 (카메라 촬영 시 다양한 포맷 허용)
+      if (!file.type.startsWith('image/')) {
         toast({
           title: '지원하지 않는 형식',
-          description: `${file.name}은(는) 지원하지 않는 이미지 형식입니다.`,
+          description: `${file.name}은(는) 이미지 파일이 아닙니다.`,
           variant: 'destructive',
         })
         continue
       }
       validFiles.push(file)
+
+      // 카메라로 촬영한 사진은 기기에도 저장
+      if (isFromCamera) {
+        savePhotoToDevice(file)
+      }
     }
 
     if (validFiles.length === 0) return
@@ -132,9 +150,12 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotos(prev => [...prev, ...validFiles])
     setPhotoPreviews(prev => [...prev, ...newPreviews])
 
-    // input 초기화
+    // input 초기화 (카메라, 갤러리 모두)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = ''
     }
   }
 
@@ -451,9 +472,9 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                   <input
                     ref={cameraInputRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/*"
                     capture="environment"
-                    onChange={handlePhotoSelect}
+                    onChange={(e) => handlePhotoSelect(e, true)}
                     className="hidden"
                   />
                   <Button
@@ -472,9 +493,9 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/jpeg,image/png,image/webp"
+                    accept="image/*"
                     multiple
-                    onChange={handlePhotoSelect}
+                    onChange={(e) => handlePhotoSelect(e, false)}
                     className="hidden"
                   />
                   <Button
