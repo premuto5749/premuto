@@ -583,18 +583,26 @@ function PreviewContent() {
                               <TableCell>
                                 {isEditing ? (
                                   <Input
-                                    value={String(item.value)}
+                                    value={String(item.value ?? '')}
                                     onChange={(e) => {
                                       const val = e.target.value
                                       const numVal = parseFloat(val)
                                       handleFieldChange(globalIndex, 'value', isNaN(numVal) ? val : numVal)
                                     }}
                                     className="h-8"
+                                    placeholder="값 입력"
                                   />
                                 ) : (
-                                  <span className={item.is_abnormal ? 'font-semibold' : ''}>
-                                    {item.value}
-                                  </span>
+                                  item.value === null || item.value === undefined || item.value === '' ? (
+                                    <span className="text-muted-foreground/50 text-lg">-</span>
+                                  ) : (
+                                    <span className={`${item.is_abnormal ? 'font-semibold' : ''} ${item.value === 0 ? 'text-foreground' : ''}`}>
+                                      {item.value}
+                                      {item.value === 0 && (
+                                        <span className="text-xs text-muted-foreground ml-1">(측정값)</span>
+                                      )}
+                                    </span>
+                                  )
                                 )}
                               </TableCell>
                               {/* 상태 (H/L) */}
