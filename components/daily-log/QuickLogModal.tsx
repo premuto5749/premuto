@@ -19,6 +19,7 @@ interface QuickLogModalProps {
   onSuccess?: () => void
   defaultDate?: string // YYYY-MM-DD 형식, 선택된 날짜가 있으면 해당 날짜로 초기화
   petId?: string // 반려동물 ID
+  onBreathingSelect?: () => void // 호흡수 선택 시 타이머 모달 열기
 }
 
 // 현재 시간을 HH:MM 형식으로 반환
@@ -36,7 +37,7 @@ const getCurrentDate = () => {
   return `${year}-${month}-${day}`
 }
 
-export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId }: QuickLogModalProps) {
+export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId, onBreathingSelect }: QuickLogModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const [amount, setAmount] = useState('')
   const [leftoverAmount, setLeftoverAmount] = useState('')  // 남긴 양 (식사용)
@@ -267,6 +268,11 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   }
 
   const handleCategoryClick = (category: LogCategory) => {
+    // 호흡수 선택 시 타이머 모달 열기
+    if (category === 'breathing' && onBreathingSelect) {
+      onBreathingSelect()
+      return
+    }
     // 모든 카테고리에서 입력 화면으로 이동 (배변/배뇨도 시간 선택 가능하도록)
     setSelectedCategory(category)
   }
