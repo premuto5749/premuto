@@ -156,80 +156,46 @@ interface FileResult {
   error?: string
 }
 
-// OCR 프롬프트
-const OCR_PROMPT = `당신은 수의학 검사 결과지에서 데이터를 정확하게 추출하는 전문가입니다.
+// OCR 프롬프트 - 데이터 추출 최우선
+const OCR_PROMPT = `수의학 혈액검사 결과지에서 데이터를 추출하세요.
 
-첨부된 검사 결과지(이미지 또는 PDF)에서 **모든 페이지와 모든 검사 날짜**의 정보를 순서대로 추출해주세요.
+# 최우선 작업: 날짜 찾기
+문서에서 검사 날짜를 반드시 찾으세요. 다음 위치를 확인:
+- 상단 헤더 (검사일, Date, 날짜)
+- 출력 일시, 접수일
+- 타임스탬프 형식 (2024/12/02, 2024.12.02, 24-12-02 등)
+날짜를 찾으면 YYYY-MM-DD 형식으로 변환하세요.
 
-## 핵심 규칙
-1. **반드시 모든 페이지를 확인하세요** - PDF의 경우 첫 페이지뿐 아니라 모든 페이지의 검사 결과를 추출해야 합니다.
-2. **날짜가 다르면 반드시 별도의 test_group으로 분리하세요** - 같은 PDF 내에서도 검사 날짜가 다르면 각각 독립된 그룹입니다.
-3. **날짜가 하나뿐이어도 test_groups 배열 형식을 사용하세요** - 항상 test_groups 배열 안에 넣어야 합니다.
-
-## 출력 형식 (다중 날짜 지원)
+# 출력 형식
+\`\`\`json
 {
   "test_groups": [
     {
       "test_date": "2024-12-02",
-      "hospital_name": "타임즈동물의료센터",
-      "patient_name": "미모",
-      "machine_type": "Fuji DRI-CHEM",
+      "hospital_name": "병원명 또는 null",
+      "machine_type": "장비명 또는 null",
       "items": [
-        {
-          "raw_name": "ALT(GPT)*",
-          "value": "23",
-          "unit": "U/L",
-          "reference": "3-50",
-          "is_abnormal": false,
-          "abnormal_direction": null
-        }
-      ]
-    },
-    {
-      "test_date": "2024-12-08",
-      "hospital_name": "타임즈동물의료센터",
-      "patient_name": "미모",
-      "machine_type": null,
-      "items": [
-        {
-          "raw_name": "cPL_V100",
-          "value": "386.5",
-          "unit": "ng/ml",
-          "reference": "50-200",
-          "is_abnormal": true,
-          "abnormal_direction": "high"
-        }
+        {"raw_name": "ALT(GPT)", "value": "23", "unit": "U/L", "reference": "3-50", "is_abnormal": false, "abnormal_direction": null}
       ]
     }
   ]
 }
+\`\`\`
 
-## 각 test_group의 정보
-- test_date: 검사일 (YYYY-MM-DD 형식)
-- hospital_name: 병원명
-- patient_name: 환자명 (동물 이름, 있는 경우)
-- machine_type: 장비명 (있는 경우, 없으면 null)
+# 항목 추출 규칙
+- raw_name: 검사지 원문 그대로 (대소문자, 특수문자 유지)
+- value: 숫자 또는 특수값(<500, >1000, Low, Negative)
+- unit: 단위 (없으면 빈 문자열)
+- reference: 참고치 원문 (3-50, <14 등)
+- is_abnormal: ▲▼HL 표시 있으면 true
+- abnormal_direction: "high" 또는 "low" 또는 null
 
-## items 배열의 각 항목
-- raw_name: 항목명 (검사지에 표기된 그대로, 대소문자 유지)
-- value: 결과값 (숫자, <500, >1000, Low, Negative 등 특수표기 포함)
-- unit: 단위
-- reference: 참조범위 (원문 그대로, 예: "3-50", "<14")
-- is_abnormal: 이상 여부 (▲, ▼, H, L 표시가 있으면 true)
-- abnormal_direction: "high" (▲, H) / "low" (▼, L) / null
-
-## 중요 주의사항
-- **반드시 test_groups 배열 형식으로 반환하세요** (단일 날짜여도 배열 안에 넣기)
-- **PDF의 모든 페이지를 확인하세요** - 2페이지, 3페이지 등에 다른 날짜의 검사가 있을 수 있습니다
-- **문서에 나타나는 순서대로 추출하세요** (페이지 순서, 항목 순서 유지)
-- **날짜가 다른 검사는 반드시 별도의 test_group으로 분리하세요**
-- 같은 날짜의 검사는 하나의 test_group에 모든 items를 포함
-- **0값과 null값 구분**: 측정 결과가 0인 경우 반드시 value를 숫자 0으로 기록하세요. 값이 비어있거나 측정되지 않은 항목만 value를 null로 기록하세요.
-- 참조범위가 없는 항목은 reference를 빈 문자열로
-- 특수 표기(*14, <500, >1000, Low 등)는 그대로 value에 기록
-- 숫자에 천단위 구분자(,)가 있으면 제거 (1,390 → 1390)
-- JSON만 반환하고 다른 설명은 추가하지 마세요
-- 반드시 유효한 JSON 형식으로 반환하세요`
+# 핵심 규칙
+1. PDF면 모든 페이지 확인
+2. 날짜가 다르면 별도 test_group으로 분리
+3. 0은 0으로, 값 없음은 null로 구분
+4. 천단위 콤마 제거 (1,390 → 1390)
+5. JSON만 반환, 설명 없음`
 
 // 단일 파일 OCR 처리 함수 (Claude API 사용, 다중 날짜 지원)
 async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {

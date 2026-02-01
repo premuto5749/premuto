@@ -68,6 +68,41 @@ export async function POST(request: NextRequest) {
       standardItems?.map(si => [si.name.toUpperCase(), si]) || []
     )
 
+    // 유연한 DB 항목 검색 함수
+    const findStandardItemFlexible = (searchName: string): StandardItem | null => {
+      if (!standardItems) return null
+
+      const normalized = searchName.toUpperCase().trim()
+
+      // 1. 정확한 매칭
+      const exact = standardItemsByName.get(normalized)
+      if (exact) return exact
+
+      // 2. 공백/특수문자 제거 후 매칭
+      const cleanSearch = normalized.replace(/[\s\-_()]/g, '')
+      for (const item of standardItems) {
+        const cleanItem = item.name.toUpperCase().replace(/[\s\-_()]/g, '')
+        if (cleanItem === cleanSearch) return item
+      }
+
+      // 3. 부분 매칭 (검색어가 DB 항목에 포함되거나 그 반대)
+      for (const item of standardItems) {
+        const itemUpper = item.name.toUpperCase()
+        if (itemUpper.includes(normalized) || normalized.includes(itemUpper)) {
+          return item
+        }
+      }
+
+      // 4. 한글명으로 매칭
+      for (const item of standardItems) {
+        if (item.display_name_ko && item.display_name_ko === searchName) {
+          return item
+        }
+      }
+
+      return null
+    }
+
     console.log(`📊 Loaded ${standardItems?.length || 0} standard items and ${existingMappings?.length || 0} existing mappings`)
 
     // 통계 추적
@@ -85,12 +120,12 @@ export async function POST(request: NextRequest) {
         const localMatch = matchItem(itemName)
 
         if (localMatch.confidence >= 70 && localMatch.standardItemName) {
-          // 로컬 매칭 성공 - DB에서 해당 표준 항목 찾기
-          const standardItem = standardItemsByName.get(localMatch.standardItemName.toUpperCase())
+          // 로컬 매칭 성공 - DB에서 유연하게 표준 항목 찾기
+          const standardItem = findStandardItemFlexible(localMatch.standardItemName)
 
           if (standardItem) {
             localMatchCount++
-            console.log(`📍 Local match: "${itemName}" → ${localMatch.standardItemName} (${localMatch.confidence}%, ${localMatch.method})`)
+            console.log(`📍 Local match: "${itemName}" → ${standardItem.name} (${localMatch.confidence}%, ${localMatch.method})`)
 
             return {
               ocr_item: ocrItem,
@@ -104,8 +139,29 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // DB에 없는 경우, 로컬 정보만으로 반환 (나중에 DB에 추가됨)
-          console.log(`⚠️ Local match found but not in DB: ${localMatch.standardItemName}`)
+          // DB에 없는 경우 - 한글명으로도 시도
+          const standardItemByKo = localMatch.displayNameKo
+            ? findStandardItemFlexible(localMatch.displayNameKo)
+            : null
+
+          if (standardItemByKo) {
+            localMatchCount++
+            console.log(`📍 Local match (한글명): "${itemName}" → ${standardItemByKo.name}`)
+
+            return {
+              ocr_item: ocrItem,
+              suggested_mapping: {
+                standard_item_id: standardItemByKo.id,
+                standard_item_name: standardItemByKo.name,
+                display_name_ko: standardItemByKo.display_name_ko || localMatch.displayNameKo || '',
+                confidence: localMatch.confidence - 5, // 한글명 매칭은 신뢰도 약간 낮춤
+                reasoning: `로컬 매칭 (한글명): ${localMatch.displayNameKo}`
+              } as AiMappingSuggestion
+            }
+          }
+
+          // 여전히 DB에 없으면 AI 매칭으로 진행 (로컬 정보 활용)
+          console.log(`⚠️ Local match found but not in DB: ${localMatch.standardItemName}, proceeding to AI matching`)
         }
 
         // 3-2. DB 매핑 사전에서 조회
@@ -220,54 +276,37 @@ async function getAiMappingSuggestion(
   standardItems: StandardItem[]
 ): Promise<AiMappingSuggestion | null> {
 
-  // 표준 항목 목록을 GPT에게 전달할 형태로 포맷
+  // 표준 항목 목록을 간결하게 포맷 (이름 기반 매칭)
   const standardItemsList = standardItems
     .map(item =>
-      `- ${item.name} (${item.display_name_ko || '한글명 없음'}) / 단위: ${item.default_unit || 'N/A'} / 카테고리: ${item.category || 'N/A'}`
+      `• ${item.name} | ${item.display_name_ko || '-'} | ${item.default_unit || '-'}`
     )
     .join('\n')
 
-  const prompt = `당신은 수의학 혈액검사 항목 매칭 전문가입니다.
+  const prompt = `수의학 혈액검사 항목 매칭 전문가로서, OCR 추출 항목을 표준 항목과 매칭하세요.
 
-[데이터베이스의 표준 항목 목록]
+## 표준 항목 목록 (이름 | 한글명 | 단위)
 ${standardItemsList}
 
-[OCR로 추출된 검사 항목]
-- 항목명: "${ocrItem.name}"
+## OCR 추출 항목
+- 항목명: "${ocrItem.raw_name || ocrItem.name}"
 - 결과값: ${ocrItem.value}
-- 단위: ${ocrItem.unit}
-${ocrItem.ref_min !== null || ocrItem.ref_max !== null ? `- 참고치: ${ocrItem.ref_min || '?'} ~ ${ocrItem.ref_max || '?'}` : ''}
+- 단위: ${ocrItem.unit || '없음'}
+${ocrItem.ref_min !== null || ocrItem.ref_max !== null ? `- 참고치: ${ocrItem.ref_min ?? '?'} ~ ${ocrItem.ref_max ?? '?'}` : ''}
 
-[질문]
-이 OCR 결과가 위의 표준 항목 목록 중 어떤 항목과 가장 일치하나요?
+## 매칭 규칙
+1. 항목명의 약어, 오타, 띄어쓰기 차이 고려 (예: ALT(GPT) = ALT, Creatine = Creatinine)
+2. 단위와 결과값 범위로 검증
+3. 매칭할 수 없으면 null 반환
 
-응답 형식 (JSON만 반환):
-{
-  "standard_item_id": "매칭된 표준 항목의 ID (정확히 위 목록의 ID 사용)",
-  "standard_item_name": "매칭된 표준 항목의 영문명",
-  "display_name_ko": "매칭된 표준 항목의 한글명",
-  "confidence": 95,
-  "reasoning": "매칭 근거를 한 문장으로 설명"
-}
-
-매칭할 항목이 없다면:
-{
-  "standard_item_id": null,
-  "standard_item_name": null,
-  "display_name_ko": null,
-  "confidence": 0,
-  "reasoning": "매칭 실패 이유"
-}
-
-중요:
-- confidence는 0~100 사이의 숫자
-- 항목명의 약어, 오타, 띄어쓰기 차이를 고려하여 유연하게 매칭
-- 단위와 참고치 범위도 함께 고려
-- JSON만 반환하고 다른 설명 추가 금지`
+## 응답 (JSON만)
+{"matched_name": "정확한 표준 항목 영문명", "confidence": 0-100, "reasoning": "근거"}
+또는
+{"matched_name": null, "confidence": 0, "reasoning": "실패 이유"}`
 
   const message = await getAnthropicClient().messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 500,
+    max_tokens: 300,
     messages: [
       {
         role: 'user',
@@ -285,28 +324,48 @@ ${ocrItem.ref_min !== null || ocrItem.ref_max !== null ? `- 참고치: ${ocrItem
 
   // JSON 파싱
   try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
+    const jsonMatch = content.match(/\{[\s\S]*?\}/)
     if (jsonMatch) {
       const result = JSON.parse(jsonMatch[0])
 
       // 매칭 실패 케이스
-      if (!result.standard_item_id || result.confidence === 0) {
+      if (!result.matched_name || result.confidence === 0) {
+        console.log(`🔴 AI could not match: "${ocrItem.raw_name || ocrItem.name}" - ${result.reasoning}`)
         return null
       }
 
-      // 표준 항목 ID가 실제로 존재하는지 검증
-      const matchedItem = standardItems.find(si => si.id === result.standard_item_id)
+      // 이름으로 표준 항목 찾기 (대소문자 무시)
+      const matchedItem = standardItems.find(
+        si => si.name.toUpperCase() === result.matched_name.toUpperCase()
+      )
+
       if (!matchedItem) {
-        console.warn(`⚠️ AI suggested non-existent item ID: ${result.standard_item_id}`)
+        // 유사도 기반 fallback 매칭
+        const fuzzyMatch = standardItems.find(si =>
+          si.name.toUpperCase().includes(result.matched_name.toUpperCase()) ||
+          result.matched_name.toUpperCase().includes(si.name.toUpperCase())
+        )
+
+        if (fuzzyMatch) {
+          console.log(`🟡 Fuzzy matched: "${result.matched_name}" → ${fuzzyMatch.name}`)
+          return {
+            standard_item_id: fuzzyMatch.id,
+            standard_item_name: fuzzyMatch.name,
+            display_name_ko: fuzzyMatch.display_name_ko || '',
+            confidence: Math.min(result.confidence - 10, 85), // 신뢰도 약간 낮춤
+            reasoning: result.reasoning || 'AI 자동 매칭 (유사 이름)'
+          }
+        }
+
+        console.warn(`⚠️ AI returned unknown item name: "${result.matched_name}"`)
         return null
       }
 
-      // AI가 반환한 정보와 실제 DB 정보가 일치하는지 검증
       return {
         standard_item_id: matchedItem.id,
         standard_item_name: matchedItem.name,
         display_name_ko: matchedItem.display_name_ko || '',
-        confidence: Math.min(100, Math.max(0, result.confidence)), // 0-100 범위 보장
+        confidence: Math.min(100, Math.max(0, result.confidence)),
         reasoning: result.reasoning || 'AI 자동 매칭'
       }
     } else {
