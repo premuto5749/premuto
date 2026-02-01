@@ -616,6 +616,23 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('OCR Batch API error:', error)
+
+    // AI 사용량 제한 에러 처리
+    if (error instanceof Anthropic.RateLimitError ||
+        (error instanceof Error && (
+          error.message.includes('rate_limit') ||
+          error.message.includes('quota') ||
+          error.message.includes('429')
+        ))) {
+      return NextResponse.json(
+        {
+          error: 'AI_RATE_LIMIT',
+          message: 'AI 사용량 제한에 도달하였습니다. 잠시 후 다시 시도해주세요.'
+        },
+        { status: 429 }
+      )
+    }
+
     return NextResponse.json(
       {
         error: 'Internal server error',

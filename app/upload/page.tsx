@@ -7,6 +7,13 @@ import imageCompression from 'browser-image-compression'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AppHeader } from '@/components/layout/AppHeader'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Loader2, ArrowRight, AlertCircle } from 'lucide-react'
 
 const FileUploader = dynamic(
@@ -26,6 +33,7 @@ export default function UploadPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rateLimitError, setRateLimitError] = useState(false)
 
   const handleFilesSelect = (files: File[]) => {
     setSelectedFiles(files)
@@ -83,6 +91,11 @@ export default function UploadPage() {
       }
 
       if (!response.ok) {
+        // AI 사용량 제한 에러 처리
+        if (response.status === 429 || result.error === 'AI_RATE_LIMIT') {
+          setRateLimitError(true)
+          return
+        }
         throw new Error(result.error || 'OCR 처리 중 오류가 발생했습니다')
       }
 
@@ -192,6 +205,26 @@ export default function UploadPage() {
         </ul>
       </div>
       </div>
+
+      {/* AI 사용량 제한 에러 모달 */}
+      <Dialog open={rateLimitError} onOpenChange={setRateLimitError}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-orange-500" />
+              AI 사용량 제한
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              AI 사용량 제한에 도달하였습니다. 잠시 후 다시 시도해주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-4">
+            <Button className="w-full" onClick={() => setRateLimitError(false)}>
+              확인
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

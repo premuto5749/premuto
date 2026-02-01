@@ -10,6 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { HospitalSelector } from '@/components/ui/hospital-selector'
 import { AppHeader } from '@/components/layout/AppHeader'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, CalendarIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -66,6 +73,7 @@ function PreviewContent() {
   const [hospitals, setHospitals] = useState<Hospital[]>([])
   const [groupHospitalOverrides, setGroupHospitalOverrides] = useState<Map<string, string>>(new Map())
   const [groupDateOverrides, setGroupDateOverrides] = useState<Map<string, string>>(new Map())
+  const [rateLimitError, setRateLimitError] = useState(false)
 
   useEffect(() => {
     // 세션 스토리지에서 OCR 배치 결과 로드
@@ -252,6 +260,10 @@ function PreviewContent() {
         const result = await response.json()
 
         if (!response.ok) {
+          // AI 사용량 제한 에러 처리
+          if (response.status === 429 || result.error === 'AI_RATE_LIMIT') {
+            throw new Error('AI_RATE_LIMIT')
+          }
           throw new Error(result.error || 'AI 매핑 중 오류가 발생했습니다')
         }
 
@@ -397,6 +409,13 @@ function PreviewContent() {
 
     } catch (error) {
       console.error('Save error:', error)
+
+      // AI 사용량 제한 에러 모달 표시
+      if (error instanceof Error && error.message === 'AI_RATE_LIMIT') {
+        setRateLimitError(true)
+        return
+      }
+
       alert(error instanceof Error ? error.message : '저장 중 오류가 발생했습니다')
     } finally {
       setIsProcessing(false)
@@ -709,6 +728,26 @@ function PreviewContent() {
         </ul>
       </div>
       </div>
+
+      {/* AI 사용량 제한 에러 모달 */}
+      <Dialog open={rateLimitError} onOpenChange={setRateLimitError}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-orange-500" />
+              AI 사용량 제한
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              AI 사용량 제한에 도달하였습니다. 잠시 후 다시 시도해주세요.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-4">
+            <Button className="w-full" onClick={() => setRateLimitError(false)}>
+              확인
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

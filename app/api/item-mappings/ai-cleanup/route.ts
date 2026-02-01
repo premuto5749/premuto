@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { StandardItem } from '@/types'
 
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+function getAnthropicClient() {
+  return new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
   })
 }
 
@@ -144,6 +144,24 @@ export async function POST() {
 
   } catch (error) {
     console.error('AI Cleanup API error:', error)
+
+    // AI 사용량 제한 에러 처리
+    if (error instanceof Anthropic.RateLimitError ||
+        (error instanceof Error && (
+          error.message.includes('rate_limit') ||
+          error.message.includes('quota') ||
+          error.message.includes('429') ||
+          error.message === 'AI_RATE_LIMIT'
+        ))) {
+      return NextResponse.json(
+        {
+          error: 'AI_RATE_LIMIT',
+          message: 'AI 사용량 제한에 도달하였습니다. 잠시 후 다시 시도해주세요.'
+        },
+        { status: 429 }
+      )
+    }
+
     return NextResponse.json(
       {
         error: 'Internal server error',
@@ -225,14 +243,14 @@ ${targetList}
 - JSON만 반환`
 
   try {
-    const completion = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o',
-      messages: [{ role: 'user', content: prompt }],
+    const message = await getAnthropicClient().messages.create({
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 300,
-      temperature: 0.1,
+      messages: [{ role: 'user', content: prompt }],
     })
 
-    const content = completion.choices[0]?.message?.content
+    const textContent = message.content.find(block => block.type === 'text')
+    const content = textContent?.type === 'text' ? textContent.text : null
     if (!content) {
       return { matched_item: null, confidence: 0, reasoning: 'No AI response' }
     }
@@ -260,6 +278,17 @@ ${targetList}
     }
   } catch (error) {
     console.error('AI matching error:', error)
+
+    // AI 사용량 제한 에러는 상위로 전파
+    if (error instanceof Anthropic.RateLimitError ||
+        (error instanceof Error && (
+          error.message.includes('rate_limit') ||
+          error.message.includes('quota') ||
+          error.message.includes('429')
+        ))) {
+      throw new Error('AI_RATE_LIMIT')
+    }
+
     return { matched_item: null, confidence: 0, reasoning: `AI error: ${error instanceof Error ? error.message : 'Unknown'}` }
   }
 }
