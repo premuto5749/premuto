@@ -18,6 +18,7 @@ interface QuickLogModalProps {
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
   defaultDate?: string // YYYY-MM-DD 형식, 선택된 날짜가 있으면 해당 날짜로 초기화
+  petId?: string // 반려동물 ID
 }
 
 // 현재 시간을 HH:MM 형식으로 반환
@@ -35,7 +36,7 @@ const getCurrentDate = () => {
   return `${year}-${month}-${day}`
 }
 
-export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate }: QuickLogModalProps) {
+export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId }: QuickLogModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const [amount, setAmount] = useState('')
   const [memo, setMemo] = useState('')
@@ -187,6 +188,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate }: Qu
       const config = LOG_CATEGORY_CONFIG[selectedCategory]
       const logData: DailyLogInput = {
         category: selectedCategory,
+        pet_id: petId || null,
         logged_at: getLoggedAtISO(),
         amount: amount ? parseFloat(amount) : (selectedCategory === 'poop' || selectedCategory === 'pee' ? 1 : null),
         unit: config.unit,

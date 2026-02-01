@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Menu, ChevronLeft, ChevronRight, Copy, CalendarIcon, Heart } from 'lucide-react'
+import Image from 'next/image'
+import { Plus, Menu, ChevronLeft, ChevronRight, Copy, CalendarIcon, Heart, ChevronDown, PawPrint, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
@@ -28,8 +29,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Calendar } from '@/components/ui/calendar'
 import Link from 'next/link'
+import { usePet } from '@/contexts/PetContext'
 
 // 한국 시간(KST, UTC+9) 기준 오늘 날짜 반환
 function getKSTToday(): string {
@@ -49,12 +58,16 @@ export default function DailyLogPage() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [isDonateOpen, setIsDonateOpen] = useState(false)
   const { toast } = useToast()
+  const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     try {
+      // pet_id 파라미터 추가
+      const petParam = currentPet ? `&pet_id=${currentPet.id}` : ''
+
       // 기록 조회
-      const logsRes = await fetch(`/api/daily-logs?date=${selectedDate}`)
+      const logsRes = await fetch(`/api/daily-logs?date=${selectedDate}${petParam}`)
       if (logsRes.ok) {
         const logsData = await logsRes.json()
         setLogs(logsData.data || [])
@@ -64,7 +77,7 @@ export default function DailyLogPage() {
 
       // 통계 조회 (별도 처리 - 뷰가 없을 수 있음)
       try {
-        const statsRes = await fetch(`/api/daily-logs?date=${selectedDate}&stats=true`)
+        const statsRes = await fetch(`/api/daily-logs?date=${selectedDate}&stats=true${petParam}`)
         if (statsRes.ok) {
           const statsData = await statsRes.json()
           setStats(statsData.data?.[0] || null)
@@ -81,7 +94,7 @@ export default function DailyLogPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedDate])
+  }, [selectedDate, currentPet])
 
   useEffect(() => {
     fetchData()
@@ -346,11 +359,72 @@ export default function DailyLogPage() {
             </SheetContent>
           </Sheet>
 
-          <h1 className="font-semibold text-lg">미모 건강 기록</h1>
+          <h1 className="font-semibold text-lg">
+            {currentPet ? `${currentPet.name} 건강 기록` : '건강 기록'}
+          </h1>
 
-          <Button variant="ghost" size="icon" onClick={exportLogsToText} title="기록 내보내기">
-            <Copy className="w-5 h-5" />
-          </Button>
+          {/* 반려동물 스위처 + 내보내기 버튼 */}
+          <div className="flex items-center gap-1">
+            {!isPetsLoading && pets.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-1 px-2">
+                    {currentPet?.photo_url ? (
+                      <Image
+                        src={currentPet.photo_url}
+                        alt={currentPet.name}
+                        width={24}
+                        height={24}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                        <PawPrint className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                    )}
+                    <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {pets.map((pet) => (
+                    <DropdownMenuItem
+                      key={pet.id}
+                      onClick={() => setCurrentPet(pet)}
+                      className="flex items-center gap-2"
+                    >
+                      {pet.photo_url ? (
+                        <Image
+                          src={pet.photo_url}
+                          alt={pet.name}
+                          width={24}
+                          height={24}
+                          className="w-6 h-6 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                          <PawPrint className="w-3 h-3 text-muted-foreground" />
+                        </div>
+                      )}
+                      <span className="flex-1">{pet.name}</span>
+                      {currentPet?.id === pet.id && (
+                        <Check className="w-4 h-4 text-primary" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings?tab=pet" className="flex items-center gap-2">
+                      <PawPrint className="w-4 h-4" />
+                      반려동물 관리
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <Button variant="ghost" size="icon" onClick={exportLogsToText} title="기록 내보내기">
+              <Copy className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -435,6 +509,7 @@ export default function DailyLogPage() {
         onOpenChange={setIsModalOpen}
         onSuccess={fetchData}
         defaultDate={selectedDate}
+        petId={currentPet?.id}
       />
 
       {/* 후원하기 다이얼로그 */}

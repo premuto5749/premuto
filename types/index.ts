@@ -202,6 +202,7 @@ export type LogCategory = 'meal' | 'water' | 'medicine' | 'poop' | 'pee' | 'brea
 export interface DailyLog {
   id: string
   user_id: string            // 소유자 ID (RLS로 본인 기록만 조회 가능)
+  pet_id: string | null      // 반려동물 ID
   category: LogCategory
   logged_at: string          // ISO 날짜/시간
   amount: number | null      // 양 (g, ml, 회/분 등)
@@ -215,6 +216,7 @@ export interface DailyLog {
 
 export interface DailyLogInput {
   category: LogCategory
+  pet_id?: string | null     // 반려동물 ID
   logged_at?: string         // 기본값: 현재 시간
   amount?: number | null
   unit?: string | null
@@ -225,6 +227,7 @@ export interface DailyLogInput {
 
 export interface DailyStats {
   user_id: string            // 소유자 ID
+  pet_id: string | null      // 반려동물 ID
   log_date: string
   total_meal_amount: number
   meal_count: number
@@ -286,6 +289,35 @@ export interface MedicinePreset {
 export interface MedicinePresetInput {
   preset_name: string
   medicines: Medicine[]
+}
+
+// ============================================
+// 반려동물 프로필 타입
+// ============================================
+
+export interface Pet {
+  id: string
+  user_id: string
+  name: string
+  type: string | null          // 고양이, 강아지, 기타
+  breed: string | null         // 품종
+  birth_date: string | null    // 생년월일 (YYYY-MM-DD)
+  weight_kg: number | null     // 체중 (kg)
+  photo_url: string | null     // 프로필 사진 URL
+  is_default: boolean          // 기본 선택 여부
+  sort_order: number           // 정렬 순서
+  created_at: string
+  updated_at: string
+}
+
+export interface PetInput {
+  name: string
+  type?: string | null
+  breed?: string | null
+  birth_date?: string | null
+  weight_kg?: number | null
+  photo_url?: string | null
+  is_default?: boolean
 }
 
 // 카테고리별 설정
