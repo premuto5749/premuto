@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 const MAX_FILES = 5
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
 const BUCKET_NAME = 'daily-log-photos'
 
 export async function POST(request: NextRequest) {
@@ -23,9 +23,9 @@ export async function POST(request: NextRequest) {
 
     const files: File[] = []
 
-    // FormData에서 모든 파일 추출
+    // FormData에서 모든 파일 추출 (photo* 또는 files 키 지원)
     for (const [key, value] of Array.from(formData.entries())) {
-      if (key.startsWith('photo') && value instanceof File) {
+      if ((key.startsWith('photo') || key === 'files') && value instanceof File) {
         files.push(value)
       }
     }
@@ -53,9 +53,10 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      if (!ALLOWED_TYPES.includes(file.type)) {
+      // 이미지 타입 체크 (모든 이미지 형식 허용)
+      if (!file.type.startsWith('image/')) {
         return NextResponse.json(
-          { error: `Invalid file type for ${file.name}. Only JPG, PNG, WebP are supported.` },
+          { error: `Invalid file type for ${file.name}. Only image files are supported.` },
           { status: 400 }
         )
       }
