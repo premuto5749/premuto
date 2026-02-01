@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, ReferenceArea } from 'recharts'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface TestResult {
@@ -92,8 +92,8 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pr-8">
           <DialogTitle>
             {chartData.displayName} ({itemName})
           </DialogTitle>
@@ -114,16 +114,18 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 angle={-45}
                 textAnchor="end"
                 height={80}
+                tick={{ fontSize: 12 }}
               />
               <YAxis
                 label={{ value: chartData.unit, angle: -90, position: 'insideLeft' }}
+                tick={{ fontSize: 12 }}
               />
               <Tooltip
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const data = payload[0].payload
                     return (
-                      <div className="bg-background border rounded-lg shadow-lg p-3">
+                      <div className="bg-background border rounded-lg shadow-lg p-3 z-50">
                         <p className="font-medium">{data.dateLabel}</p>
                         <p className="text-sm">
                           값: <span className="font-semibold">{data.value} {data.unit}</span>
@@ -143,22 +145,33 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 }}
               />
               <Legend />
-              
-              {/* 참고치 범위 표시 */}
+
+              {/* 정상 범위 영역 표시 (연한 녹색 배경) */}
+              {chartData.refMin !== null && chartData.refMax !== null && (
+                <ReferenceArea
+                  y1={chartData.refMin}
+                  y2={chartData.refMax}
+                  fill="#22c55e"
+                  fillOpacity={0.1}
+                  stroke="none"
+                />
+              )}
+
+              {/* 참고치 범위 라인 표시 */}
               {chartData.refMax !== null && (
                 <ReferenceLine
                   y={chartData.refMax}
-                  stroke="red"
+                  stroke="#ef4444"
                   strokeDasharray="5 5"
-                  label={{ value: `Max: ${chartData.refMax}`, position: 'right', fill: 'red' }}
+                  label={{ value: `Max: ${chartData.refMax}`, position: 'right', fill: '#ef4444', fontSize: 11 }}
                 />
               )}
               {chartData.refMin !== null && (
                 <ReferenceLine
                   y={chartData.refMin}
-                  stroke="blue"
+                  stroke="#3b82f6"
                   strokeDasharray="5 5"
-                  label={{ value: `Min: ${chartData.refMin}`, position: 'right', fill: 'blue' }}
+                  label={{ value: `Min: ${chartData.refMin}`, position: 'right', fill: '#3b82f6', fontSize: 11 }}
                 />
               )}
 
@@ -167,8 +180,14 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 dataKey="value"
                 stroke="hsl(var(--primary))"
                 strokeWidth={2}
-                dot={{ fill: 'hsl(var(--primary))', r: 5 }}
-                activeDot={{ r: 7 }}
+                dot={(props) => {
+                  const { cx, cy, payload } = props
+                  const statusColor = payload.status === 'High' ? '#ef4444' : payload.status === 'Low' ? '#3b82f6' : '#22c55e'
+                  return (
+                    <circle cx={cx} cy={cy} r={5} fill={statusColor} stroke="white" strokeWidth={2} />
+                  )
+                }}
+                activeDot={{ r: 7, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
                 name={chartData.displayName}
               />
             </LineChart>
@@ -213,6 +232,23 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 </p>
               </div>
             )}
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-sm text-muted-foreground mb-2">데이터 포인트 색상:</p>
+              <div className="flex flex-wrap gap-4 text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded-full bg-[#ef4444]"></span>
+                  <span>🔴 High (기준치 초과)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded-full bg-[#22c55e]"></span>
+                  <span>🟢 Normal (정상 범위)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="w-3 h-3 rounded-full bg-[#3b82f6]"></span>
+                  <span>🔵 Low (기준치 미만)</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </DialogContent>

@@ -111,25 +111,27 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
         <h1 className="font-semibold text-lg">{title}</h1>
 
         {/* 반려동물 스위처 */}
-        <div className="w-10 flex justify-end">
+        <div className="flex-shrink-0 flex justify-end">
           {!isPetsLoading && pets.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-1 px-2">
                   {currentPet?.photo_url ? (
-                    <Image
-                      src={currentPet.photo_url}
-                      alt={currentPet.name}
-                      width={24}
-                      height={24}
-                      className="w-6 h-6 rounded-full object-cover"
-                    />
+                    <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden">
+                      <Image
+                        src={currentPet.photo_url}
+                        alt={currentPet.name}
+                        width={24}
+                        height={24}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                    <div className="w-6 h-6 flex-shrink-0 rounded-full bg-muted flex items-center justify-center">
                       <PawPrint className="w-3 h-3 text-muted-foreground" />
                     </div>
                   )}
-                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                  <ChevronDown className="w-3 h-3 flex-shrink-0 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
@@ -140,15 +142,17 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                     className="flex items-center gap-2"
                   >
                     {pet.photo_url ? (
-                      <Image
-                        src={pet.photo_url}
-                        alt={pet.name}
-                        width={24}
-                        height={24}
-                        className="w-6 h-6 rounded-full object-cover"
-                      />
+                      <div className="w-6 h-6 flex-shrink-0 rounded-full overflow-hidden">
+                        <Image
+                          src={pet.photo_url}
+                          alt={pet.name}
+                          width={24}
+                          height={24}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                      <div className="w-6 h-6 flex-shrink-0 rounded-full bg-muted flex items-center justify-center">
                         <PawPrint className="w-3 h-3 text-muted-foreground" />
                       </div>
                     )}

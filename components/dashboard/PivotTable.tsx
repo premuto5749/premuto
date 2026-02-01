@@ -199,21 +199,22 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 sm:px-6">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[70vh]">
           <table className="w-full border-collapse text-xs sm:text-sm">
-            <thead>
+            <thead className="sticky top-0 z-30 bg-background">
               <tr className="border-b">
-                <th className="sticky left-0 z-20 bg-background p-2 sm:p-3 text-left font-medium border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[100px] sm:min-w-[150px]">
+                <th className="sticky left-0 z-40 bg-background p-2 sm:p-3 text-left font-medium border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[100px] sm:min-w-[150px]">
                   항목
                 </th>
                 {sortedRecords.map((record) => (
-                  <th key={record.id} className="p-2 sm:p-3 text-center font-medium min-w-[70px] sm:min-w-[100px]">
-                    <div className="text-xs sm:text-sm whitespace-nowrap">
-                      {new Date(record.test_date).toLocaleDateString('ko-KR', {
+                  <th key={record.id} className="p-2 sm:p-3 text-center font-medium min-w-[70px] sm:min-w-[100px] bg-background">
+                    <div className="text-xs sm:text-sm">
+                      <div>{new Date(record.test_date).toLocaleDateString('ko-KR', {
                         year: '2-digit',
                         month: 'numeric',
                         day: 'numeric'
-                      })}{record.hospital_name && ` ${record.hospital_name}`}
+                      })}</div>
+                      {record.hospital_name && <div className="text-[10px] sm:text-xs text-muted-foreground">{record.hospital_name}</div>}
                     </div>
                   </th>
                 ))}
@@ -223,9 +224,12 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
               {Array.from(pivotData.itemsByCategory.entries()).map(([category, items]) => (
                 <React.Fragment key={category}>
                   <tr className="bg-muted/50">
-                    <td colSpan={sortedRecords.length + 1} className="sticky left-0 z-10 p-2 font-semibold text-[10px] sm:text-xs uppercase bg-muted/50">
+                    <td className="sticky left-0 z-20 p-2 font-semibold text-[10px] sm:text-xs uppercase bg-muted/50 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                       {category}
                     </td>
+                    {sortedRecords.map((record) => (
+                      <td key={record.id} className="bg-muted/50"></td>
+                    ))}
                   </tr>
                   {items.map((itemName) => {
                     const detail = pivotData.itemDetails.get(itemName)!

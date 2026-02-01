@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
 import { matchItem } from '@/lib/ocr/item-matcher'
 
-// OpenAI 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+// Anthropic 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
+function getAnthropicClient() {
+  return new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
   })
 }
 
@@ -154,6 +154,17 @@ export async function POST(request: NextRequest) {
           }
         } catch (aiError) {
           console.error(`❌ AI mapping failed for "${itemName}":`, aiError)
+
+          // AI 사용량 제한 에러 감지
+          if (aiError instanceof Anthropic.RateLimitError ||
+              (aiError instanceof Error && (
+                aiError.message.includes('rate_limit') ||
+                aiError.message.includes('quota') ||
+                aiError.message.includes('429')
+              ))) {
+            throw new Error('AI_RATE_LIMIT')
+          }
+
           failedCount++
           return {
             ocr_item: ocrItem,
@@ -180,6 +191,19 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('AI Mapping API error:', error)
+
+    // AI 사용량 제한 에러 처리
+    if (error instanceof Anthropic.RateLimitError ||
+        (error instanceof Error && error.message === 'AI_RATE_LIMIT')) {
+      return NextResponse.json(
+        {
+          error: 'AI_RATE_LIMIT',
+          message: 'AI 사용량 제한에 도달하였습니다. 잠시 후 다시 시도해주세요.'
+        },
+        { status: 429 }
+      )
+    }
+
     return NextResponse.json(
       {
         error: 'Internal server error',
@@ -241,19 +265,19 @@ ${ocrItem.ref_min !== null || ocrItem.ref_max !== null ? `- 참고치: ${ocrItem
 - 단위와 참고치 범위도 함께 고려
 - JSON만 반환하고 다른 설명 추가 금지`
 
-  const completion = await getOpenAIClient().chat.completions.create({
-    model: 'gpt-4o',
+  const message = await getAnthropicClient().messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 500,
     messages: [
       {
         role: 'user',
         content: prompt
       }
     ],
-    max_tokens: 500,
-    temperature: 0.1,
   })
 
-  const content = completion.choices[0]?.message?.content
+  const textContent = message.content.find(block => block.type === 'text')
+  const content = textContent?.type === 'text' ? textContent.text : null
 
   if (!content) {
     throw new Error('No response from AI mapping service')
