@@ -363,8 +363,11 @@ export default function DailyLogPage() {
             {currentPet ? `${currentPet.name} 건강 기록` : '건강 기록'}
           </h1>
 
-          {/* 반려동물 스위처 + 내보내기 버튼 */}
+          {/* 내보내기 버튼 + 반려동물 스위처 */}
           <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={exportLogsToText} title="기록 내보내기">
+              <Copy className="w-5 h-5" />
+            </Button>
             {!isPetsLoading && pets.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -421,9 +424,6 @@ export default function DailyLogPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            <Button variant="ghost" size="icon" onClick={exportLogsToText} title="기록 내보내기">
-              <Copy className="w-5 h-5" />
-            </Button>
           </div>
         </div>
       </header>
