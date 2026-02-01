@@ -42,7 +42,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
   ]
 
   return (
-    <header className="sticky top-0 z-10 bg-white border-b">
+    <header className="sticky top-0 z-10 bg-background border-b">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           {showBack ? (

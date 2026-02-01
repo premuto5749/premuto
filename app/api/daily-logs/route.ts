@@ -41,12 +41,12 @@ export async function GET(request: NextRequest) {
     let query = supabase.from('daily_logs').select('*')
 
     if (date) {
-      // 특정 날짜의 기록
-      query = query.gte('logged_at', `${date}T00:00:00`)
-                   .lt('logged_at', `${date}T23:59:59.999`)
+      // 특정 날짜의 기록 (KST 기준, UTC+9)
+      query = query.gte('logged_at', `${date}T00:00:00+09:00`)
+                   .lt('logged_at', `${date}T23:59:59.999+09:00`)
     } else if (startDate && endDate) {
-      query = query.gte('logged_at', `${startDate}T00:00:00`)
-                   .lte('logged_at', `${endDate}T23:59:59.999`)
+      query = query.gte('logged_at', `${startDate}T00:00:00+09:00`)
+                   .lte('logged_at', `${endDate}T23:59:59.999+09:00`)
     }
 
     if (category) {

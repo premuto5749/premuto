@@ -165,11 +165,11 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate }: Qu
     }
   }
 
-  // 날짜와 시간을 ISO 문자열로 변환 (로컬 타임존 반영)
+  // 날짜와 시간을 ISO 문자열로 변환 (한국 시간 KST, UTC+9 명시)
   const getLoggedAtISO = () => {
-    // 로컬 시간으로 Date 객체 생성
-    const localDate = new Date(`${logDate}T${logTime}:00`)
-    return localDate.toISOString()
+    // KST 타임존을 명시적으로 포함하여 시간대 변환 문제 방지
+    // 예: "2025-02-01T14:30:00+09:00"
+    return `${logDate}T${logTime}:00+09:00`
   }
 
   const handleSubmit = async () => {

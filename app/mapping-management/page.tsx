@@ -114,7 +114,7 @@ function MappingManagementContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         <AppHeader title="검사항목 매핑 관리" />
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -124,7 +124,7 @@ function MappingManagementContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <AppHeader title="검사항목 매핑 관리" />
 
       <div className="container max-w-7xl mx-auto py-10 px-4">

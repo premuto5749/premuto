@@ -33,6 +33,14 @@ interface PivotTableProps {
   onItemClick?: (itemName: string) => void
 }
 
+// 숫자를 소수점 첫째자리까지 표시 (정수면 그대로)
+function formatValue(value: number): string {
+  if (Number.isInteger(value)) {
+    return value.toString()
+  }
+  return value.toFixed(1)
+}
+
 export function PivotTable({ records, onItemClick }: PivotTableProps) {
   // 날짜순으로 정렬 (오래된 날짜가 왼쪽, 최신이 오른쪽)
   const sortedRecords = useMemo(() => {
@@ -257,7 +265,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                                         {detail.name} ({detail.ko})
                                       </div>
                                       <div>검사일: {new Date(record.test_date).toLocaleDateString('ko-KR')}</div>
-                                      <div>결과값: {result.value} {result.unit}</div>
+                                      <div>결과값: {formatValue(result.value)} {result.unit}</div>
                                       <div>
                                         참고치: {result.ref_text || `${result.ref_min ?? '?'}-${result.ref_max ?? '?'}`}
                                       </div>
@@ -276,7 +284,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                                 >
                                   <div className="cursor-help">
                                     <div className="font-medium flex items-center justify-center gap-1">
-                                      {getStatusIcon(result.status)} {result.value}
+                                      {getStatusIcon(result.status)} {formatValue(result.value)}
                                       {refChange.changed && (
                                         <AlertCircle className="w-3 h-3 text-orange-600 inline" />
                                       )}

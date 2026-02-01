@@ -275,9 +275,9 @@ export default function DailyLogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* 헤더 */}
-      <header className="sticky top-0 z-10 bg-white border-b">
+      <header className="sticky top-0 z-10 bg-background border-b">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <Sheet>
             <SheetTrigger asChild>
@@ -355,7 +355,7 @@ export default function DailyLogPage() {
       </header>
 
       {/* 날짜 네비게이션 */}
-      <div className="bg-white border-b">
+      <div className="bg-background border-b">
         <div className="max-w-lg mx-auto px-4 py-2 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={goToPrevDay}>
             <ChevronLeft className="w-5 h-5" />

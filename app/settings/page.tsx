@@ -61,7 +61,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-muted">
         <AppHeader title="설정" />
         <div className="container max-w-4xl mx-auto py-10">
           <div className="flex items-center justify-center min-h-[400px]">
@@ -73,7 +73,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-muted">
       <AppHeader title="설정" />
 
       <div className="container max-w-4xl mx-auto py-6 px-4">
@@ -432,13 +432,15 @@ function MedicinePresetSection({
                             value={med.dosage_unit}
                             onValueChange={(value) => updateMedicine(index, 'dosage_unit', value)}
                           >
-                            <SelectTrigger className="w-24">
+                            <SelectTrigger className="w-28">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="mg">mg</SelectItem>
-                              <SelectItem value="tablet">정</SelectItem>
+                              <SelectItem value="mg/kg">mg/kg</SelectItem>
                               <SelectItem value="ml">ml</SelectItem>
+                              <SelectItem value="ml/kg">ml/kg</SelectItem>
+                              <SelectItem value="tablet">정</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

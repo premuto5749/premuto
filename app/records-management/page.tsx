@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, Trash2, Merge, CalendarIcon } from 'lucide-react'
+import { Loader2, Trash2, Merge, CalendarIcon, Pencil } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -83,6 +83,12 @@ function RecordsManagementContent() {
   const [conflictData, setConflictData] = useState<ConflictData | null>(null)
   const [merging, setMerging] = useState(false)
   const [hospitals, setHospitals] = useState<Hospital[]>([])
+
+  // 수정 기능
+  const [editRecord, setEditRecord] = useState<TestRecord | null>(null)
+  const [editDate, setEditDate] = useState<string>('')
+  const [editHospital, setEditHospital] = useState<string>('')
+  const [editing, setEditing] = useState(false)
 
   // 병합 설정
   const [targetDate, setTargetDate] = useState<string>('')
@@ -281,6 +287,52 @@ function RecordsManagementContent() {
     }
   }
 
+  const handleEditClick = (record: TestRecord) => {
+    setEditRecord(record)
+    setEditDate(record.test_date)
+    setEditHospital(record.hospital_name || '')
+  }
+
+  const handleEditSave = async () => {
+    if (!editRecord) return
+
+    setEditing(true)
+    try {
+      const response = await fetch('/api/test-results', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editRecord.id,
+          test_date: editDate,
+          hospital_name: editHospital
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || '수정에 실패했습니다')
+      }
+
+      toast({
+        title: '수정 완료',
+        description: '검사 기록이 수정되었습니다.'
+      })
+
+      setEditRecord(null)
+      fetchRecords()
+    } catch (error) {
+      console.error('Edit error:', error)
+      toast({
+        title: '수정 실패',
+        description: error instanceof Error ? error.message : '수정에 실패했습니다.',
+        variant: 'destructive'
+      })
+    } finally {
+      setEditing(false)
+    }
+  }
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('ko-KR', {
       year: 'numeric',
@@ -291,7 +343,7 @@ function RecordsManagementContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         <AppHeader title="검사 기록 관리" />
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -301,7 +353,7 @@ function RecordsManagementContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <AppHeader title="검사 기록 관리" />
 
       <div className="container max-w-4xl mx-auto py-10 px-4">
@@ -341,7 +393,7 @@ function RecordsManagementContent() {
                       <TableHead>검사일</TableHead>
                       <TableHead>병원</TableHead>
                       <TableHead className="text-center">항목 수</TableHead>
-                      <TableHead className="text-right">삭제</TableHead>
+                      <TableHead className="text-right">작업</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -355,11 +407,13 @@ function RecordsManagementContent() {
                           />
                         </TableCell>
                         <TableCell className="font-medium">
-                          {formatDate(record.test_date)}
+                          {record.test_date === 'Unknown' ? (
+                            <span className="text-amber-600">날짜 미입력</span>
+                          ) : formatDate(record.test_date)}
                         </TableCell>
                         <TableCell>
-                          {record.hospital_name || (
-                            <span className="text-muted-foreground">-</span>
+                          {record.hospital_name ? record.hospital_name : (
+                            <span className="text-amber-600">병원 미입력</span>
                           )}
                         </TableCell>
                         <TableCell className="text-center">
@@ -367,7 +421,14 @@ function RecordsManagementContent() {
                             {record.test_results?.length || 0}개
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditClick(record)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -606,6 +667,67 @@ function RecordsManagementContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 수정 다이얼로그 */}
+      <Dialog open={!!editRecord} onOpenChange={(open) => !editing && !open && setEditRecord(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>검사 기록 수정</DialogTitle>
+            <DialogDescription>
+              검사일과 병원 정보를 수정합니다.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* 날짜 선택 */}
+            <div className="space-y-2">
+              <Label>검사일</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editDate && editDate !== 'Unknown' ? formatDate(editDate) : '날짜 선택'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    selected={editDate && editDate !== 'Unknown' ? new Date(editDate) : undefined}
+                    onSelect={(date) => setEditDate(date.toISOString().split('T')[0])}
+                    maxDate={new Date()}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* 병원 선택 */}
+            <div className="space-y-2">
+              <Label>병원</Label>
+              <HospitalSelector
+                value={editHospital}
+                onValueChange={setEditHospital}
+                hospitals={hospitals}
+                onHospitalCreated={(h) => setHospitals(prev => [...prev, h])}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRecord(null)} disabled={editing}>
+              취소
+            </Button>
+            <Button onClick={handleEditSave} disabled={editing}>
+              {editing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  저장 중...
+                </>
+              ) : (
+                '저장'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -613,7 +735,7 @@ function RecordsManagementContent() {
 export default function RecordsManagementPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>

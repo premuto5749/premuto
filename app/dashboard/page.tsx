@@ -180,7 +180,7 @@ function DashboardContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-muted">
         <AppHeader title="검사 결과 대시보드" />
         <div className="container max-w-6xl mx-auto py-10">
           <div className="flex items-center justify-center min-h-[400px]">
@@ -192,7 +192,7 @@ function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-muted">
       <AppHeader title="검사 결과 대시보드" />
 
       <div className="container max-w-6xl mx-auto py-10 px-4">
