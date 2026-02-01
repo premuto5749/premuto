@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { Camera, X, Loader2 } from 'lucide-react'
+import { Camera, X, Loader2, Image as ImageIcon } from 'lucide-react'
 import type { LogCategory, DailyLogInput } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 
@@ -39,8 +39,11 @@ const getCurrentDate = () => {
 export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId }: QuickLogModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const [amount, setAmount] = useState('')
+  const [leftoverAmount, setLeftoverAmount] = useState('')  // 남긴 양 (식사용)
   const [memo, setMemo] = useState('')
   const [medicineName, setMedicineName] = useState('')
+  const [medicineDosage, setMedicineDosage] = useState('')
+  const [medicineDosageUnit, setMedicineDosageUnit] = useState('정')
   const [logTime, setLogTime] = useState(getCurrentTime())
   const [logDate, setLogDate] = useState(getCurrentDate())
   const [photos, setPhotos] = useState<File[]>([])
@@ -48,6 +51,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   // 모달이 열릴 때마다 현재 시간으로 초기화 (defaultDate가 있으면 해당 날짜 사용)
@@ -70,8 +74,11 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const resetForm = () => {
     setSelectedCategory(null)
     setAmount('')
+    setLeftoverAmount('')
     setMemo('')
     setMedicineName('')
+    setMedicineDosage('')
+    setMedicineDosageUnit('정')
     setLogTime(getCurrentTime())
     setLogDate(defaultDate || getCurrentDate())
     // 사진 미리보기 URL 정리
@@ -186,15 +193,25 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
       }
 
       const config = LOG_CATEGORY_CONFIG[selectedCategory]
+
+      // 약 이름 조합: "약이름 복용량단위" 형식
+      let fullMedicineName = null
+      if (selectedCategory === 'medicine' && medicineName) {
+        fullMedicineName = medicineDosage
+          ? `${medicineName} ${medicineDosage}${medicineDosageUnit}`
+          : medicineName
+      }
+
       const logData: DailyLogInput = {
         category: selectedCategory,
         pet_id: petId || null,
         logged_at: getLoggedAtISO(),
         amount: amount ? parseFloat(amount) : (selectedCategory === 'poop' || selectedCategory === 'pee' ? 1 : null),
+        leftover_amount: selectedCategory === 'meal' ? (leftoverAmount ? parseFloat(leftoverAmount) : 0) : null,
         unit: config.unit,
         memo: memo || null,
         photo_urls: photoUrls,
-        medicine_name: selectedCategory === 'medicine' ? medicineName : null,
+        medicine_name: fullMedicineName,
       }
 
       const response = await fetch('/api/daily-logs', {
@@ -282,8 +299,55 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </div>
             </div>
 
-            {/* 양 입력 (배변/배뇨 제외) */}
-            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && (
+            {/* 식사 양 입력 (급여량, 남긴양, 식사량) */}
+            {selectedCategory === 'meal' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">급여량</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="급여량 (g)"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="flex-1"
+                    />
+                    <span className="flex items-center text-muted-foreground px-3 bg-muted rounded-md">
+                      g
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">남긴 양 (선택)</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="남긴 양 (g)"
+                      value={leftoverAmount}
+                      onChange={(e) => setLeftoverAmount(e.target.value)}
+                      className="flex-1"
+                    />
+                    <span className="flex items-center text-muted-foreground px-3 bg-muted rounded-md">
+                      g
+                    </span>
+                  </div>
+                </div>
+                {/* 식사량 계산 결과 표시 */}
+                {amount && (
+                  <div className="p-3 bg-muted/50 rounded-md">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">실제 식사량</span>
+                      <span className="font-medium">
+                        {(parseFloat(amount) - (leftoverAmount ? parseFloat(leftoverAmount) : 0)).toFixed(0)}g
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사 제외) */}
+            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && (
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
                   {LOG_CATEGORY_CONFIG[selectedCategory].placeholder || '양'}
@@ -303,15 +367,40 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </div>
             )}
 
-            {/* 약 이름 (약일 때만) */}
+            {/* 약 이름 및 복용량 (약일 때만) */}
             {selectedCategory === 'medicine' && (
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">약 이름</label>
-                <Input
-                  placeholder="예: 타이레놀, 소화제"
-                  value={medicineName}
-                  onChange={(e) => setMedicineName(e.target.value)}
-                />
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">약 이름</label>
+                  <Input
+                    placeholder="예: 타이레놀, 소화제"
+                    value={medicineName}
+                    onChange={(e) => setMedicineName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">복용량 (선택)</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="복용량"
+                      value={medicineDosage}
+                      onChange={(e) => setMedicineDosage(e.target.value)}
+                      className="flex-1"
+                    />
+                    <select
+                      value={medicineDosageUnit}
+                      onChange={(e) => setMedicineDosageUnit(e.target.value)}
+                      className="px-3 py-2 border rounded-md bg-background text-sm"
+                    >
+                      <option value="정">정</option>
+                      <option value="mg">mg</option>
+                      <option value="ml">ml</option>
+                      <option value="포">포</option>
+                      <option value="캡슐">캡슐</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -357,7 +446,29 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
 
               {/* 사진 추가 버튼 */}
               {photos.length < MAX_PHOTOS && (
-                <>
+                <div className="flex gap-2">
+                  {/* 카메라 촬영 버튼 */}
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    capture="environment"
+                    onChange={handlePhotoSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={isSubmitting || isUploading}
+                    className="flex-1"
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    촬영
+                  </Button>
+
+                  {/* 갤러리 선택 버튼 */}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -372,12 +483,12 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isSubmitting || isUploading}
-                    className="w-full"
+                    className="flex-1"
                   >
-                    <Camera className="w-4 h-4 mr-2" />
-                    사진 추가 ({photos.length}/{MAX_PHOTOS})
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    갤러리 ({photos.length}/{MAX_PHOTOS})
                   </Button>
-                </>
+                </div>
               )}
             </div>
 

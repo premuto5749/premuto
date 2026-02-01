@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, Save, AlertTriangle } from 'lucide-react'
+import { Loader2, Save, AlertTriangle, Sparkles } from 'lucide-react'
 import type { StandardItem } from '@/types'
 
 interface MappingData {
@@ -22,6 +22,7 @@ function MappingManagementContent() {
   const [allStandardItems, setAllStandardItems] = useState<StandardItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [aiCleaning, setAiCleaning] = useState(false)
   const [filter, setFilter] = useState<'all' | 'unmapped'>('unmapped')
   const [selectedRemappings, setSelectedRemappings] = useState<Record<string, string>>({})
 
@@ -112,6 +113,40 @@ function MappingManagementContent() {
   const unmappedCount = items.filter(i => i.is_unmapped).length
   const remappingCount = Object.keys(selectedRemappings).length
 
+  const handleAiCleanup = async () => {
+    if (unmappedCount === 0) {
+      alert('정리할 Unmapped 항목이 없습니다.')
+      return
+    }
+
+    if (!confirm(`AI가 ${unmappedCount}개의 Unmapped 항목을 자동으로 정리합니다. 계속하시겠습니까?`)) {
+      return
+    }
+
+    setAiCleaning(true)
+    try {
+      const response = await fetch('/api/item-mappings/ai-cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'AI 정리 중 오류가 발생했습니다.')
+      }
+
+      alert(`AI 정리 완료!\n- 매핑된 항목: ${result.data.mapped_count}개\n- 실패한 항목: ${result.data.failed_count}개`)
+      setSelectedRemappings({})
+      fetchData() // 새로고침
+    } catch (error) {
+      console.error('AI cleanup error:', error)
+      alert(error instanceof Error ? error.message : 'AI 정리 중 오류가 발생했습니다.')
+    } finally {
+      setAiCleaning(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-muted">
@@ -151,25 +186,47 @@ function MappingManagementContent() {
         </Card>
       </div>
 
-      {/* 필터 */}
-      <div className="mb-4 flex items-center gap-4">
-        <span className="text-sm font-medium">필터:</span>
-        <div className="flex gap-2">
-          <Button
-            variant={filter === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('all')}
-          >
-            전체
-          </Button>
-          <Button
-            variant={filter === 'unmapped' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('unmapped')}
-          >
-            Unmapped만
-          </Button>
+      {/* 필터 및 AI 정리 */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium">필터:</span>
+          <div className="flex gap-2">
+            <Button
+              variant={filter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('all')}
+            >
+              전체
+            </Button>
+            <Button
+              variant={filter === 'unmapped' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setFilter('unmapped')}
+            >
+              Unmapped만
+            </Button>
+          </div>
         </div>
+
+        {/* AI 정리 버튼 */}
+        <Button
+          onClick={handleAiCleanup}
+          disabled={aiCleaning || unmappedCount === 0}
+          variant="outline"
+          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-400 disabled:to-gray-500"
+        >
+          {aiCleaning ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              AI 정리 중...
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI로 정리하기 ({unmappedCount})
+            </>
+          )}
+        </Button>
       </div>
 
       {/* 매핑 테이블 */}

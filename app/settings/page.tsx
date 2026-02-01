@@ -27,7 +27,7 @@ const FREQUENCY_OPTIONS = [
   { value: 'prn', label: 'PRN (필요시)' },
 ]
 
-function SettingsPageContent({ defaultTab }: { defaultTab: string }) {
+function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab: string; isOnboarding?: boolean }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<UserSettings | null>(null)
@@ -81,6 +81,26 @@ function SettingsPageContent({ defaultTab }: { defaultTab: string }) {
       <AppHeader title="설정" />
 
       <div className="container max-w-4xl mx-auto py-6 px-4">
+        {/* 온보딩 환영 메시지 */}
+        {isOnboarding && (
+          <Card className="mb-6 border-primary bg-primary/5">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <PawPrint className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold mb-1">환영합니다!</h2>
+                  <p className="text-sm text-muted-foreground">
+                    서비스를 시작하려면 먼저 반려동물을 등록해주세요.
+                    등록 후 일일 건강 기록을 시작할 수 있습니다.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Tabs defaultValue={defaultTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="pet" className="text-xs sm:text-sm">
@@ -150,7 +170,8 @@ function SettingsPageContent({ defaultTab }: { defaultTab: string }) {
 function SettingsPageWrapper() {
   const searchParams = useSearchParams()
   const defaultTab = searchParams.get('tab') || 'pet'
-  return <SettingsPageContent defaultTab={defaultTab} />
+  const isOnboarding = searchParams.get('onboarding') === 'true'
+  return <SettingsPageContent defaultTab={defaultTab} isOnboarding={isOnboarding} />
 }
 
 export default function SettingsPage() {

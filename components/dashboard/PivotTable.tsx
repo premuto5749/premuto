@@ -208,18 +208,13 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                 </th>
                 {sortedRecords.map((record) => (
                   <th key={record.id} className="p-2 sm:p-3 text-center font-medium min-w-[70px] sm:min-w-[100px]">
-                    <div className="text-xs sm:text-sm">
+                    <div className="text-xs sm:text-sm whitespace-nowrap">
                       {new Date(record.test_date).toLocaleDateString('ko-KR', {
                         year: '2-digit',
                         month: 'numeric',
                         day: 'numeric'
-                      })}
+                      })}{record.hospital_name && ` ${record.hospital_name}`}
                     </div>
-                    {record.hospital_name && (
-                      <div className="text-[10px] sm:text-xs text-muted-foreground font-normal mt-0.5 sm:mt-1 truncate max-w-[65px] sm:max-w-[95px]">
-                        {record.hospital_name}
-                      </div>
-                    )}
                   </th>
                 ))}
               </tr>

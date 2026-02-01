@@ -10,6 +10,16 @@ export default async function Home() {
     redirect('/login')
   }
 
-  // 로그인된 경우 일일 기록 페이지로 리다이렉트
+  // 반려동물 등록 여부 확인
+  const { count } = await supabase
+    .from('pets')
+    .select('*', { count: 'exact', head: true })
+
+  // 반려동물이 없으면 설정 페이지(반려동물 탭)로 리다이렉트
+  if (count === 0) {
+    redirect('/settings?tab=pet&onboarding=true')
+  }
+
+  // 반려동물이 있으면 일일 기록 페이지로 리다이렉트
   redirect('/daily-log')
 }

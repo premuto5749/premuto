@@ -205,7 +205,8 @@ export interface DailyLog {
   pet_id: string | null      // 반려동물 ID
   category: LogCategory
   logged_at: string          // ISO 날짜/시간
-  amount: number | null      // 양 (g, ml, 회/분 등)
+  amount: number | null      // 양 (g, ml, 회/분 등) - 식사의 경우 급여량
+  leftover_amount: number | null  // 남긴 양 (식사 카테고리에서 사용)
   unit: string | null        // 단위
   memo: string | null        // 메모
   photo_urls: string[]       // 사진 URL 배열 (최대 5장)
@@ -218,7 +219,8 @@ export interface DailyLogInput {
   category: LogCategory
   pet_id?: string | null     // 반려동물 ID
   logged_at?: string         // 기본값: 현재 시간
-  amount?: number | null
+  amount?: number | null     // 급여량 (식사의 경우)
+  leftover_amount?: number | null  // 남긴 양 (식사 카테고리에서 사용)
   unit?: string | null
   memo?: string | null
   photo_urls?: string[]      // 사진 URL 배열 (최대 5장)
