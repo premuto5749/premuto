@@ -8,13 +8,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff } from 'lucide-react'
-import { UserSettings, MedicinePreset, Medicine, Hospital, Pet, PetInput } from '@/types'
+import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
 
@@ -32,26 +31,22 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [presets, setPresets] = useState<MedicinePreset[]>([])
-  const [hospitals, setHospitals] = useState<Hospital[]>([])
 
   // 데이터 로드
   const loadData = useCallback(async () => {
     try {
-      const [settingsRes, presetsRes, hospitalsRes] = await Promise.all([
+      const [settingsRes, presetsRes] = await Promise.all([
         fetch('/api/settings'),
-        fetch('/api/medicine-presets'),
-        fetch('/api/hospitals')
+        fetch('/api/medicine-presets')
       ])
 
-      const [settingsData, presetsData, hospitalsData] = await Promise.all([
+      const [settingsData, presetsData] = await Promise.all([
         settingsRes.json(),
-        presetsRes.json(),
-        hospitalsRes.json()
+        presetsRes.json()
       ])
 
       if (settingsData.success) setSettings(settingsData.data)
       if (presetsData.success) setPresets(presetsData.data)
-      if (hospitalsData.success) setHospitals(hospitalsData.data)
     } catch (error) {
       console.error('Failed to load settings:', error)
     } finally {
@@ -138,12 +133,22 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
             />
           </TabsContent>
 
-          {/* 병원 관리 */}
+          {/* 병원 관리 - 병원 연락처 페이지로 이동 */}
           <TabsContent value="hospital">
-            <HospitalSection
-              hospitals={hospitals}
-              setHospitals={setHospitals}
-            />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5" />
+                  병원 관리
+                </CardTitle>
+                <CardDescription>병원 연락처 페이지에서 관리할 수 있습니다</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild>
+                  <a href="/hospital-contacts">병원 연락처 페이지로 이동</a>
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* 테마 설정 */}
@@ -855,200 +860,6 @@ function MedicinePresetSection({
                       </span>
                     </div>
                   ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-// 병원 관리 섹션
-function HospitalSection({
-  hospitals,
-  setHospitals
-}: {
-  hospitals: Hospital[]
-  setHospitals: (h: Hospital[]) => void
-}) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingHospital, setEditingHospital] = useState<Hospital | null>(null)
-  const [form, setForm] = useState({ name: '', phone: '', notes: '' })
-  const [saving, setSaving] = useState(false)
-
-  const resetForm = () => {
-    setForm({ name: '', phone: '', notes: '' })
-    setEditingHospital(null)
-  }
-
-  const handleSave = async () => {
-    if (!form.name.trim()) return
-    setSaving(true)
-
-    try {
-      const method = editingHospital ? 'PATCH' : 'POST'
-      const body = editingHospital
-        ? { id: editingHospital.id, ...form }
-        : form
-
-      const res = await fetch('/api/hospitals', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
-
-      const data = await res.json()
-      if (data.success) {
-        if (editingHospital) {
-          setHospitals(hospitals.map(h => h.id === data.data.id ? data.data : h))
-        } else {
-          setHospitals([...hospitals, data.data])
-        }
-        setIsDialogOpen(false)
-        resetForm()
-      }
-    } catch (error) {
-      console.error('Failed to save hospital:', error)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDelete = async (id: string) => {
-    try {
-      const res = await fetch(`/api/hospitals?id=${id}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (data.success) {
-        setHospitals(hospitals.filter(h => h.id !== id))
-      }
-    } catch (error) {
-      console.error('Failed to delete hospital:', error)
-    }
-  }
-
-  const openEditDialog = (hospital: Hospital) => {
-    setEditingHospital(hospital)
-    setForm({
-      name: hospital.name,
-      phone: hospital.phone || '',
-      notes: hospital.notes || ''
-    })
-    setIsDialogOpen(true)
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              병원 관리
-            </CardTitle>
-            <CardDescription>자주 가는 병원 정보를 관리하세요</CardDescription>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open)
-            if (!open) resetForm()
-          }}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="w-4 h-4 mr-1" />
-                추가
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingHospital ? '병원 정보 수정' : '새 병원 추가'}</DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="hospital_name">병원 이름</Label>
-                  <Input
-                    id="hospital_name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="병원 이름"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hospital_phone">연락처</Label>
-                  <Input
-                    id="hospital_phone"
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    placeholder="02-XXX-XXXX"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hospital_notes">비고</Label>
-                  <Textarea
-                    id="hospital_notes"
-                    value={form.notes}
-                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                    placeholder="메모"
-                    rows={3}
-                  />
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>취소</Button>
-                <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
-                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-                  저장
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {hospitals.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            등록된 병원이 없습니다
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {hospitals.map((hospital) => (
-              <div key={hospital.id} className="p-4 border rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-medium">{hospital.name}</h4>
-                    {hospital.phone && (
-                      <p className="text-sm text-muted-foreground mt-1">📞 {hospital.phone}</p>
-                    )}
-                    {hospital.notes && (
-                      <p className="text-sm text-muted-foreground mt-1">📝 {hospital.notes}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => openEditDialog(hospital)}>
-                      <Edit2 className="w-3 h-3" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <Trash2 className="w-3 h-3 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>병원 삭제</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            &quot;{hospital.name}&quot;을(를) 삭제하시겠습니까?
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>취소</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(hospital.id)}>삭제</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
                 </div>
               </div>
             ))}

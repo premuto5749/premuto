@@ -4,6 +4,9 @@ import type { OcrResult } from '@/types'
 import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
 import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 
+// 최대 실행 시간 설정 (120초 - OCR은 시간이 오래 걸림)
+export const maxDuration = 120
+
 // Anthropic 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
 function getAnthropicClient() {
   return new Anthropic({

@@ -3,6 +3,12 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { StandardItem } from '@/types'
 
+// 최대 실행 시간 설정 (60초)
+export const maxDuration = 60
+
+// 한 번에 처리할 최대 항목 수
+const MAX_ITEMS_PER_BATCH = 10
+
 function getAnthropicClient() {
   return new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
@@ -61,14 +67,18 @@ export async function POST() {
       )
     }
 
-    console.log(`🤖 AI Cleanup started: ${unmappedItems.length} unmapped items, ${mappedItems?.length || 0} target items`)
+    // 한 번에 처리할 항목 수 제한
+    const itemsToProcess = unmappedItems.slice(0, MAX_ITEMS_PER_BATCH)
+    const remainingCount = unmappedItems.length - itemsToProcess.length
+
+    console.log(`🤖 AI Cleanup started: ${itemsToProcess.length}/${unmappedItems.length} unmapped items, ${mappedItems?.length || 0} target items`)
 
     const results: CleanupResult[] = []
     let mappedCount = 0
     let failedCount = 0
 
-    // 3. Process each unmapped item
-    for (const unmappedItem of unmappedItems) {
+    // 3. Process each unmapped item (batch limited)
+    for (const unmappedItem of itemsToProcess) {
       try {
         const suggestion = await getAiMatchSuggestion(unmappedItem, mappedItems || [])
 
@@ -131,13 +141,14 @@ export async function POST() {
       }
     }
 
-    console.log(`✅ AI Cleanup completed: ${mappedCount} mapped, ${failedCount} failed`)
+    console.log(`✅ AI Cleanup completed: ${mappedCount} mapped, ${failedCount} failed, ${remainingCount} remaining`)
 
     return NextResponse.json({
       success: true,
       data: {
         mapped_count: mappedCount,
         failed_count: failedCount,
+        remaining_count: remainingCount,
         results
       }
     })

@@ -385,15 +385,15 @@ function RecordsManagementContent() {
                 저장된 검사 기록이 없습니다
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <Table className="min-w-[500px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[50px]">선택</TableHead>
-                      <TableHead>검사일</TableHead>
-                      <TableHead>병원</TableHead>
-                      <TableHead className="text-center">항목 수</TableHead>
-                      <TableHead className="text-right">작업</TableHead>
+                      <TableHead className="w-[50px] whitespace-nowrap">선택</TableHead>
+                      <TableHead className="whitespace-nowrap">검사일</TableHead>
+                      <TableHead className="whitespace-nowrap">병원</TableHead>
+                      <TableHead className="text-center whitespace-nowrap">항목 수</TableHead>
+                      <TableHead className="text-right whitespace-nowrap">작업</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -406,22 +406,22 @@ function RecordsManagementContent() {
                             disabled={!selectedRecords.has(record.id) && selectedRecords.size >= 2}
                           />
                         </TableCell>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium whitespace-nowrap">
                           {record.test_date === 'Unknown' ? (
                             <span className="text-amber-600">날짜 미입력</span>
                           ) : formatDate(record.test_date)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap">
                           {record.hospital_name ? record.hospital_name : (
                             <span className="text-amber-600">병원 미입력</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center whitespace-nowrap">
                           <Badge variant="secondary">
                             {record.test_results?.length || 0}개
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right space-x-1">
+                        <TableCell className="text-right whitespace-nowrap space-x-1">
                           <Button
                             variant="ghost"
                             size="sm"
