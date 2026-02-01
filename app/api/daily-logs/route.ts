@@ -132,10 +132,10 @@ export async function POST(request: NextRequest) {
 
     // leftover_amount 컬럼이 없으면 해당 필드 제외하고 재시도
     if (error && error.code === 'PGRST204') {
-      const { leftover_amount: _, ...insertDataWithoutLeftover } = insertData
+      delete insertData.leftover_amount
       const retryResult = await supabase
         .from('daily_logs')
-        .insert(insertDataWithoutLeftover)
+        .insert(insertData)
         .select()
         .single()
 
@@ -221,10 +221,10 @@ export async function PATCH(request: NextRequest) {
 
     // leftover_amount 컬럼이 없으면 해당 필드 제외하고 재시도
     if (error && error.code === 'PGRST204' && 'leftover_amount' in updates) {
-      const { leftover_amount, ...updatesWithoutLeftover } = updates
+      delete updates.leftover_amount
       const retryResult = await supabase
         .from('daily_logs')
-        .update(updatesWithoutLeftover)
+        .update(updates)
         .eq('id', id)
         .select()
         .single()
