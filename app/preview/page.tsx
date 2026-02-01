@@ -216,7 +216,7 @@ function PreviewContent() {
   const handleSaveAll = async () => {
     if (!batchData) return
 
-    // 날짜와 병원이 Unknown인 그룹이 있는지 확인
+    // 날짜와 병원이 Unknown인 그룹이 있는지 확인 (경고만 표시, 저장은 허용)
     const invalidGroups = dateGroups.filter(g => g.date === 'Unknown' || g.hospital === 'Unknown')
     if (invalidGroups.length > 0) {
       const messages: string[] = []
@@ -224,8 +224,12 @@ function PreviewContent() {
         if (g.date === 'Unknown') messages.push('- 날짜가 선택되지 않은 검사가 있습니다')
         if (g.hospital === 'Unknown') messages.push('- 병원이 선택되지 않은 검사가 있습니다')
       })
-      alert('저장 전에 다음 항목을 입력해주세요:\n\n' + [...new Set(messages)].join('\n'))
-      return
+      const confirmSave = confirm(
+        '다음 항목이 입력되지 않았습니다:\n\n' +
+        [...new Set(messages)].join('\n') +
+        '\n\n그래도 저장하시겠습니까?\n(나중에 "검사 기록 관리" 메뉴에서 수정할 수 있습니다)'
+      )
+      if (!confirmSave) return
     }
 
     setIsProcessing(true)
@@ -401,7 +405,7 @@ function PreviewContent() {
 
   if (!batchData || allItems.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
         <AppHeader title="OCR 결과 확인" showBack backHref="/upload" />
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -411,7 +415,7 @@ function PreviewContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <AppHeader title="OCR 결과 확인" showBack backHref="/upload" />
 
       <div className="container max-w-6xl mx-auto py-10 px-4">

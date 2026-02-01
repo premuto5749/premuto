@@ -170,6 +170,57 @@ export async function GET() {
   }
 }
 
+// PATCH: 검사 기록 수정 (날짜, 병원명)
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { id, test_date, hospital_name } = body
+
+    if (!id) {
+      return NextResponse.json(
+        { error: '수정할 검사 기록 ID가 필요합니다' },
+        { status: 400 }
+      )
+    }
+
+    const supabase = await createClient()
+
+    const updateData: Record<string, string | null> = {}
+    if (test_date !== undefined) updateData.test_date = test_date
+    if (hospital_name !== undefined) updateData.hospital_name = hospital_name || null
+
+    const { data, error } = await supabase
+      .from('test_records')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Failed to update test record:', error)
+      return NextResponse.json(
+        { error: '검사 기록 수정에 실패했습니다', details: error.message },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      data
+    })
+
+  } catch (error) {
+    console.error('Update test record error:', error)
+    return NextResponse.json(
+      {
+        error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    )
+  }
+}
+
 // DELETE: 검사 기록 삭제
 export async function DELETE(request: NextRequest) {
   try {
