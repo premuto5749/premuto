@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end')         // 종료일
     const category = searchParams.get('category')   // 카테고리 필터
     const stats = searchParams.get('stats')         // 통계 조회 여부
+    const petId = searchParams.get('pet_id')        // 반려동물 필터
 
     // 통계 조회
     if (stats === 'true') {
@@ -22,6 +23,11 @@ export async function GET(request: NextRequest) {
         query = query.eq('log_date', date)
       } else if (startDate && endDate) {
         query = query.gte('log_date', startDate).lte('log_date', endDate)
+      }
+
+      // pet_id 필터링
+      if (petId) {
+        query = query.eq('pet_id', petId)
       }
 
       const { data, error } = await query.order('log_date', { ascending: false })
@@ -51,6 +57,11 @@ export async function GET(request: NextRequest) {
 
     if (category) {
       query = query.eq('category', category)
+    }
+
+    // pet_id 필터링
+    if (petId) {
+      query = query.eq('pet_id', petId)
     }
 
     const { data, error } = await query.order('logged_at', { ascending: false })
@@ -90,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     const body: DailyLogInput = await request.json()
 
-    const { category, logged_at, amount, unit, memo, photo_urls, medicine_name } = body
+    const { category, pet_id, logged_at, amount, unit, memo, photo_urls, medicine_name } = body
 
     if (!category) {
       return NextResponse.json(
@@ -103,6 +114,7 @@ export async function POST(request: NextRequest) {
       .from('daily_logs')
       .insert({
         user_id: user.id,
+        pet_id: pet_id || null,
         category,
         logged_at: logged_at || new Date().toISOString(),
         amount,

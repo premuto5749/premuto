@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Menu, ArrowLeft, Heart, Copy } from 'lucide-react'
+import { Menu, ArrowLeft, Heart, Copy, ChevronDown, PawPrint, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -19,7 +20,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast'
+import { usePet } from '@/contexts/PetContext'
 
 interface AppHeaderProps {
   title: string
@@ -31,6 +40,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
   const pathname = usePathname()
   const [isDonateOpen, setIsDonateOpen] = useState(false)
   const { toast } = useToast()
+  const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
 
   const navItems = [
     { href: '/daily-log', label: '일일 기록', icon: '📝' },
@@ -100,7 +110,65 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
 
         <h1 className="font-semibold text-lg">{title}</h1>
 
-        <div className="w-10" /> {/* 균형 맞추기 */}
+        {/* 반려동물 스위처 */}
+        <div className="w-10 flex justify-end">
+          {!isPetsLoading && pets.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1 px-2">
+                  {currentPet?.photo_url ? (
+                    <Image
+                      src={currentPet.photo_url}
+                      alt={currentPet.name}
+                      width={24}
+                      height={24}
+                      className="w-6 h-6 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                      <PawPrint className="w-3 h-3 text-muted-foreground" />
+                    </div>
+                  )}
+                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {pets.map((pet) => (
+                  <DropdownMenuItem
+                    key={pet.id}
+                    onClick={() => setCurrentPet(pet)}
+                    className="flex items-center gap-2"
+                  >
+                    {pet.photo_url ? (
+                      <Image
+                        src={pet.photo_url}
+                        alt={pet.name}
+                        width={24}
+                        height={24}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                        <PawPrint className="w-3 h-3 text-muted-foreground" />
+                      </div>
+                    )}
+                    <span className="flex-1">{pet.name}</span>
+                    {currentPet?.id === pet.id && (
+                      <Check className="w-4 h-4 text-primary" />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/settings?tab=pet" className="flex items-center gap-2">
+                    <PawPrint className="w-4 h-4" />
+                    반려동물 관리
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
       {/* 후원하기 다이얼로그 */}

@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Image from 'next/image'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,8 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle } from 'lucide-react'
-import { UserSettings, MedicinePreset, Medicine, Hospital } from '@/types'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff } from 'lucide-react'
+import { UserSettings, MedicinePreset, Medicine, Hospital, Pet, PetInput } from '@/types'
+import { usePet } from '@/contexts/PetContext'
+import { createClient } from '@/lib/supabase/client'
 
 // 투약 빈도 옵션
 const FREQUENCY_OPTIONS = [
@@ -23,7 +27,7 @@ const FREQUENCY_OPTIONS = [
   { value: 'prn', label: 'PRN (필요시)' },
 ]
 
-export default function SettingsPage() {
+function SettingsPageContent({ defaultTab }: { defaultTab: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<UserSettings | null>(null)
@@ -77,7 +81,7 @@ export default function SettingsPage() {
       <AppHeader title="설정" />
 
       <div className="container max-w-4xl mx-auto py-6 px-4">
-        <Tabs defaultValue="pet" className="space-y-6">
+        <Tabs defaultValue={defaultTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="pet" className="text-xs sm:text-sm">
               <PawPrint className="w-4 h-4 mr-1 hidden sm:inline" />
@@ -103,12 +107,7 @@ export default function SettingsPage() {
 
           {/* 반려동물 프로필 */}
           <TabsContent value="pet">
-            <PetProfileSection
-              settings={settings}
-              setSettings={setSettings}
-              saving={saving}
-              setSaving={setSaving}
-            />
+            <PetProfileSection />
           </TabsContent>
 
           {/* 약 프리셋 */}
@@ -147,121 +146,427 @@ export default function SettingsPage() {
   )
 }
 
-// 반려동물 프로필 섹션
-function PetProfileSection({
-  settings,
-  setSettings,
-  saving,
-  setSaving
-}: {
-  settings: UserSettings | null
-  setSettings: (s: UserSettings | null) => void
-  saving: boolean
-  setSaving: (s: boolean) => void
-}) {
-  const [form, setForm] = useState({
-    pet_name: settings?.pet_name || '미모',
-    pet_type: settings?.pet_type || '',
-    pet_breed: settings?.pet_breed || '',
-    pet_birth_date: settings?.pet_birth_date || '',
-    pet_weight_kg: settings?.pet_weight_kg?.toString() || '',
+// 메인 페이지 컴포넌트 (Suspense로 래핑)
+function SettingsPageWrapper() {
+  const searchParams = useSearchParams()
+  const defaultTab = searchParams.get('tab') || 'pet'
+  return <SettingsPageContent defaultTab={defaultTab} />
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-muted flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <SettingsPageWrapper />
+    </Suspense>
+  )
+}
+
+// 반려동물 프로필 섹션 (다중 반려동물 지원)
+function PetProfileSection() {
+  const { pets, currentPet, addPet, updatePet, removePet, refreshPets } = usePet()
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingPet, setEditingPet] = useState<Pet | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [form, setForm] = useState<PetInput>({
+    name: '',
+    type: '',
+    breed: '',
+    birth_date: '',
+    weight_kg: null,
+    photo_url: null,
+    is_default: false,
   })
 
+  const resetForm = () => {
+    setForm({
+      name: '',
+      type: '',
+      breed: '',
+      birth_date: '',
+      weight_kg: null,
+      photo_url: null,
+      is_default: false,
+    })
+    setEditingPet(null)
+  }
+
+  const openEditDialog = (pet: Pet) => {
+    setEditingPet(pet)
+    setForm({
+      name: pet.name,
+      type: pet.type || '',
+      breed: pet.breed || '',
+      birth_date: pet.birth_date || '',
+      weight_kg: pet.weight_kg,
+      photo_url: pet.photo_url,
+      is_default: pet.is_default,
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // 파일 크기 제한 (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('파일 크기는 5MB 이하여야 합니다.')
+      return
+    }
+
+    // 이미지 타입 확인
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다.')
+      return
+    }
+
+    setUploading(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}.${fileExt}`
+      const filePath = `pets/${user.id}/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('pet-photos')
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('pet-photos')
+        .getPublicUrl(filePath)
+
+      setForm(prev => ({ ...prev, photo_url: publicUrl }))
+    } catch (error) {
+      console.error('Photo upload failed:', error)
+      alert('사진 업로드에 실패했습니다.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const handleSave = async () => {
+    if (!form.name.trim()) {
+      alert('이름을 입력해주세요.')
+      return
+    }
+
     setSaving(true)
     try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
+      const method = editingPet ? 'PATCH' : 'POST'
+      const body = editingPet
+        ? { id: editingPet.id, ...form, weight_kg: form.weight_kg || null }
+        : { ...form, weight_kg: form.weight_kg || null }
+
+      const res = await fetch('/api/pets', {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          pet_weight_kg: form.pet_weight_kg ? parseFloat(form.pet_weight_kg) : null
-        })
+        body: JSON.stringify(body)
       })
+
       const data = await res.json()
       if (data.success) {
-        setSettings(data.data)
+        if (editingPet) {
+          updatePet(data.data)
+        } else {
+          addPet(data.data)
+        }
+        setIsDialogOpen(false)
+        resetForm()
+      } else {
+        alert(data.error || '저장에 실패했습니다.')
       }
     } catch (error) {
-      console.error('Failed to save:', error)
+      console.error('Failed to save pet:', error)
+      alert('저장에 실패했습니다.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async (petId: string) => {
+    try {
+      const res = await fetch(`/api/pets?id=${petId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.success) {
+        removePet(petId)
+      } else {
+        alert(data.error || '삭제에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Failed to delete pet:', error)
+      alert('삭제에 실패했습니다.')
+    }
+  }
+
+  const handleSetDefault = async (pet: Pet) => {
+    try {
+      const res = await fetch('/api/pets', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: pet.id, is_default: true })
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        // 기존 기본 반려동물 해제 후 새로운 기본 설정
+        refreshPets()
+      }
+    } catch (error) {
+      console.error('Failed to set default pet:', error)
     }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <PawPrint className="w-5 h-5" />
-          반려동물 프로필
-        </CardTitle>
-        <CardDescription>반려동물의 기본 정보를 입력하세요</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="pet_name">이름</Label>
-            <Input
-              id="pet_name"
-              value={form.pet_name}
-              onChange={(e) => setForm({ ...form, pet_name: e.target.value })}
-              placeholder="반려동물 이름"
-            />
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <PawPrint className="w-5 h-5" />
+              반려동물 프로필
+            </CardTitle>
+            <CardDescription>여러 마리의 반려동물을 등록하고 관리하세요</CardDescription>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="pet_type">종류</Label>
-            <Select
-              value={form.pet_type}
-              onValueChange={(value) => setForm({ ...form, pet_type: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="종류 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="고양이">고양이</SelectItem>
-                <SelectItem value="강아지">강아지</SelectItem>
-                <SelectItem value="기타">기타</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="pet_breed">품종</Label>
-            <Input
-              id="pet_breed"
-              value={form.pet_breed}
-              onChange={(e) => setForm({ ...form, pet_breed: e.target.value })}
-              placeholder="예: 코리안 숏헤어"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="pet_birth_date">생년월일</Label>
-            <Input
-              id="pet_birth_date"
-              type="date"
-              value={form.pet_birth_date}
-              onChange={(e) => setForm({ ...form, pet_birth_date: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="pet_weight_kg">체중 (kg)</Label>
-            <Input
-              id="pet_weight_kg"
-              type="number"
-              step="0.1"
-              value={form.pet_weight_kg}
-              onChange={(e) => setForm({ ...form, pet_weight_kg: e.target.value })}
-              placeholder="예: 4.5"
-            />
-          </div>
-        </div>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open)
+            if (!open) resetForm()
+          }}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="w-4 h-4 mr-1" />
+                추가
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingPet ? '반려동물 수정' : '새 반려동물 추가'}</DialogTitle>
+                <DialogDescription>반려동물의 정보를 입력하세요</DialogDescription>
+              </DialogHeader>
 
-        <div className="flex justify-end pt-4">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            저장
-          </Button>
+              <div className="space-y-4 py-4">
+                {/* 프로필 사진 */}
+                <div className="flex flex-col items-center gap-3">
+                  <div className="relative">
+                    {form.photo_url ? (
+                      <Image
+                        src={form.photo_url}
+                        alt="Pet photo"
+                        width={96}
+                        height={96}
+                        className="w-24 h-24 rounded-full object-cover border-2 border-muted"
+                      />
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30">
+                        <PawPrint className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      className="absolute bottom-0 right-0 rounded-full w-8 h-8"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      {uploading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Camera className="w-4 h-4" />
+                      )}
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">사진을 클릭하여 업로드</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pet_name">이름 *</Label>
+                    <Input
+                      id="pet_name"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="반려동물 이름"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pet_type">종류</Label>
+                    <Select
+                      value={form.type || ''}
+                      onValueChange={(value) => setForm({ ...form, type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="종류 선택" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="고양이">고양이</SelectItem>
+                        <SelectItem value="강아지">강아지</SelectItem>
+                        <SelectItem value="기타">기타</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pet_breed">품종</Label>
+                    <Input
+                      id="pet_breed"
+                      value={form.breed || ''}
+                      onChange={(e) => setForm({ ...form, breed: e.target.value })}
+                      placeholder="예: 코리안 숏헤어"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pet_birth_date">생년월일</Label>
+                    <Input
+                      id="pet_birth_date"
+                      type="date"
+                      value={form.birth_date || ''}
+                      onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pet_weight_kg">체중 (kg)</Label>
+                    <Input
+                      id="pet_weight_kg"
+                      type="number"
+                      step="0.1"
+                      value={form.weight_kg?.toString() || ''}
+                      onChange={(e) => setForm({ ...form, weight_kg: e.target.value ? parseFloat(e.target.value) : null })}
+                      placeholder="예: 4.5"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>취소</Button>
+                <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  저장
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
+      </CardHeader>
+      <CardContent>
+        {pets.length === 0 ? (
+          <div className="text-center py-8">
+            <PawPrint className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
+            <p className="text-sm text-muted-foreground mb-4">
+              등록된 반려동물이 없습니다
+            </p>
+            <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-1" />
+              첫 반려동물 등록하기
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {pets.map((pet) => (
+              <div
+                key={pet.id}
+                className={`p-4 border rounded-lg flex items-center gap-4 ${
+                  currentPet?.id === pet.id ? 'border-primary bg-primary/5' : ''
+                }`}
+              >
+                {/* 프로필 사진 */}
+                {pet.photo_url ? (
+                  <Image
+                    src={pet.photo_url}
+                    alt={pet.name}
+                    width={56}
+                    height={56}
+                    className="w-14 h-14 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <PawPrint className="w-6 h-6 text-muted-foreground" />
+                  </div>
+                )}
+
+                {/* 정보 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium truncate">{pet.name}</h4>
+                    {pet.is_default && (
+                      <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">기본</span>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground space-x-2">
+                    {pet.type && <span>{pet.type}</span>}
+                    {pet.breed && <span>· {pet.breed}</span>}
+                    {pet.weight_kg && <span>· {pet.weight_kg}kg</span>}
+                  </div>
+                </div>
+
+                {/* 액션 버튼 */}
+                <div className="flex gap-1 flex-shrink-0">
+                  {!pet.is_default && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleSetDefault(pet)}
+                      title="기본으로 설정"
+                    >
+                      <StarOff className="w-4 h-4" />
+                    </Button>
+                  )}
+                  {pet.is_default && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled
+                      title="기본 반려동물"
+                    >
+                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => openEditDialog(pet)}>
+                    <Edit2 className="w-4 h-4" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>반려동물 삭제</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          &quot;{pet.name}&quot;을(를) 삭제하시겠습니까?
+                          이 반려동물의 기록은 삭제되지 않습니다.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>취소</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleDelete(pet.id)}>삭제</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   )
