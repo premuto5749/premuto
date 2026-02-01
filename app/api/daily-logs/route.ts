@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     const body: DailyLogInput = await request.json()
 
-    const { category, pet_id, logged_at, amount, unit, memo, photo_urls, medicine_name } = body
+    const { category, pet_id, logged_at, amount, leftover_amount, unit, memo, photo_urls, medicine_name } = body
 
     if (!category) {
       return NextResponse.json(
@@ -118,6 +118,7 @@ export async function POST(request: NextRequest) {
         category,
         logged_at: logged_at || new Date().toISOString(),
         amount,
+        leftover_amount: category === 'meal' ? (leftover_amount || 0) : null,
         unit,
         memo,
         photo_urls: photo_urls || [],

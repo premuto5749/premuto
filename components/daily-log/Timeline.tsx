@@ -41,6 +41,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
   // 수정 폼 상태
   const [editAmount, setEditAmount] = useState<string>('')
+  const [editLeftoverAmount, setEditLeftoverAmount] = useState<string>('')  // 남긴 양 (식사용)
   const [editMemo, setEditMemo] = useState<string>('')
   const [editMedicineName, setEditMedicineName] = useState<string>('')
   const [editDate, setEditDate] = useState<string>('')
@@ -84,6 +85,16 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       return '' // 배변/배뇨는 양 표시 안함
     }
 
+    // 식사의 경우 급여량과 식사량 표시
+    if (log.category === 'meal' && log.amount !== null && log.amount !== undefined) {
+      const leftover = log.leftover_amount || 0
+      const eaten = log.amount - leftover
+      if (leftover > 0) {
+        return `${eaten}g (급여 ${log.amount}g, 남김 ${leftover}g)`
+      }
+      return `${log.amount}${log.unit || config.unit}`
+    }
+
     if (log.amount !== null && log.amount !== undefined) {
       return `${log.amount}${log.unit || config.unit}`
     }
@@ -102,6 +113,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setIsEditing(false)
     // 수정 폼 초기화
     setEditAmount(log.amount?.toString() || '')
+    setEditLeftoverAmount(log.leftover_amount?.toString() || '')
     setEditMemo(log.memo || '')
     setEditMedicineName(log.medicine_name || '')
     setEditDate(extractDateFromISO(log.logged_at))
@@ -114,6 +126,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const handleStartEdit = () => {
     if (!selectedLog) return
     setEditAmount(selectedLog.amount?.toString() || '')
+    setEditLeftoverAmount(selectedLog.leftover_amount?.toString() || '')
     setEditMemo(selectedLog.memo || '')
     setEditMedicineName(selectedLog.medicine_name || '')
     setEditDate(extractDateFromISO(selectedLog.logged_at))
@@ -128,6 +141,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setIsEditing(false)
     if (selectedLog) {
       setEditAmount(selectedLog.amount?.toString() || '')
+      setEditLeftoverAmount(selectedLog.leftover_amount?.toString() || '')
       setEditMemo(selectedLog.memo || '')
       setEditMedicineName(selectedLog.medicine_name || '')
       setEditDate(extractDateFromISO(selectedLog.logged_at))
@@ -176,6 +190,11 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       // 배변/배뇨가 아닌 경우에만 양 업데이트
       if (selectedLog.category !== 'poop' && selectedLog.category !== 'pee') {
         updateData.amount = editAmount ? parseFloat(editAmount) : null
+      }
+
+      // 식사인 경우 남긴 양 업데이트
+      if (selectedLog.category === 'meal') {
+        updateData.leftover_amount = editLeftoverAmount ? parseFloat(editLeftoverAmount) : 0
       }
 
       // 약인 경우 약 이름 업데이트
@@ -370,8 +389,44 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                     </div>
                   </div>
 
-                  {/* 양 입력 (배변/배뇨 제외) */}
-                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && (
+                  {/* 식사 양 입력 (급여량, 남긴양) */}
+                  {selectedLog.category === 'meal' && (
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-amount">급여량 (g)</Label>
+                        <Input
+                          id="edit-amount"
+                          type="number"
+                          value={editAmount}
+                          onChange={(e) => setEditAmount(e.target.value)}
+                          placeholder="급여량 (g)"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-leftover">남긴 양 (g)</Label>
+                        <Input
+                          id="edit-leftover"
+                          type="number"
+                          value={editLeftoverAmount}
+                          onChange={(e) => setEditLeftoverAmount(e.target.value)}
+                          placeholder="남긴 양 (g)"
+                        />
+                      </div>
+                      {editAmount && (
+                        <div className="p-3 bg-muted/50 rounded-md">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-muted-foreground">실제 식사량</span>
+                            <span className="font-medium">
+                              {(parseFloat(editAmount) - (editLeftoverAmount ? parseFloat(editLeftoverAmount) : 0)).toFixed(0)}g
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약 제외) */}
+                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'medicine' && (
                     <div className="space-y-2">
                       <Label htmlFor="edit-amount">
                         {selectedLog.category === 'breathing' ? '호흡수' : '양'} ({LOG_CATEGORY_CONFIG[selectedLog.category].unit})
@@ -513,8 +568,30 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                     <p className="font-medium">{formatDateTime(selectedLog.logged_at)}</p>
                   </div>
 
-                  {/* 양 (배변/배뇨 제외) */}
-                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.amount !== null && (
+                  {/* 식사 정보 (급여량, 남긴양, 식사량) */}
+                  {selectedLog.category === 'meal' && selectedLog.amount !== null && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">급여량</span>
+                        <span className="font-medium">{selectedLog.amount}g</span>
+                      </div>
+                      {(selectedLog.leftover_amount ?? 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">남긴 양</span>
+                          <span className="font-medium">{selectedLog.leftover_amount}g</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t pt-2">
+                        <span className="text-sm font-medium">실제 식사량</span>
+                        <span className="font-medium text-primary">
+                          {selectedLog.amount - (selectedLog.leftover_amount || 0)}g
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 양 (음수, 호흡수 - 배변/배뇨/식사 제외) */}
+                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.amount !== null && (
                     <div>
                       <p className="text-sm text-muted-foreground">
                         {selectedLog.category === 'breathing' ? '호흡수' : '양'}

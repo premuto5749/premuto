@@ -39,6 +39,7 @@ const getCurrentDate = () => {
 export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId }: QuickLogModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const [amount, setAmount] = useState('')
+  const [leftoverAmount, setLeftoverAmount] = useState('')  // 남긴 양 (식사용)
   const [memo, setMemo] = useState('')
   const [medicineName, setMedicineName] = useState('')
   const [medicineDosage, setMedicineDosage] = useState('')
@@ -73,6 +74,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const resetForm = () => {
     setSelectedCategory(null)
     setAmount('')
+    setLeftoverAmount('')
     setMemo('')
     setMedicineName('')
     setMedicineDosage('')
@@ -205,6 +207,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         pet_id: petId || null,
         logged_at: getLoggedAtISO(),
         amount: amount ? parseFloat(amount) : (selectedCategory === 'poop' || selectedCategory === 'pee' ? 1 : null),
+        leftover_amount: selectedCategory === 'meal' ? (leftoverAmount ? parseFloat(leftoverAmount) : 0) : null,
         unit: config.unit,
         memo: memo || null,
         photo_urls: photoUrls,
@@ -296,8 +299,55 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </div>
             </div>
 
-            {/* 양 입력 (배변/배뇨 제외) */}
-            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && (
+            {/* 식사 양 입력 (급여량, 남긴양, 식사량) */}
+            {selectedCategory === 'meal' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">급여량</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="급여량 (g)"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="flex-1"
+                    />
+                    <span className="flex items-center text-muted-foreground px-3 bg-muted rounded-md">
+                      g
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">남긴 양 (선택)</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="남긴 양 (g)"
+                      value={leftoverAmount}
+                      onChange={(e) => setLeftoverAmount(e.target.value)}
+                      className="flex-1"
+                    />
+                    <span className="flex items-center text-muted-foreground px-3 bg-muted rounded-md">
+                      g
+                    </span>
+                  </div>
+                </div>
+                {/* 식사량 계산 결과 표시 */}
+                {amount && (
+                  <div className="p-3 bg-muted/50 rounded-md">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">실제 식사량</span>
+                      <span className="font-medium">
+                        {(parseFloat(amount) - (leftoverAmount ? parseFloat(leftoverAmount) : 0)).toFixed(0)}g
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사 제외) */}
+            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && (
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
                   {LOG_CATEGORY_CONFIG[selectedCategory].placeholder || '양'}
