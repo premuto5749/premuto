@@ -67,15 +67,22 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     })
   }
 
-  // 날짜/시간 추출 헬퍼
+  // 날짜/시간 추출 헬퍼 (로컬 시간대 기준)
   const extractDateFromISO = (dateStr: string) => {
     const d = new Date(dateStr)
-    return d.toISOString().split('T')[0]
+    // 로컬 시간대 기준으로 YYYY-MM-DD 형식 반환
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
   const extractTimeFromISO = (dateStr: string) => {
     const d = new Date(dateStr)
-    return d.toTimeString().slice(0, 5)
+    // 로컬 시간대 기준으로 HH:mm 형식 반환
+    const hours = String(d.getHours()).padStart(2, '0')
+    const minutes = String(d.getMinutes()).padStart(2, '0')
+    return `${hours}:${minutes}`
   }
 
   const formatValue = (log: DailyLog) => {
