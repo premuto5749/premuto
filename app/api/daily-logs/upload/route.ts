@@ -68,14 +68,26 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const ext = file.name.split('.').pop() || 'jpg'
+      // 파일 확장자 결정 (MIME 타입 기반 우선, 파일명 폴백)
+      let ext = 'jpg'
+      if (file.type === 'image/png') ext = 'png'
+      else if (file.type === 'image/webp') ext = 'webp'
+      else if (file.type === 'image/gif') ext = 'gif'
+      else if (file.type === 'image/heic' || file.type === 'image/heif') ext = 'heic'
+      else if (file.name && file.name.includes('.')) {
+        const nameParts = file.name.split('.')
+        ext = nameParts[nameParts.length - 1].toLowerCase()
+      }
+
       const fileName = `${timestamp}_${i}.${ext}`
       const filePath = `uploads/${user.id}/${fileName}`
+
+      console.log('Uploading file:', { name: file.name, type: file.type, size: file.size, path: filePath })
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(filePath, file, {
-          contentType: file.type,
+          contentType: file.type || 'image/jpeg',
           upsert: false
         })
 
@@ -95,12 +107,21 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Public URL 생성
-      const { data: publicUrl } = supabase.storage
+      // Signed URL 생성 (1년 유효, RLS 우회)
+      const { data: signedUrl, error: signedUrlError } = await supabase.storage
         .from(BUCKET_NAME)
-        .getPublicUrl(uploadData.path)
+        .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365) // 1년
 
-      uploadedUrls.push(publicUrl.publicUrl)
+      if (signedUrlError || !signedUrl) {
+        console.error('Signed URL error:', signedUrlError)
+        // Public URL로 폴백
+        const { data: publicUrl } = supabase.storage
+          .from(BUCKET_NAME)
+          .getPublicUrl(uploadData.path)
+        uploadedUrls.push(publicUrl.publicUrl)
+      } else {
+        uploadedUrls.push(signedUrl.signedUrl)
+      }
     }
 
     return NextResponse.json({

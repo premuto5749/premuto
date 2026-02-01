@@ -633,12 +633,18 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                       </p>
                       <div className="grid grid-cols-3 gap-2">
                         {selectedLog.photo_urls.map((url, idx) => (
-                          <div key={idx} className="relative aspect-square">
+                          <div key={idx} className="relative aspect-square bg-muted rounded-lg overflow-hidden">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={url}
                               alt={`사진 ${idx + 1}`}
-                              className="w-full h-full object-cover rounded-lg"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error('Image load error:', url)
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                                target.parentElement!.innerHTML = `<div class="w-full h-full flex items-center justify-center text-xs text-muted-foreground p-2 text-center">이미지 로드 실패</div>`
+                              }}
                             />
                           </div>
                         ))}
