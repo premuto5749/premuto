@@ -2,10 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# Project: Mimo Health Log (미모 건강 기록)
+# Project: Premuto - Pet Health Log (반려동물 건강 기록)
 
 ## 1. 프로젝트 목표
-반려동물 '미모'의 건강을 종합적으로 관리하는 애플리케이션.
+반려동물의 건강을 종합적으로 관리하는 **다중 사용자 애플리케이션**.
+
+> **중요**: 이 앱은 다중 사용자가 회원가입하여 사용하는 서비스입니다. 각 사용자는 본인의 반려동물 데이터만 접근할 수 있습니다.
 
 ### 1-1. 일일 건강 기록 (v3 신규)
 - 식사, 음수, 약, 배변, 배뇨, 호흡수를 빠르게 기록
@@ -575,3 +577,27 @@ Supabase 프로젝트 설정은 **[SUPABASE_SETUP.md](./SUPABASE_SETUP.md)** 참
 npx supabase db push              # 마이그레이션 적용
 npx supabase gen types typescript # TypeScript 타입 생성
 ```
+
+## 9. 보안 정책 (Security Policies)
+
+### 다중 사용자 격리 (Multi-User Isolation)
+이 앱은 다중 사용자가 회원가입하여 사용하는 서비스입니다.
+
+**핵심 원칙**:
+- 각 사용자는 본인의 데이터만 접근 가능
+- RLS(Row Level Security)로 DB 레벨에서 격리
+- 스토리지도 사용자별 폴더로 격리 (`uploads/{user_id}/`)
+
+### 이미지 저장 정책 (Image Storage Policy)
+**세션 기반 Signed URL 방식**:
+1. DB에는 파일 경로만 저장 (예: `uploads/{user_id}/{filename}`)
+2. 데이터 조회 시 API에서 Signed URL 동적 생성 (7일 유효)
+3. 로그아웃/재로그인 시 새로운 Signed URL 자동 발급
+
+**구현 위치**:
+- `app/api/daily-logs/upload/route.ts`: 파일 경로만 반환
+- `app/api/daily-logs/route.ts`: GET 응답 시 Signed URL 변환
+
+**하위 호환**:
+- 기존 URL (http로 시작)은 그대로 사용
+- 새 데이터 (경로만 저장)는 조회 시 Signed URL로 변환

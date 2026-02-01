@@ -1,6 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { DailyLog, DailyLogInput, DailyStats } from '@/types'
+import { SupabaseClient } from '@supabase/supabase-js'
+
+const BUCKET_NAME = 'daily-log-photos'
+const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 7 // 7일
+
+// 파일 경로를 Signed URL로 변환 (하위 호환: 이미 URL이면 그대로 반환)
+async function convertPathsToSignedUrls(
+  supabase: SupabaseClient,
+  photoUrls: string[] | null
+): Promise<string[]> {
+  if (!photoUrls || photoUrls.length === 0) return []
+
+  const results: string[] = []
+  for (const pathOrUrl of photoUrls) {
+    // 이미 URL이면 그대로 사용 (하위 호환)
+    if (pathOrUrl.startsWith('http')) {
+      results.push(pathOrUrl)
+      continue
+    }
+
+    // 파일 경로면 Signed URL 생성
+    const { data: signedUrl, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .createSignedUrl(pathOrUrl, SIGNED_URL_EXPIRY)
+
+    if (error || !signedUrl) {
+      console.error('Signed URL generation error:', error)
+      results.push(pathOrUrl) // 실패 시 경로 그대로 반환
+    } else {
+      results.push(signedUrl.signedUrl)
+    }
+  }
+  return results
+}
 
 // GET: 기록 조회 (날짜 범위 또는 특정 날짜)
 export async function GET(request: NextRequest) {
@@ -71,9 +105,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // photo_urls를 Signed URL로 변환
+    const processedData = await Promise.all(
+      (data || []).map(async (log) => ({
+        ...log,
+        photo_urls: await convertPathsToSignedUrls(supabase, log.photo_urls)
+      }))
+    )
+
     return NextResponse.json({
       success: true,
-      data: data as DailyLog[]
+      data: processedData as DailyLog[]
     })
 
   } catch (error) {
@@ -148,9 +190,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // photo_urls를 Signed URL로 변환
+    const processedData = {
+      ...data,
+      photo_urls: await convertPathsToSignedUrls(supabase, data.photo_urls)
+    }
+
     return NextResponse.json({
       success: true,
-      data: data as DailyLog
+      data: processedData as DailyLog
     })
 
   } catch (error) {
@@ -238,9 +286,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // photo_urls를 Signed URL로 변환
+    const processedData = {
+      ...data,
+      photo_urls: await convertPathsToSignedUrls(supabase, data.photo_urls)
+    }
+
     return NextResponse.json({
       success: true,
-      data: data as DailyLog
+      data: processedData as DailyLog
     })
 
   } catch (error) {
