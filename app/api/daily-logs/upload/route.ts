@@ -63,31 +63,40 @@ export async function POST(request: NextRequest) {
     }
 
     // 파일 업로드 (사용자별 폴더)
-    const uploadedUrls: string[] = []
+    // 파일 경로만 저장 (Signed URL은 조회 시 생성)
+    const uploadedPaths: string[] = []
     const timestamp = Date.now()
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const ext = file.name.split('.').pop() || 'jpg'
+      // 파일 확장자 결정 (MIME 타입 기반 우선, 파일명 폴백)
+      let ext = 'jpg'
+      if (file.type === 'image/png') ext = 'png'
+      else if (file.type === 'image/webp') ext = 'webp'
+      else if (file.type === 'image/gif') ext = 'gif'
+      else if (file.type === 'image/heic' || file.type === 'image/heif') ext = 'heic'
+      else if (file.name && file.name.includes('.')) {
+        const nameParts = file.name.split('.')
+        ext = nameParts[nameParts.length - 1].toLowerCase()
+      }
+
       const fileName = `${timestamp}_${i}.${ext}`
       const filePath = `uploads/${user.id}/${fileName}`
+
+      console.log('Uploading file:', { name: file.name, type: file.type, size: file.size, path: filePath })
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(filePath, file, {
-          contentType: file.type,
+          contentType: file.type || 'image/jpeg',
           upsert: false
         })
 
       if (uploadError) {
         console.error('Upload error:', uploadError)
         // 이미 업로드된 파일들 삭제 시도
-        if (uploadedUrls.length > 0) {
-          const pathsToDelete = uploadedUrls.map(url => {
-            const parts = url.split('/')
-            return `uploads/${user.id}/${parts[parts.length - 1]}`
-          })
-          await supabase.storage.from(BUCKET_NAME).remove(pathsToDelete)
+        if (uploadedPaths.length > 0) {
+          await supabase.storage.from(BUCKET_NAME).remove(uploadedPaths)
         }
         return NextResponse.json(
           { error: `Failed to upload ${file.name}: ${uploadError.message}` },
@@ -95,18 +104,14 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Public URL 생성
-      const { data: publicUrl } = supabase.storage
-        .from(BUCKET_NAME)
-        .getPublicUrl(uploadData.path)
-
-      uploadedUrls.push(publicUrl.publicUrl)
+      // 파일 경로만 저장 (Signed URL은 GET /api/daily-logs에서 생성)
+      uploadedPaths.push(uploadData.path)
     }
 
     return NextResponse.json({
       success: true,
       data: {
-        urls: uploadedUrls
+        urls: uploadedPaths  // 실제로는 경로지만 기존 인터페이스 유지
       }
     })
 
