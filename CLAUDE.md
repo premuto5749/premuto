@@ -11,11 +11,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 식사, 음수, 약, 배변, 배뇨, 호흡수를 빠르게 기록
 - 날짜별 타임라인으로 기록 확인
 - 일일 통계로 섭취량, 횟수, 평균 호흡수 추적
+- **v3.1 추가**: 기록 수정 기능 (양, 약 이름, 메모 인라인 편집)
+- **v3.1 추가**: 클립보드 내보내기 (오늘 요약 + 상세 기록)
 
 ### 1-2. 혈액검사 아카이브
 - 다년간 누적된 혈액검사지(PDF/이미지)를 OCR로 판독하여 DB화
 - 병원/장비마다 다른 참고치(Reference Range)와 항목명(Alias)을 표준화
 - 시계열 트렌드 분석
+- **v3.1 추가**: OCR 결과에서 날짜/병원 수동 선택 기능
+- **v3.1 추가**: 검사 기록 병합 기능 (중복 기록 통합)
+
+**v3.1 핵심 개선사항**:
+- 일일 기록 클립보드 내보내기 (오늘 요약 + 상세 기록 포맷)
+- 일일 기록 인라인 수정 기능 (양, 약 이름, 메모)
+- 캘린더 UI로 날짜 선택 (한국어 요일, 오늘 이동 버튼)
+- OCR 결과에서 날짜/병원 수동 선택 및 수정
+- 검사 기록 병합 기능 (충돌 감지 및 해결 UI)
 
 **v3 핵심 개선사항**:
 - 일일 건강 기록 서비스 추가 (메인 페이지)
@@ -40,14 +51,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 3. 아키텍처 개요
 
-### 일일 건강 기록 흐름 (Daily Log Flow) - v3 신규
+### 일일 건강 기록 흐름 (Daily Log Flow) - v3.1 업데이트
 
 ```
 [+ 버튼] → [카테고리 선택] → [양/메모 입력] → [저장]
                 ↓
-        [타임라인에 표시]
+        [타임라인에 표시] ← [기록 클릭] → [상세 모달] → [수정/삭제]
                 ↓
         [일일 통계 자동 집계]
+                ↓
+        [📋 클립보드 내보내기] → [오늘 요약 + 상세 기록 텍스트]
+```
+
+**캘린더 날짜 선택**:
+- 헤더의 날짜 클릭 시 캘린더 팝오버 표시
+- 한국어 요일 (일, 월, 화, 수, 목, 금, 토)
+- 일요일(빨강), 토요일(파랑) 색상 구분
+- 과거 날짜 조회 시 "오늘로 이동" 버튼 표시
+
+**내보내기 포맷**:
+```
+📋 2026년 1월 31일 금요일 기록
+
+📊 오늘 요약
+🍚 식사: 150g (2회)
+💧 음수: 300ml (3회)
+💊 약: 2회
+💩 배변: 1회
+🚽 배뇨: 3회
+🫁 호흡수: 평균 24회/분 (2회 측정)
+
+📝 상세 기록
+08:30 | 🍚 식사 75g
+09:00 | 💊 약 1정 (심장약)
+...
 ```
 
 **카테고리**:
@@ -261,7 +298,31 @@ OCR 결과는 반드시 '표준 항목'으로 매핑되어야 하며, 이제 **A
 2. 사용자가 각 셀을 클릭하여 수정 가능
 3. [다음: AI 매칭 시작] 버튼 클릭 → 수정된 데이터로 매칭 수행
 
-### E. 미모 주요 관리 항목 (Priority Items)
+### E. 검사 기록 병합 규칙 (Record Merge Rules) - v3.1 추가
+두 개의 검사 기록을 하나로 통합할 때의 처리 규칙:
+
+**규칙 1: 대상 선택**
+- 사용자가 2개의 검사 기록을 선택하여 병합 요청
+- Source(병합될 기록): 삭제됨
+- Target(유지 기록): 결과가 합쳐짐
+
+**규칙 2: 충돌 감지**
+- **날짜 충돌**: 두 기록의 검사 날짜가 다른 경우 → 사용자가 최종 날짜 선택
+- **병원 충돌**: 두 기록의 병원이 다른 경우 → 사용자가 최종 병원 선택
+- **항목 값 충돌**: 같은 검사 항목이 양쪽에 있고 값이 다른 경우 → 사용자가 유지할 값 선택
+
+**규칙 3: 병합 처리**
+- 충돌 없는 항목: Source의 결과를 Target으로 이동
+- 충돌 있는 항목: 사용자 선택에 따라 처리
+  - keepSource=true: Source 값 유지, Target 값 삭제
+  - keepSource=false: Target 값 유지, Source 값 삭제
+- Target 기록의 날짜/병원을 사용자 선택값으로 업데이트
+
+**규칙 4: 정리**
+- Source 기록과 남은 결과들은 cascade delete로 삭제
+- 병합 완료 후 records-management 페이지 새로고침
+
+### F. 미모 주요 관리 항목 (Priority Items)
 소스 데이터 분석 결과, 다음 항목들은 UI에서 강조해서 보여줘야 한다.
 - **Pancreas (췌장)**: `Lipase`, `cPL` (미모의 경우 cPL 변동폭이 크므로 그래프 시각화 필수)
 - **Kidney (신장)**: `BUN`, `Creatinine`, `SDMA`, `Phosphorus`
@@ -271,9 +332,10 @@ OCR 결과는 반드시 '표준 항목'으로 매핑되어야 하며, 이제 **A
 ## 5. 기술 스택
 - **Frontend**: Next.js 14, Tailwind CSS, Shadcn/ui (Data Table 필수)
   - **v2 추가**: react-dropzone (다중 파일 업로드)
+  - **v3.1 추가**: date-fns (날짜 처리), @radix-ui/react-radio-group, @radix-ui/react-checkbox
 - **Backend/DB**: Supabase (PostgreSQL)
   - **v2 추가**: JSONB 타입 활용 (업로드 파일 메타데이터 저장)
-- **AI/OCR**: GPT-4o (Vision API) - 복잡한 표 인식에 최적화
+- **AI/OCR**: Claude API (Anthropic) - PDF/이미지 OCR
   - **v2 추가**: GPT-4o Chat Completion API (지능형 매칭용)
   - 프롬프트 엔지니어링: 컨텍스트 기반 매칭, 신뢰도 점수 반환
 
@@ -430,6 +492,60 @@ files: File[] // 최대 10개
     record_id: string
     saved_count: number
   }
+}
+```
+
+### GET/POST /api/test-results/merge (v3.1 추가)
+**목적**: 두 검사 기록의 충돌 감지 및 병합
+
+**GET - 충돌 감지**:
+```typescript
+// Query params
+sourceId: string  // 병합될 기록 (삭제됨)
+targetId: string  // 병합 대상 기록 (유지됨)
+
+// 응답
+{
+  success: boolean
+  conflicts: {
+    hasDateConflict: boolean
+    hasHospitalConflict: boolean
+    sourceDate: string
+    targetDate: string
+    sourceHospital: string
+    targetHospital: string
+    itemConflicts: Array<{
+      standardItemId: string
+      standardItemName: string
+      sourceValue: number
+      sourceUnit: string
+      targetValue: number
+      targetUnit: string
+    }>
+  }
+}
+```
+
+**POST - 병합 실행**:
+```typescript
+// 요청
+{
+  sourceId: string
+  targetId: string
+  finalDate: string       // 사용자가 선택한 최종 날짜
+  finalHospitalId: string // 사용자가 선택한 최종 병원
+  itemResolutions: Array<{
+    standardItemId: string
+    keepSource: boolean   // true: source 값 유지, false: target 값 유지
+  }>
+}
+
+// 응답
+{
+  success: boolean
+  mergedRecordId: string
+  movedItemsCount: number
+  deletedItemsCount: number
 }
 ```
 
