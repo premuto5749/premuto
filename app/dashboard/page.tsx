@@ -182,7 +182,7 @@ function DashboardContent() {
     return (
       <div className="min-h-screen bg-muted">
         <AppHeader title="검사 결과 대시보드" />
-        <div className="container max-w-6xl mx-auto py-10">
+        <div className="container mx-auto py-10 px-4">
           <div className="flex items-center justify-center min-h-[400px]">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
@@ -195,7 +195,7 @@ function DashboardContent() {
     <div className="min-h-screen bg-muted">
       <AppHeader title="검사 결과 대시보드" />
 
-      <div className="container max-w-6xl mx-auto py-10 px-4">
+      <div className="container mx-auto py-10 px-4">
 
       {saved && (
         <Card className="mb-6 border-green-500 bg-green-50 dark:bg-green-950/20">
@@ -368,7 +368,7 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <Suspense fallback={
-      <div className="container max-w-6xl mx-auto py-10">
+      <div className="container mx-auto py-10 px-4">
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>

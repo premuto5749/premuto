@@ -41,6 +41,11 @@ function formatValue(value: number): string {
   return value.toFixed(1)
 }
 
+// 0값 여부 확인 (측정된 0 vs 데이터 없음 구분)
+function isZeroValue(value: number): boolean {
+  return value === 0
+}
+
 export function PivotTable({ records, onItemClick }: PivotTableProps) {
   // 날짜순으로 정렬 (오래된 날짜가 왼쪽, 최신이 오른쪽)
   const sortedRecords = useMemo(() => {
@@ -264,7 +269,12 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                                         {detail.name} ({detail.ko})
                                       </div>
                                       <div>검사일: {new Date(record.test_date).toLocaleDateString('ko-KR')}</div>
-                                      <div>결과값: {formatValue(result.value)} {result.unit}</div>
+                                      <div>
+                                        결과값: {formatValue(result.value)} {result.unit}
+                                        {isZeroValue(result.value) && (
+                                          <span className="text-xs text-muted-foreground ml-1">(측정값)</span>
+                                        )}
+                                      </div>
                                       <div>
                                         참고치: {result.ref_text || `${result.ref_min ?? '?'}-${result.ref_max ?? '?'}`}
                                       </div>
@@ -294,7 +304,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
                                   </div>
                                 </SimpleTooltip>
                               ) : (
-                                <span className="text-muted-foreground">-</span>
+                                <span className="text-muted-foreground/50 text-lg">-</span>
                               )}
                             </td>
                           )
