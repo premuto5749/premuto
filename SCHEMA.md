@@ -9,6 +9,7 @@
 
 **v2 업데이트**: 다중 파일 업로드 지원 및 AI 기반 매칭 신뢰도 저장 기능 추가
 **v3 업데이트**: 일일 건강 기록 기능 추가
+**v3.2 업데이트**: 마스터 데이터 v3 스키마 확장 (exam_type, organ_tags, item_aliases, sort_order_configs)
 
 ## Tables
 
@@ -68,25 +69,84 @@ GROUP BY (logged_at AT TIME ZONE 'UTC')::date;
 
 ---
 
-### 1. 표준 항목 마스터 (Standard Items)
+### 1. 표준 항목 마스터 (Standard Items) - **v3.2 업데이트**
 미모 데이터의 'Category'와 'Item'을 관리하는 기준 테이블
 
 ```sql
 create table standard_items (
   id uuid primary key default gen_random_uuid(),
-  category varchar, -- 예: CBC, Chemistry, Electrolyte, Special
+  category varchar, -- 예: CBC, Chemistry, Electrolyte, Special (하위 호환)
   name varchar not null, -- 표준명 (예: 'Creatinine', 'cPL')
   display_name_ko varchar, -- 한글명 (예: '크레아티닌', '췌장특이효소')
   default_unit varchar, -- 기본 단위 (예: mg/dL, ng/ml)
-  description text -- 해석 가이드 내용 (예: '신장 기능 지표...')
+  description text, -- 해석 가이드 내용 (예: '신장 기능 지표...')
+
+  -- v3.2 추가 필드
+  exam_type varchar(50), -- 검사 유형: Vital, CBC, Chemistry, Special, Blood Gas, Coagulation, 뇨검사, 안과검사, Echo
+  organ_tags jsonb default '[]'::jsonb, -- 장기 태그 배열: ["신장", "간", "전해질"] 등
+  sort_order integer -- 정렬 순서 (선택사항)
 );
+
+-- v3.2 인덱스
+create index idx_standard_items_exam_type on standard_items(exam_type);
+create index idx_standard_items_organ_tags on standard_items using gin(organ_tags);
 ```
 
-### 2. 항목 매핑 사전 (Item Synonyms) - **AI 학습 기반**
+**v3.2 exam_type 목록** (9개):
+- `Vital`: 기본 신체 검사 (체온, 체중, 맥박, 혈압)
+- `CBC`: 혈구 검사 (WBC, RBC, HGB, HCT, PLT 등)
+- `Chemistry`: 화학 검사 (BUN, Creatinine, ALT, AST 등)
+- `Special`: 특수 검사 (cPL, proBNP, SDMA 등)
+- `Blood Gas`: 혈액 가스 (pH, pCO2, pO2, Lactate 등)
+- `Coagulation`: 응고 검사 (PT, APTT, Fibrinogen 등)
+- `뇨검사`: 소변 검사 (요비중, pH, UPC 등)
+- `안과검사`: 안과 검사 (눈물량, 안압)
+- `Echo`: 심초음파 (E, LVIDd)
+
+**v3.2 organ_tags 목록** (21개):
+```
+기본신체, 혈액, 간, 신장, 췌장, 심장, 전해질, 산염기,
+호흡, 지혈, 면역, 염증, 대사, 내분비, 근육, 뼈,
+담도, 영양, 알레르기, 감염, 안과
+```
+
+### 2. 항목 별칭 (Item Aliases) - **v3.2 추가**
+OCR 결과가 다양하게 나와도 표준 항목으로 연결해주는 별칭 테이블
+- `item_mappings`을 대체하는 새로운 테이블 (하위 호환성 유지)
+- **source_hint**: 장비/병원별 힌트 지원 (예: ABL80F, IDEXX)
+
+```sql
+create table item_aliases (
+  id uuid primary key default gen_random_uuid(),
+  alias varchar(100) not null, -- 검사지에 적힌 날것의 이름
+  canonical_name varchar(100) not null, -- 표준 항목명 (standard_items.name)
+  source_hint varchar(100), -- 장비/병원 힌트 (예: ABL80F, IDEXX, Fuji)
+  standard_item_id uuid references standard_items(id) on delete cascade,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- 동일한 alias가 중복 생성되지 않도록 유니크 제약
+create unique index idx_unique_alias on item_aliases(alias);
+-- 표준 항목으로 빠른 조회
+create index idx_alias_standard_item on item_aliases(standard_item_id);
+```
+
+**source_hint 예시**:
+| alias | canonical_name | source_hint | 설명 |
+|-------|---------------|-------------|------|
+| cHCO3(P) | cHCO3 | ABL80F | ABL80F 혈액가스 장비의 표기 |
+| crea | Creatinine | IDEXX | IDEXX 장비의 약어 |
+| Neu% | NEU | - | 일반적 약어 |
+
+---
+
+### 3. 항목 매핑 사전 (Item Mappings) - **레거시, v3.2부터 item_aliases 사용 권장**
 OCR 결과가 다양하게 나와도 표준 항목으로 연결해주는 사전
 - 예: raw_name='Cre' -> standard_item_id='Creatinine의 ID'
 - 예: raw_name='CREA' -> standard_item_id='Creatinine의 ID'
 - **v2 추가**: AI가 제안한 매칭을 사용자가 승인하면 자동으로 이 테이블에 추가되어 다음번 학습에 활용
+- **v3.2 참고**: 새로운 매핑은 `item_aliases` 테이블에 저장 권장
 
 ```sql
 create table item_mappings (
@@ -106,7 +166,45 @@ create table item_mappings (
 create unique index idx_unique_raw_name on item_mappings(raw_name);
 ```
 
-### 3. 검사 기록 헤더 (Test Records) - **다중 파일 통합**
+---
+
+### 4. 정렬 설정 (Sort Order Configs) - **v3.2 추가**
+대시보드 View 옵션의 정렬 설정을 저장하는 테이블
+
+```sql
+create table sort_order_configs (
+  id uuid primary key default gen_random_uuid(),
+  sort_type varchar(50) not null unique, -- by_exam_type, by_organ, by_clinical_priority, by_panel
+  config jsonb not null, -- 정렬 순서 및 그룹 설정
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+```
+
+**config 예시** (by_exam_type):
+```json
+{
+  "order": ["Vital", "CBC", "Chemistry", "Special", "Blood Gas", "Coagulation", "뇨검사", "안과검사", "Echo"]
+}
+```
+
+**config 예시** (by_panel):
+```json
+{
+  "panels": [
+    { "panel": "Basic", "label": "기본 혈액검사", "items": ["WBC", "RBC", "HGB", "HCT", "PLT", ...] },
+    { "panel": "Pre-anesthetic", "label": "마취 전 검사", "items": [...] },
+    { "panel": "Senior", "label": "노령견 종합", "items": [...] },
+    { "panel": "Pancreatitis", "label": "췌장염 집중", "items": ["cPL", "Lipase", "Amylase", ...] },
+    { "panel": "Coagulation", "label": "응고 검사", "items": [...] },
+    { "panel": "Emergency", "label": "응급/중환자", "items": [...] },
+    { "panel": "Cardiac", "label": "심장 검사", "items": [...] },
+    { "panel": "Kidney", "label": "신장 집중", "items": [...] }
+  ]
+}
+```
+
+### 5. 검사 기록 헤더 (Test Records) - **다중 파일 통합**
 병원 방문 1회당 1개의 레코드 생성 (여러 파일에서 추출된 결과를 하나로 통합)
 
 ```sql
@@ -129,7 +227,7 @@ create table test_records (
 );
 ```
 
-### 4. 검사 상세 결과 (Test Results) - **핵심 테이블**
+### 6. 검사 상세 결과 (Test Results) - **핵심 테이블**
 **중요**: 검사 당시의 참고치(Snapshot)를 여기에 직접 저장합니다.
 
 **설계 철학 - 장비별 참고치 독립성**:
