@@ -218,15 +218,35 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 <Customized
                   component={(props: CustomizedProps) => {
                     const { formattedGraphicalItems, yAxisMap } = props
-                    if (!formattedGraphicalItems || !yAxisMap) return null
 
-                    // Line 컴포넌트의 points 가져오기 (dataKey가 'value'인 것)
-                    const lineItem = formattedGraphicalItems.find((item) => item.item?.props?.dataKey === 'value')
+                    // 디버깅: props 구조 확인
+                    console.log('Customized props:', {
+                      hasFormattedItems: !!formattedGraphicalItems,
+                      itemCount: formattedGraphicalItems?.length,
+                      hasYAxisMap: !!yAxisMap,
+                      yAxisKeys: yAxisMap ? Object.keys(yAxisMap) : []
+                    })
+
+                    if (!formattedGraphicalItems || !yAxisMap) {
+                      return <circle cx={50} cy={50} r={10} fill="orange" /> // 디버그: props 없음
+                    }
+
+                    // points가 있는 첫 번째 아이템 찾기
+                    const lineItem = formattedGraphicalItems.find((item) =>
+                      item.props?.points && item.props.points.length > 0
+                    )
+
+                    console.log('Line item found:', !!lineItem, 'points:', lineItem?.props?.points?.length)
+
                     const points = lineItem?.props?.points
-                    if (!points || points.length === 0) return null
+                    if (!points || points.length === 0) {
+                      return <circle cx={50} cy={80} r={10} fill="purple" /> // 디버그: points 없음
+                    }
 
                     const yAxis = Object.values(yAxisMap)[0]
-                    if (!yAxis?.scale) return null
+                    if (!yAxis?.scale) {
+                      return <circle cx={50} cy={110} r={10} fill="blue" /> // 디버그: yAxis 없음
+                    }
 
                     return (
                       <g className="ref-range-bars">
