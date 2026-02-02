@@ -497,10 +497,10 @@ function PreviewContent() {
                     {isDateUnknown ? '날짜 미인식' : group.date} - {isHospitalUnknown ? '병원 미인식' : group.hospital} {group.sequence > 1 && `(${group.sequence}번째)`}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <CardContent className="overflow-visible">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 overflow-visible">
                     {/* 날짜 선택 */}
-                    <div className="p-4 bg-muted/50 rounded-lg">
+                    <div className="p-4 bg-muted/50 rounded-lg overflow-visible">
                       <Label className="text-sm font-medium mb-2 block">검사일</Label>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -512,7 +512,7 @@ function PreviewContent() {
                             {isDateUnknown ? '날짜를 선택하세요' : group.date}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
+                        <PopoverContent className="w-auto p-0 z-[100]" align="start">
                           <Calendar
                             selected={isDateUnknown ? undefined : new Date(group.date)}
                             onSelect={(date) => handleDateChange(tabId, date)}
@@ -528,7 +528,7 @@ function PreviewContent() {
                     </div>
 
                     {/* 병원 선택 */}
-                    <div className="p-4 bg-muted/50 rounded-lg">
+                    <div className="p-4 bg-muted/50 rounded-lg overflow-visible">
                       <Label className="text-sm font-medium mb-2 block">병원</Label>
                       <HospitalSelector
                         value={group.hospital}

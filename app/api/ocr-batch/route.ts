@@ -178,7 +178,7 @@ const OCR_PROMPT = `수의학 혈액검사 결과지에서 데이터를 추출�
       "hospital_name": "병원명 또는 null",
       "machine_type": "장비명 또는 null",
       "items": [
-        {"raw_name": "ALT(GPT)", "value": "23", "unit": "U/L", "reference": "3-50", "is_abnormal": false, "abnormal_direction": null}
+        {"raw_name": "ALT(GPT)", "value": 23, "unit": "U/L", "reference": "3-50", "is_abnormal": false, "abnormal_direction": null}
       ]
     }
   ]
@@ -187,7 +187,7 @@ const OCR_PROMPT = `수의학 혈액검사 결과지에서 데이터를 추출�
 
 # 항목 추출 규칙
 - raw_name: 검사지 원문 그대로 (대소문자, 특수문자 유지)
-- value: 숫자 또는 특수값(<500, >1000, Low, Negative)
+- value: 숫자는 number 타입으로 (23, 0, 1.5), 특수값은 문자열("<500", ">1000", "Low", "Negative"), 값 없음은 null
 - unit: 단위 (없으면 빈 문자열)
 - reference: 참고치 원문 (3-50, <14 등)
 - is_abnormal: ▲▼HL 표시 있으면 true
@@ -196,19 +196,29 @@ const OCR_PROMPT = `수의학 혈액검사 결과지에서 데이터를 추출�
 # 핵심 규칙
 1. PDF면 모든 페이지 확인
 2. 날짜가 다르면 별도 test_group으로 분리
-3. 0은 0으로, 값 없음은 null로 구분
+3. ⚠️ 중요: 0과 null 구분 필수!
+   - 실제 측정값 0 → value: 0 (숫자)
+   - 측정 안 됨/값 없음/빈칸 → value: null
+   - 절대로 0을 null로 바꾸지 마세요!
 4. 천단위 콤마 제거 (1,390 → 1390)
-5. JSON만 반환, 설명 없음`
+5. JSON만 반환, 설명 없음
+6. 이미지의 모든 검사 항목을 빠짐없이 추출하세요. 테이블 전체를 확인하세요.`
 
 // 단일 파일 OCR 처리 함수 (Claude API 사용, 다중 날짜 지원)
-async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
+async function processFile(file: File, fileIndex: number, retryCount = 0): Promise<FileResult[]> {
   const startTime = Date.now()
   const MAX_RETRIES = 2
 
-  // 파일을 Base64로 인코딩
+  // 파일별 유니크 ID 생성 (디버깅용)
+  const fileId = `file_${fileIndex}_${Date.now()}_${Math.random().toString(36).substring(7)}`
+
+  // 파일을 Base64로 인코딩 - 파일 데이터를 즉시 복사하여 클로저 문제 방지
   const bytes = await file.arrayBuffer()
   const buffer = Buffer.from(bytes)
   const base64 = buffer.toString('base64')
+
+  // 파일 크기 및 해시 로깅 (중복 파일 디버깅용)
+  const fileHash = buffer.slice(0, 100).toString('hex') // 처음 100바이트로 간단한 해시
 
   // MIME type 정규화
   let mimeType = file.type
@@ -218,7 +228,7 @@ async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
 
   const isPdf = mimeType === 'application/pdf'
 
-  console.log(`📁 Processing file: ${file.name} (${file.size} bytes, ${isPdf ? 'PDF' : 'Image'})${retryCount > 0 ? ` [Retry ${retryCount}]` : ''}`)
+  console.log(`📁 [${fileId}] Processing file: ${file.name} (${file.size} bytes, ${isPdf ? 'PDF' : 'Image'}, hash: ${fileHash.substring(0, 16)}...)${retryCount > 0 ? ` [Retry ${retryCount}]` : ''}`)
 
   try {
     // Claude API용 content 구성
@@ -240,6 +250,9 @@ async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
           },
         }
 
+    // 파일별 고유 프롬프트 생성 (파일명 포함)
+    const fileSpecificPrompt = `[파일: ${file.name}]\n\n${OCR_PROMPT}\n\n⚠️ 중요: 이 이미지/문서에서만 데이터를 추출하세요. 다른 파일의 내용과 혼동하지 마세요.`
+
     // Claude API 호출
     const message = await getAnthropicClient().messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -251,7 +264,7 @@ async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
             fileContent,
             {
               type: 'text',
-              text: OCR_PROMPT,
+              text: fileSpecificPrompt,
             },
           ],
         },
@@ -274,7 +287,7 @@ async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
       if (retryCount < MAX_RETRIES) {
         console.log(`⚠️ JSON parse failed for ${file.name}, retrying... (${retryCount + 1}/${MAX_RETRIES})`)
         await new Promise(resolve => setTimeout(resolve, 1000)) // 1초 대기
-        return processFile(file, retryCount + 1)
+        return processFile(file, fileIndex, retryCount + 1)
       }
 
       console.error(`❌ JSON parse error for ${file.name} after ${MAX_RETRIES} retries`)
@@ -311,16 +324,29 @@ async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
         // reference에서 ref_min, ref_max 추출
         const refRange = extractRefMinMax(item.reference)
 
-        // value 처리: 천단위 구분자 제거
-        let processedValue: number | string = item.value ?? ''
-        if (typeof processedValue === 'string') {
-          const cleaned = removeThousandsSeparator(processedValue)
-          // 순수 숫자인 경우 number로 변환
-          const numValue = parseFloat(cleaned)
-          if (!isNaN(numValue) && /^-?\d+\.?\d*$/.test(cleaned)) {
-            processedValue = numValue
+        // value 처리: null은 null로 유지, 0은 0으로 유지
+        let processedValue: number | string | null = null
+
+        if (item.value === null || item.value === undefined) {
+          // null 또는 undefined는 null로 처리
+          processedValue = null
+        } else if (typeof item.value === 'number') {
+          // 숫자는 그대로 (0 포함)
+          processedValue = item.value
+        } else if (typeof item.value === 'string') {
+          const cleaned = removeThousandsSeparator(item.value)
+          if (cleaned === '' || cleaned.toLowerCase() === 'null') {
+            // 빈 문자열 또는 "null" 문자열은 null로 처리
+            processedValue = null
           } else {
-            processedValue = cleaned
+            // 순수 숫자인 경우 number로 변환
+            const numValue = parseFloat(cleaned)
+            if (!isNaN(numValue) && /^-?\d+\.?\d*$/.test(cleaned)) {
+              processedValue = numValue
+            } else {
+              // 특수값 (예: "<500", ">1000", "Low", "Negative")
+              processedValue = cleaned
+            }
           }
         }
 
@@ -419,7 +445,7 @@ async function processFile(file: File, retryCount = 0): Promise<FileResult[]> {
     if (retryCount < MAX_RETRIES) {
       console.log(`⚠️ Retrying ${file.name}... (${retryCount + 1}/${MAX_RETRIES})`)
       await new Promise(resolve => setTimeout(resolve, 2000)) // 2초 대기
-      return processFile(file, retryCount + 1)
+      return processFile(file, fileIndex, retryCount + 1)
     }
 
     // 최종 실패 시 빈 결과 반환
@@ -485,8 +511,9 @@ export async function POST(request: NextRequest) {
     console.log(`🚀 Processing ${files.length} files with Claude API...`)
 
     // 모든 파일을 병렬로 처리 (각 파일이 여러 결과를 반환할 수 있음)
+    // fileIndex를 전달하여 파일별 유니크한 처리 보장
     const nestedResults = await Promise.all(
-      files.map(file => processFile(file))
+      files.map((file, index) => processFile(file, index))
     )
 
     // 중첩 배열을 평탄화 (한 파일에서 여러 날짜 그룹이 나올 수 있음)

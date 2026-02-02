@@ -46,10 +46,15 @@ export async function getAllStandardItems(): Promise<StandardItem[]> {
  * Value가 Ref_Min보다 낮으면 Low, Ref_Max보다 높으면 High
  */
 export function calculateStatus(
-  value: number | string,
+  value: number | string | null,
   refMin: number | null,
   refMax: number | null
 ): 'Low' | 'Normal' | 'High' | 'Unknown' {
+  // 값이 null이면 Unknown
+  if (value === null || value === undefined) {
+    return 'Unknown'
+  }
+
   // 참고치가 없으면 Unknown
   if (refMin === null && refMax === null) {
     return 'Unknown'
