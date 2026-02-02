@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Upload, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, FileSpreadsheet } from 'lucide-react'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
@@ -1011,6 +1011,17 @@ function DataManagementSection() {
   } | null>(null)
   const [fullResetDialogOpen, setFullResetDialogOpen] = useState(false)
 
+  // Excel import/export 관련 상태
+  const [excelExporting, setExcelExporting] = useState(false)
+  const [excelImporting, setExcelImporting] = useState(false)
+  const [importResult, setImportResult] = useState<{
+    success: boolean
+    items: { total: number; inserted: number; updated: number; failed: number }
+    aliases: { total: number; inserted: number; skipped: number; failed: number }
+    errors: string[]
+  } | null>(null)
+  const excelFileInputRef = useRef<HTMLInputElement>(null)
+
   // 마스터 데이터 상태 조회
   const loadSyncStatus = async () => {
     setLoadingStatus(true)
@@ -1073,6 +1084,67 @@ function DataManagementSection() {
       console.error('Sync failed:', error)
     } finally {
       setSyncing(false)
+    }
+  }
+
+  // 표준항목 Excel 내보내기
+  const handleExcelExport = async () => {
+    setExcelExporting(true)
+    try {
+      const response = await fetch('/api/standard-items/export-excel')
+      if (!response.ok) throw new Error('Export failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `standard-items-${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Excel export failed:', error)
+      alert('Excel 내보내기에 실패했습니다.')
+    } finally {
+      setExcelExporting(false)
+    }
+  }
+
+  // 표준항목 Excel 가져오기
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setExcelImporting(true)
+    setImportResult(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/standard-items/import-excel', {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+      setImportResult(data)
+      loadSyncStatus() // 상태 새로고침
+    } catch (error) {
+      console.error('Excel import failed:', error)
+      setImportResult({
+        success: false,
+        items: { total: 0, inserted: 0, updated: 0, failed: 0 },
+        aliases: { total: 0, inserted: 0, skipped: 0, failed: 0 },
+        errors: ['Excel 가져오기에 실패했습니다.']
+      })
+    } finally {
+      setExcelImporting(false)
+      // 파일 입력 초기화
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = ''
+      }
     }
   }
 
@@ -1261,6 +1333,98 @@ function DataManagementSection() {
           <p className="text-xs text-muted-foreground">
             * 신규 항목만 추가: 기존에 없는 항목만 추가합니다. 사용자가 수정한 내용은 유지됩니다.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* 표준항목 Excel 관리 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="w-5 h-5" />
+            표준항목 Excel 관리
+          </CardTitle>
+          <CardDescription>
+            표준항목과 별칭을 Excel로 내보내거나 가져옵니다. 항목 설명을 한번에 편집할 때 유용합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 가져오기 결과 표시 */}
+          {importResult && (
+            <div className={`p-4 rounded-lg ${importResult.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                {importResult.success && importResult.items.failed === 0 ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
+                )}
+                <span className="font-medium">
+                  {importResult.success ? '가져오기 완료' : '가져오기 실패'}
+                </span>
+              </div>
+              <div className="text-sm space-y-1">
+                <p>표준항목: 총 {importResult.items.total}개 중 추가 {importResult.items.inserted}개, 업데이트 {importResult.items.updated}개, 실패 {importResult.items.failed}개</p>
+                {importResult.aliases.total > 0 && (
+                  <p>별칭: 총 {importResult.aliases.total}개 중 추가 {importResult.aliases.inserted}개, 건너뜀 {importResult.aliases.skipped}개</p>
+                )}
+                {importResult.errors.length > 0 && (
+                  <div className="mt-2 p-2 bg-white rounded text-xs text-red-600 max-h-24 overflow-y-auto">
+                    {importResult.errors.map((err, i) => (
+                      <p key={i}>{err}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 버튼들 */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              variant="outline"
+              onClick={handleExcelExport}
+              disabled={excelExporting || excelImporting}
+              className="flex-1"
+            >
+              {excelExporting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 mr-2" />
+              )}
+              Excel 내보내기
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => excelFileInputRef.current?.click()}
+              disabled={excelExporting || excelImporting}
+              className="flex-1"
+            >
+              {excelImporting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              Excel 가져오기
+            </Button>
+
+            <input
+              ref={excelFileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleExcelImport}
+            />
+          </div>
+
+          <div className="p-3 bg-muted rounded-lg">
+            <p className="text-xs text-muted-foreground">
+              <strong>사용법:</strong> Excel 내보내기로 현재 표준항목을 다운로드 →
+              Excel에서 설명 추가/수정 → Excel 가져오기로 업데이트
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              * 항목명(name)이 동일하면 기존 항목을 업데이트하고, 새로운 항목명은 추가됩니다.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
