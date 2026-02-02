@@ -15,7 +15,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const supabase = await createClient()
     const body = await request.json()
 
-    const { name, display_name_ko, default_unit, exam_type, organ_tags, category } = body
+    const {
+      name, display_name_ko, default_unit, exam_type, organ_tags, category,
+      description_common, description_high, description_low
+    } = body
 
     // 업데이트할 필드만 추출
     const updateData: Record<string, unknown> = {}
@@ -30,6 +33,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.category = category
     }
     if (organ_tags !== undefined) updateData.organ_tags = organ_tags
+    // 설명 필드
+    if (description_common !== undefined) updateData.description_common = description_common
+    if (description_high !== undefined) updateData.description_high = description_high
+    if (description_low !== undefined) updateData.description_low = description_low
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(
