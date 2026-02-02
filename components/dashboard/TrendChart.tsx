@@ -213,40 +213,39 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               />
               <Legend />
 
-              {/* 각 데이터 포인트별 참고치 수직 바 렌더링 */}
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                dot={(props) => {
+                  const { cx, cy, payload } = props
+                  const statusColor = payload.status === 'High' ? '#ef4444' : payload.status === 'Low' ? '#3b82f6' : '#22c55e'
+                  return (
+                    <circle cx={cx} cy={cy} r={5} fill={statusColor} stroke="white" strokeWidth={2} />
+                  )
+                }}
+                activeDot={{ r: 7, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
+                name={chartData.displayName}
+              />
+
+              {/* 각 데이터 포인트별 참고치 수직 바 렌더링 (Line 뒤에 배치해야 formattedGraphicalItems 사용 가능) */}
               {chartData.hasAnyRefRange && (
                 <Customized
                   component={(props: CustomizedProps) => {
                     const { formattedGraphicalItems, yAxisMap } = props
 
-                    // 디버깅: props 구조 확인
-                    console.log('Customized props:', {
-                      hasFormattedItems: !!formattedGraphicalItems,
-                      itemCount: formattedGraphicalItems?.length,
-                      hasYAxisMap: !!yAxisMap,
-                      yAxisKeys: yAxisMap ? Object.keys(yAxisMap) : []
-                    })
-
-                    if (!formattedGraphicalItems || !yAxisMap) {
-                      return <circle cx={50} cy={50} r={10} fill="orange" /> // 디버그: props 없음
-                    }
+                    if (!formattedGraphicalItems || !yAxisMap) return null
 
                     // points가 있는 첫 번째 아이템 찾기
                     const lineItem = formattedGraphicalItems.find((item) =>
                       item.props?.points && item.props.points.length > 0
                     )
-
-                    console.log('Line item found:', !!lineItem, 'points:', lineItem?.props?.points?.length)
-
                     const points = lineItem?.props?.points
-                    if (!points || points.length === 0) {
-                      return <circle cx={50} cy={80} r={10} fill="purple" /> // 디버그: points 없음
-                    }
+                    if (!points || points.length === 0) return null
 
                     const yAxis = Object.values(yAxisMap)[0]
-                    if (!yAxis?.scale) {
-                      return <circle cx={50} cy={110} r={10} fill="blue" /> // 디버그: yAxis 없음
-                    }
+                    if (!yAxis?.scale) return null
 
                     return (
                       <g className="ref-range-bars">
@@ -310,22 +309,6 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                   }}
                 />
               )}
-
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                dot={(props) => {
-                  const { cx, cy, payload } = props
-                  const statusColor = payload.status === 'High' ? '#ef4444' : payload.status === 'Low' ? '#3b82f6' : '#22c55e'
-                  return (
-                    <circle cx={cx} cy={cy} r={5} fill={statusColor} stroke="white" strokeWidth={2} />
-                  )
-                }}
-                activeDot={{ r: 7, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
-                name={chartData.displayName}
-              />
             </ComposedChart>
           </ResponsiveContainer>
 
