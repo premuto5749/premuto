@@ -1,44 +1,22 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import Image from 'next/image'
-import { Plus, Menu, ChevronLeft, ChevronRight, Copy, CalendarIcon, Heart, ChevronDown, PawPrint, Check } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { BreathingTimerModal } from '@/components/daily-log/BreathingTimerModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
 import { Timeline } from '@/components/daily-log/Timeline'
+import { AppHeader } from '@/components/layout/AppHeader'
 import { useToast } from '@/hooks/use-toast'
 import type { DailyLog, DailyStats } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Calendar } from '@/components/ui/calendar'
-import Link from 'next/link'
 import { usePet } from '@/contexts/PetContext'
 
 // 한국 시간(KST, UTC+9) 기준 오늘 날짜 반환
@@ -58,7 +36,6 @@ export default function DailyLogPage() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
-  const [isDonateOpen, setIsDonateOpen] = useState(false)
   const { toast } = useToast()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
 
@@ -304,165 +281,8 @@ export default function DailyLogPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* 헤더 */}
-      <header className="sticky top-0 z-10 bg-background border-b">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="w-5 h-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left">
-              <SheetHeader>
-                <SheetTitle>Mimo Health Log</SheetTitle>
-              </SheetHeader>
-              <nav className="mt-6 space-y-2">
-                <Link
-                  href="/daily-log"
-                  className="flex items-center px-4 py-3 rounded-lg bg-primary/10 text-primary font-medium"
-                >
-                  📝 일일 기록
-                </Link>
-                <Link
-                  href="/upload"
-                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
-                >
-                  📄 검사지 업로드
-                </Link>
-                <Link
-                  href="/dashboard"
-                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
-                >
-                  📊 검사 결과 대시보드
-                </Link>
-                <Link
-                  href="/hospital-contacts"
-                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
-                >
-                  🏥 병원 연락처
-                </Link>
-                <Link
-                  href="/records-management"
-                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
-                >
-                  🗑️ 검사 기록 관리
-                </Link>
-                <Link
-                  href="/mapping-management"
-                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
-                >
-                  ⚙️ 검사항목 매핑 관리
-                </Link>
-                <Link
-                  href="/settings"
-                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
-                >
-                  🔧 설정
-                </Link>
-                <hr className="my-4" />
-                <button
-                  onClick={() => setIsDonateOpen(true)}
-                  className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
-                >
-                  <Heart className="w-4 h-4 mr-2 text-pink-500" />
-                  후원하기
-                </button>
-                <a
-                  href="https://withpremuto.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
-                >
-                  <span className="flex items-center">
-                    <span className="w-4 h-4 mr-2">💬</span>
-                    피드백 주기
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                </a>
-                <p className="px-4 py-2 text-xs text-muted-foreground">
-                  버그나 개선 요청, 응원의 글을 보내주세요.
-                </p>
-                <form action="/auth/signout" method="post">
-                  <button
-                    type="submit"
-                    className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
-                  >
-                    🚪 로그아웃
-                  </button>
-                </form>
-              </nav>
-            </SheetContent>
-          </Sheet>
-
-          <h1 className="font-semibold text-lg">
-            {currentPet ? `${currentPet.name} 건강 기록` : '건강 기록'}
-          </h1>
-
-          {/* 내보내기 버튼 + 반려동물 스위처 */}
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={exportLogsToText} title="기록 내보내기">
-              <Copy className="w-5 h-5" />
-            </Button>
-            {!isPetsLoading && pets.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-1 px-2">
-                    {currentPet?.photo_url ? (
-                      <Image
-                        src={currentPet.photo_url}
-                        alt={currentPet.name}
-                        width={24}
-                        height={24}
-                        className="w-6 h-6 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
-                        <PawPrint className="w-3 h-3 text-muted-foreground" />
-                      </div>
-                    )}
-                    <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  {pets.map((pet) => (
-                    <DropdownMenuItem
-                      key={pet.id}
-                      onClick={() => setCurrentPet(pet)}
-                      className="flex items-center gap-2"
-                    >
-                      {pet.photo_url ? (
-                        <Image
-                          src={pet.photo_url}
-                          alt={pet.name}
-                          width={24}
-                          height={24}
-                          className="w-6 h-6 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
-                          <PawPrint className="w-3 h-3 text-muted-foreground" />
-                        </div>
-                      )}
-                      <span className="flex-1">{pet.name}</span>
-                      {currentPet?.id === pet.id && (
-                        <Check className="w-4 h-4 text-primary" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings?tab=pet" className="flex items-center gap-2">
-                      <PawPrint className="w-4 h-4" />
-                      반려동물 관리
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* 헤더 - AppHeader 사용 */}
+      <AppHeader title={currentPet ? `${currentPet.name} 건강 기록` : '건강 기록'} />
 
       {/* 날짜 네비게이션 */}
       <div className="bg-background border-b">
@@ -500,13 +320,18 @@ export default function DailyLogPage() {
             </PopoverContent>
           </Popover>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={goToNextDay}
-          >
-            <ChevronRight className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" onClick={exportLogsToText} title="기록 내보내기">
+              <Copy className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goToNextDay}
+            >
+              <ChevronRight className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -560,50 +385,6 @@ export default function DailyLogPage() {
         defaultDate={selectedDate}
         petId={currentPet?.id}
       />
-
-      {/* 후원하기 다이얼로그 */}
-      <Dialog open={isDonateOpen} onOpenChange={setIsDonateOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Heart className="w-5 h-5 text-pink-500" />
-              후원하기
-            </DialogTitle>
-            <DialogDescription>
-              우리 아가들에게 더 건강한 하루를 선물하는데 쓰입니다.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="p-4 bg-muted rounded-lg space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">은행</span>
-                <span className="font-medium">우리은행</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">계좌번호</span>
-                <span className="font-medium">1002-533-391083</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">예금주</span>
-                <span className="font-medium">김민수</span>
-              </div>
-            </div>
-            <Button
-              className="w-full"
-              onClick={() => {
-                navigator.clipboard.writeText('1002533391083')
-                toast({
-                  title: '복사 완료',
-                  description: '계좌번호가 클립보드에 복사되었습니다.',
-                })
-              }}
-            >
-              <Copy className="w-4 h-4 mr-2" />
-              계좌번호 복사
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
