@@ -30,11 +30,11 @@ export async function POST(request: NextRequest) {
       supabase
         .from('test_results')
         .select('*, standard_items(id, name)')
-        .eq('test_record_id', sourceRecordId),
+        .eq('record_id', sourceRecordId),
       supabase
         .from('test_results')
         .select('*, standard_items(id, name)')
-        .eq('test_record_id', targetRecordId)
+        .eq('record_id', targetRecordId)
     ])
 
     if (sourceResults.error || targetResults.error) {
@@ -72,12 +72,12 @@ export async function POST(request: NextRequest) {
           await supabase
             .from('test_results')
             .delete()
-            .eq('test_record_id', targetRecordId)
+            .eq('record_id', targetRecordId)
             .eq('standard_item_id', standardItemId)
 
           await supabase
             .from('test_results')
-            .update({ test_record_id: targetRecordId })
+            .update({ record_id: targetRecordId })
             .eq('id', sourceResult.id)
         }
         // useSource가 false이면 source 결과는 그대로 두고 나중에 source 레코드와 함께 삭제됨
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         // 충돌 없음: source 결과를 target으로 이동
         await supabase
           .from('test_results')
-          .update({ test_record_id: targetRecordId })
+          .update({ record_id: targetRecordId })
           .eq('id', sourceResult.id)
       }
     }
@@ -150,11 +150,11 @@ export async function GET(request: NextRequest) {
       supabase
         .from('test_results')
         .select('*, standard_items(id, name, display_name_ko)')
-        .eq('test_record_id', sourceId),
+        .eq('record_id', sourceId),
       supabase
         .from('test_results')
         .select('*, standard_items(id, name, display_name_ko)')
-        .eq('test_record_id', targetId)
+        .eq('record_id', targetId)
     ])
 
     if (sourceResults.error || targetResults.error) {
