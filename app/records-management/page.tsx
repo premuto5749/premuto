@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -83,12 +84,6 @@ function RecordsManagementContent() {
   const [conflictData, setConflictData] = useState<ConflictData | null>(null)
   const [merging, setMerging] = useState(false)
   const [hospitals, setHospitals] = useState<Hospital[]>([])
-
-  // 수정 기능
-  const [editRecord, setEditRecord] = useState<TestRecord | null>(null)
-  const [editDate, setEditDate] = useState<string>('')
-  const [editHospital, setEditHospital] = useState<string>('')
-  const [editing, setEditing] = useState(false)
 
   // 병합 설정
   const [targetDate, setTargetDate] = useState<string>('')
@@ -287,52 +282,6 @@ function RecordsManagementContent() {
     }
   }
 
-  const handleEditClick = (record: TestRecord) => {
-    setEditRecord(record)
-    setEditDate(record.test_date)
-    setEditHospital(record.hospital_name || '')
-  }
-
-  const handleEditSave = async () => {
-    if (!editRecord) return
-
-    setEditing(true)
-    try {
-      const response = await fetch('/api/test-results', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editRecord.id,
-          test_date: editDate,
-          hospital_name: editHospital
-        })
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || '수정에 실패했습니다')
-      }
-
-      toast({
-        title: '수정 완료',
-        description: '검사 기록이 수정되었습니다.'
-      })
-
-      setEditRecord(null)
-      fetchRecords()
-    } catch (error) {
-      console.error('Edit error:', error)
-      toast({
-        title: '수정 실패',
-        description: error instanceof Error ? error.message : '수정에 실패했습니다.',
-        variant: 'destructive'
-      })
-    } finally {
-      setEditing(false)
-    }
-  }
-
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('ko-KR', {
       year: 'numeric',
@@ -425,9 +374,11 @@ function RecordsManagementContent() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleEditClick(record)}
+                            asChild
                           >
-                            <Pencil className="w-4 h-4" />
+                            <Link href={`/records-management/${record.id}/edit`}>
+                              <Pencil className="w-4 h-4" />
+                            </Link>
                           </Button>
                           <Button
                             variant="ghost"
@@ -668,66 +619,6 @@ function RecordsManagementContent() {
         </DialogContent>
       </Dialog>
 
-      {/* 수정 다이얼로그 */}
-      <Dialog open={!!editRecord} onOpenChange={(open) => !editing && !open && setEditRecord(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>검사 기록 수정</DialogTitle>
-            <DialogDescription>
-              검사일과 병원 정보를 수정합니다.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {/* 날짜 선택 */}
-            <div className="space-y-2">
-              <Label>검사일</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {editDate && editDate !== 'Unknown' ? formatDate(editDate) : '날짜 선택'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    selected={editDate && editDate !== 'Unknown' ? new Date(editDate) : undefined}
-                    onSelect={(date) => setEditDate(date.toISOString().split('T')[0])}
-                    maxDate={new Date()}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* 병원 선택 */}
-            <div className="space-y-2">
-              <Label>병원</Label>
-              <HospitalSelector
-                value={editHospital}
-                onValueChange={setEditHospital}
-                hospitals={hospitals}
-                onHospitalCreated={(h) => setHospitals(prev => [...prev, h])}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditRecord(null)} disabled={editing}>
-              취소
-            </Button>
-            <Button onClick={handleEditSave} disabled={editing}>
-              {editing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  저장 중...
-                </>
-              ) : (
-                '저장'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
