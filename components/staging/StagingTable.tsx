@@ -154,8 +154,8 @@ export function StagingTable({ ocrItems, onItemsChange }: StagingTableProps) {
                 <Input
                   type="number"
                   step="0.01"
-                  value={item.value}
-                  onChange={(e) => updateItem(index, { value: parseFloat(e.target.value) })}
+                  value={item.value ?? ''}
+                  onChange={(e) => updateItem(index, { value: e.target.value ? parseFloat(e.target.value) : null })}
                   className="flex-1"
                 />
                 <Input

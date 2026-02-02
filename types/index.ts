@@ -7,7 +7,7 @@
 export interface OcrResult {
   name: string
   raw_name?: string           // 원본 항목명 (검사지에 표기된 그대로)
-  value: number | string      // 특수값 지원 (<500, *14 등)
+  value: number | string | null  // 특수값 지원 (<500, *14 등), null = 값 없음
   unit: string
   ref_min: number | null
   ref_max: number | null
@@ -141,7 +141,7 @@ export interface TestResult {
   id: string
   record_id: string
   standard_item_id: string
-  value: number | string      // 특수값 지원
+  value: number | string | null  // 특수값 지원, null = 값 없음
   ref_min: number | null
   ref_max: number | null
   ref_text: string | null
@@ -172,7 +172,7 @@ export interface BatchSaveRequest {
   }>
   results: Array<{
     standard_item_id: string
-    value: number | string    // 특수값 지원
+    value: number | string | null  // 특수값 지원, null = 값 없음
     unit: string
     ref_min: number | null
     ref_max: number | null
