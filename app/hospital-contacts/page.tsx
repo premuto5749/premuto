@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Phone, MapPin, ExternalLink } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Phone, MapPin, ExternalLink, Settings2, X } from 'lucide-react'
 import type { Hospital } from '@/types'
 
 function HospitalContactsContent() {
@@ -19,6 +19,8 @@ function HospitalContactsContent() {
   const [editingHospital, setEditingHospital] = useState<Hospital | null>(null)
   const [form, setForm] = useState({ name: '', address: '', phone: '', website: '', notes: '' })
   const [saving, setSaving] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
 
   useEffect(() => {
     loadHospitals()
@@ -43,9 +45,21 @@ function HospitalContactsContent() {
     setEditingHospital(null)
   }
 
+  const handleSaveClick = () => {
+    if (!form.name.trim()) return
+    if (editingHospital) {
+      // 수정 시 확인 모달 표시
+      setShowSaveConfirm(true)
+    } else {
+      // 새로 추가는 바로 저장
+      handleSave()
+    }
+  }
+
   const handleSave = async () => {
     if (!form.name.trim()) return
     setSaving(true)
+    setShowSaveConfirm(false)
 
     try {
       const method = editingHospital ? 'PATCH' : 'POST'
@@ -124,7 +138,7 @@ function HospitalContactsContent() {
       <AppHeader title="병원 연락처" />
 
       <div className="container max-w-2xl mx-auto py-6 px-4">
-        {/* 헤더 및 추가 버튼 */}
+        {/* 헤더 및 추가/편집 버튼 */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-semibold">병원 목록</h2>
@@ -132,16 +146,35 @@ function HospitalContactsContent() {
               자주 가는 병원의 연락처를 관리하세요
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open)
-            if (!open) resetForm()
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-1" />
-                병원 추가
+          <div className="flex gap-2">
+            {hospitals.length > 0 && (
+              <Button
+                variant={isEditMode ? "default" : "outline"}
+                onClick={() => setIsEditMode(!isEditMode)}
+              >
+                {isEditMode ? (
+                  <>
+                    <X className="w-4 h-4 mr-1" />
+                    편집 완료
+                  </>
+                ) : (
+                  <>
+                    <Settings2 className="w-4 h-4 mr-1" />
+                    병원 편집
+                  </>
+                )}
               </Button>
-            </DialogTrigger>
+            )}
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open)
+              if (!open) resetForm()
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-1" />
+                  병원 추가
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle>{editingHospital ? '병원 정보 수정' : '새 병원 추가'}</DialogTitle>
@@ -201,13 +234,30 @@ function HospitalContactsContent() {
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>취소</Button>
-                <Button onClick={handleSave} disabled={saving || !form.name.trim()}>
+                <Button onClick={handleSaveClick} disabled={saving || !form.name.trim()}>
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                   저장
                 </Button>
               </DialogFooter>
+
+              {/* 수정 확인 모달 */}
+              <AlertDialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>변경사항 저장</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      변경사항이 바로 적용됩니다. 저장하시겠습니까?
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>취소</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleSave}>저장</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* 병원 카드 목록 */}
@@ -247,55 +297,67 @@ function HospitalContactsContent() {
 
                     {/* 우측: 액션 버튼 */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {hospital.phone && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handlePhoneCall(hospital.phone!)}
-                          title="전화 걸기"
-                          className="w-10 h-10"
-                        >
-                          <Phone className="w-5 h-5 text-green-600" />
-                        </Button>
+                      {/* 일반 모드: 전화, 지도 버튼 */}
+                      {!isEditMode && (
+                        <>
+                          {hospital.phone && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handlePhoneCall(hospital.phone!)}
+                              title="전화 걸기"
+                              className="w-10 h-10"
+                            >
+                              <Phone className="w-5 h-5 text-green-600" />
+                            </Button>
+                          )}
+                          {hospital.website && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleOpenMap(hospital.website!)}
+                              title="지도 열기"
+                              className="w-10 h-10"
+                            >
+                              <ExternalLink className="w-5 h-5 text-blue-600" />
+                            </Button>
+                          )}
+                        </>
                       )}
-                      {hospital.website && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleOpenMap(hospital.website!)}
-                          title="지도 열기"
-                          className="w-10 h-10"
-                        >
-                          <ExternalLink className="w-5 h-5 text-blue-600" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(hospital)}
-                        title="수정"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" title="삭제">
-                            <Trash2 className="w-4 h-4 text-destructive" />
+
+                      {/* 편집 모드: 수정, 삭제 버튼 */}
+                      {isEditMode && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(hospital)}
+                            title="수정"
+                          >
+                            <Edit2 className="w-4 h-4" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>병원 삭제</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              &quot;{hospital.name}&quot;을(를) 삭제하시겠습니까?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>취소</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(hospital.id)}>삭제</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" title="삭제">
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>병원 삭제</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  &quot;{hospital.name}&quot;을(를) 삭제하시겠습니까?
+                                  삭제 후에는 복구할 수 없습니다.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>취소</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(hospital.id)}>삭제</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardContent>

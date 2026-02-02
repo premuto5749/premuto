@@ -509,85 +509,93 @@ function PetProfileSection() {
             {pets.map((pet) => (
               <div
                 key={pet.id}
-                className={`p-4 border rounded-lg flex items-center gap-4 ${
+                className={`p-4 border rounded-lg ${
                   currentPet?.id === pet.id ? 'border-primary bg-primary/5' : ''
                 }`}
               >
-                {/* 프로필 사진 */}
-                {pet.photo_url ? (
-                  <Image
-                    src={pet.photo_url}
-                    alt={pet.name}
-                    width={56}
-                    height={56}
-                    className="w-14 h-14 rounded-full object-cover flex-shrink-0"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                    <PawPrint className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                )}
-
-                {/* 정보 */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium truncate">{pet.name}</h4>
-                    {pet.is_default && (
-                      <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">기본</span>
+                {/* 모바일: 세로 스택, 데스크탑: 가로 배열 */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                  {/* 상단: 사진 + 정보 */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {/* 프로필 사진 */}
+                    {pet.photo_url ? (
+                      <Image
+                        src={pet.photo_url}
+                        alt={pet.name}
+                        width={56}
+                        height={56}
+                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                        <PawPrint className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
+                      </div>
                     )}
-                  </div>
-                  <div className="text-sm text-muted-foreground space-x-2">
-                    {pet.type && <span>{pet.type}</span>}
-                    {pet.breed && <span>· {pet.breed}</span>}
-                    {pet.weight_kg && <span>· {pet.weight_kg}kg</span>}
-                  </div>
-                </div>
 
-                {/* 액션 버튼 */}
-                <div className="flex gap-1 flex-shrink-0">
-                  {!pet.is_default && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSetDefault(pet)}
-                      title="기본으로 설정"
-                    >
-                      <StarOff className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {pet.is_default && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled
-                      title="기본 반려동물"
-                    >
-                      <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={() => openEditDialog(pet)}>
-                    <Edit2 className="w-4 h-4" />
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <Trash2 className="w-4 h-4 text-destructive" />
+                    {/* 정보 */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium truncate">{pet.name}</h4>
+                        {pet.is_default && (
+                          <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded flex-shrink-0">기본</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground flex flex-wrap gap-x-1">
+                        {pet.type && <span>{pet.type}</span>}
+                        {pet.breed && <span>· {pet.breed}</span>}
+                        {pet.weight_kg && <span>· {pet.weight_kg}kg</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 액션 버튼: 모바일에서 우측 정렬 */}
+                  <div className="flex gap-1 justify-end sm:flex-shrink-0">
+                    {!pet.is_default && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleSetDefault(pet)}
+                        title="기본으로 설정"
+                        className="h-9 w-9 p-0"
+                      >
+                        <StarOff className="w-4 h-4" />
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>반려동물 삭제</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          &quot;{pet.name}&quot;을(를) 삭제하시겠습니까?
-                          이 반려동물의 기록은 삭제되지 않습니다.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>취소</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(pet.id)}>삭제</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                    )}
+                    {pet.is_default && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled
+                        title="기본 반려동물"
+                        className="h-9 w-9 p-0"
+                      >
+                        <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => openEditDialog(pet)} className="h-9 w-9 p-0">
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-9 w-9 p-0">
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>반려동물 삭제</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            &quot;{pet.name}&quot;을(를) 삭제하시겠습니까?
+                            이 반려동물의 기록은 삭제되지 않습니다.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>취소</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(pet.id)}>삭제</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </div>
             ))}
