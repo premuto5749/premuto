@@ -23,6 +23,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **v3.1 추가**: OCR 결과에서 날짜/병원 수동 선택 기능
 - **v3.1 추가**: 검사 기록 병합 기능 (중복 기록 통합)
 
+**v3.2 핵심 개선사항**:
+- 검사항목 마스터 데이터 v3 (106개 표준항목, 60개 별칭)
+- 하이브리드 5단계 매핑 로직 (exact → alias → fuzzy → AI → 신규등록)
+- 대시보드 View 옵션 (검사유형별/장기별/임상우선순위별/패널별 정렬)
+- 표준항목 관리 페이지 (/standard-items)
+- item_aliases 테이블 (장비별 source_hint 지원)
+
 **v3.1 핵심 개선사항**:
 - 일일 기록 클립보드 내보내기 (오늘 요약 + 상세 기록 포맷)
 - 일일 기록 인라인 수정 기능 (양, 약 이름, 메모)
@@ -47,7 +54,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 이 프로젝트는 다음 문서들로 구성되어 있습니다:
 - **CLAUDE.md** (이 파일): 개발 가이드라인 및 핵심 도메인 규칙
 - **PRD.md**: 제품 요구사항 명세서 - 사용자 워크플로우와 UI 요구사항
-- **SCHEMA.md**: 데이터베이스 스키마 - 5개 핵심 테이블(daily_logs, standard_items, item_mappings, test_records, test_results)
+- **SCHEMA.md**: 데이터베이스 스키마 - 7개 핵심 테이블(daily_logs, standard_items, item_aliases, item_mappings, test_records, test_results, sort_order_configs)
 - **README.md**: 프로젝트 개요 및 Claude Code 설정 가이드
 - **settings.json**: Claude Code 자동 실행 권한 설정
 
@@ -172,42 +179,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 4. 핵심 도메인 규칙 (Business Rules)
 
-### A. 데이터 매핑 및 표준화 (Mapping Strategy) - v2 AI 기반 프로세스
+### A. 데이터 매핑 및 표준화 (Mapping Strategy) - v3.2 하이브리드 5단계 프로세스
 
-#### A-1. 2단계 매핑 프로세스
-OCR 결과는 반드시 '표준 항목'으로 매핑되어야 하며, 이제 **AI가 1차 매칭을 수행**한다.
+#### A-1. 하이브리드 5단계 매핑 로직
+OCR 결과는 반드시 '표준 항목'으로 매핑되어야 하며, **DB 기반 빠른 매칭과 AI 판단을 결합**한다.
 
-**단계 1: 기존 매핑 사전 조회** (빠른 경로)
-- `item_mappings` 테이블에서 `raw_name`을 검색
-- 매칭 발견 시 → 즉시 해당 `standard_item_id` 반환 (신뢰도 100%)
+**Step 1: 정규 항목 Exact Match** (신뢰도 100%)
+- `standard_items` 테이블에서 `name`을 대소문자 무시하고 검색
+- 예: `Creatinine` → 즉시 해당 항목 반환
 
-**단계 2: AI 휴리스틱 매칭** (새로운 항목)
-- 매핑 사전에 없는 경우, GPT-4o에게 다음 컨텍스트 전달:
-  ```
-  [System] 당신은 수의학 혈액검사 항목 매칭 전문가입니다.
+**Step 2: Alias 테이블 Exact Match** (신뢰도 95%)
+- `item_aliases` 테이블에서 `alias`를 검색
+- `source_hint` 필드로 장비별 힌트 제공 (예: ABL80F, IDEXX)
+- 예: `Cre` → Creatinine으로 매핑, source_hint: "ABL80F"
 
-  [DB의 표준 항목 목록]
-  - Creatinine (크레아티닌) / 단위: mg/dL / 카테고리: Chemistry
-  - White Blood Cell (백혈구) / 단위: 10^3/μL / 카테고리: CBC
-  ... (전체 목록)
+**Step 3: 퍼지 매칭 (Levenshtein)** (신뢰도 70-89%)
+- 유사도 70% 이상인 항목을 후보로 제안
+- 오타, 약어 등을 처리
+- 예: `Creatine` → `Creatinine` (유사도 90%)
 
-  [OCR 추출 결과]
-  항목명: "Creatine" (오타 가능성)
-  결과값: 1.2
-  단위: mg/dL
+**Step 4: AI 판단** (AI가 반환한 신뢰도)
+- Step 1-3에서 매칭 실패 시 Claude API 호출
+- 컨텍스트: DB 표준 항목 목록, OCR 결과, 단위 정보
+- AI 응답: `{ standard_item_id, confidence, reasoning, is_new_item }`
 
-  [질문] 이 OCR 결과가 어떤 표준 항목과 가장 일치하나요?
-  응답 형식: {"standard_item_id": "...", "confidence": 95, "reasoning": "..."}
-  ```
-
-- AI 응답 예시:
-  ```json
-  {
-    "standard_item_id": "uuid-of-creatinine",
-    "confidence": 95,
-    "reasoning": "항목명이 Creatine이지만 단위가 mg/dL이고 결과값 범위가 신장 기능 검사에 부합하여 Creatinine(크레아티닌)으로 판단"
-  }
-  ```
+**Step 5: 신규 항목 등록 요청** (사용자 확인 필요)
+- AI가 기존 항목과 매칭 불가 판단 시
+- 사용자에게 신규 항목 등록 모달 표시
+- 등록 후 `item_aliases`에 자동 추가
 
 #### A-2. 신뢰도 기반 사용자 개입
 - **🟢 신뢰도 ≥ 90%**: 자동 승인 (사용자에게 확인만 표시)
@@ -397,7 +396,73 @@ OCR 결과는 반드시 '표준 항목'으로 매핑되어야 하며, 이제 **A
   - 참고치 변경 지점에 수직 점선 표시
   - 그래프 하단 범례: "참고치: 검사마다 상이함 (자세한 내용은 각 데이터 포인트 클릭)"
 
-## 7. API 엔드포인트 명세 (v2 업데이트)
+## 7. API 엔드포인트 명세 (v3.2 업데이트)
+
+### v3.2 추가 API
+
+#### GET/POST /api/admin/sync-master-data
+**목적**: v3 마스터 데이터를 DB에 동기화
+
+**POST - 동기화 실행**:
+```typescript
+// 요청
+{ migrateOldMappings?: boolean }  // 기존 item_mappings를 item_aliases로 이전
+
+// 응답
+{
+  success: boolean
+  items: { total: number, inserted: number, updated: number, failed: number }
+  aliases: { total: number, inserted: number, skipped: number, failed: number }
+  migratedMappings: number
+  errors: string[]
+}
+```
+
+**GET - 동기화 상태 조회**:
+```typescript
+{
+  current: { standardItems: number, itemAliases: number, itemMappings: number }
+  masterData: { testItems: number, aliases: number }
+  examTypeDistribution: Record<string, number>
+  comparison: { missingInDb: string[], extraInDb: string[] }
+}
+```
+
+#### GET/POST/DELETE /api/item-aliases
+**목적**: 항목 별칭 관리
+
+**GET**: 모든 별칭 조회
+```typescript
+{ success: boolean, data: ItemAlias[] }
+```
+
+**POST**: 새 별칭 등록
+```typescript
+// 요청
+{ alias: string, canonical_name: string, source_hint?: string }
+
+// 응답
+{ success: boolean, data: ItemAlias }
+```
+
+#### PATCH /api/standard-items/[id]
+**목적**: 표준 항목 업데이트
+
+```typescript
+// 요청
+{
+  name?: string
+  display_name_ko?: string
+  default_unit?: string
+  exam_type?: string
+  organ_tags?: string[]
+}
+
+// 응답
+{ success: boolean, data: StandardItem }
+```
+
+---
 
 ### POST /api/ocr-batch
 **목적**: 여러 파일을 한 번에 OCR 처리

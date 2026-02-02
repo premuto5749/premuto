@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
 import { matchItem } from '@/lib/ocr/item-matcher'
+import { matchItemV3, type MatchResultV3 } from '@/lib/ocr/item-matcher-v3'
 
 // 최대 실행 시간 설정 (60초)
 export const maxDuration = 60
@@ -136,21 +137,52 @@ export async function POST(request: NextRequest) {
     const mappingResults: MappingResult[] = []
     const itemsNeedingAi: { ocrItem: OcrResult; index: number }[] = []
 
-    // 1단계: 로컬/DB 매핑으로 빠르게 처리할 수 있는 항목 먼저 처리
+    // 1단계: 하이브리드 v3 매칭으로 빠르게 처리할 수 있는 항목 먼저 처리
     for (let i = 0; i < ocr_results.length; i++) {
       const ocrItem = ocr_results[i]
       const itemName = ocrItem.raw_name || ocrItem.name
 
-      // 3-1. 로컬 매핑 우선 시도 (JSON 설정 기반)
+      // 3-1. V3 하이브리드 매칭 (DB 기반: Step 1-3)
+      const v3Match: MatchResultV3 = await matchItemV3(itemName, { supabase })
+
+      if (v3Match.confidence >= 70 && v3Match.standardItemId) {
+        // V3 매칭 성공 (exact, alias, 또는 fuzzy)
+        if (v3Match.method === 'exact') {
+          localMatchCount++ // exact match는 로컬 카운트로
+        } else {
+          dbMatchCount++ // alias, fuzzy는 DB 카운트로
+        }
+
+        const methodLabel = v3Match.method === 'exact' ? '정규항목' :
+                           v3Match.method === 'alias' ? '별칭' :
+                           v3Match.method === 'fuzzy' ? '퍼지' : v3Match.method
+
+        console.log(`📍 V3 match (${methodLabel}): "${itemName}" → ${v3Match.standardItemName} (${v3Match.confidence}%)${v3Match.sourceHint ? ` [${v3Match.sourceHint}]` : ''}`)
+
+        mappingResults.push({
+          ocr_item: ocrItem,
+          suggested_mapping: {
+            standard_item_id: v3Match.standardItemId,
+            standard_item_name: v3Match.standardItemName || '',
+            display_name_ko: v3Match.displayNameKo || '',
+            confidence: v3Match.confidence,
+            reasoning: `V3 매칭 (${methodLabel}): ${v3Match.matchedAgainst || itemName}`,
+            source_hint: v3Match.sourceHint || undefined,
+          } as AiMappingSuggestion,
+          index: i
+        })
+        continue
+      }
+
+      // 3-2. V3 실패 시 기존 로컬 매칭 fallback (JSON 설정 기반)
       const localMatch = matchItem(itemName)
 
       if (localMatch.confidence >= 70 && localMatch.standardItemName) {
-        // 로컬 매칭 성공 - DB에서 유연하게 표준 항목 찾기
         const standardItem = findStandardItemFlexible(localMatch.standardItemName)
 
         if (standardItem) {
           localMatchCount++
-          console.log(`📍 Local match: "${itemName}" → ${standardItem.name} (${localMatch.confidence}%, ${localMatch.method})`)
+          console.log(`📍 Local fallback: "${itemName}" → ${standardItem.name} (${localMatch.confidence}%, ${localMatch.method})`)
 
           mappingResults.push({
             ocr_item: ocrItem,
@@ -165,35 +197,9 @@ export async function POST(request: NextRequest) {
           })
           continue
         }
-
-        // DB에 없는 경우 - 한글명으로도 시도
-        const standardItemByKo = localMatch.displayNameKo
-          ? findStandardItemFlexible(localMatch.displayNameKo)
-          : null
-
-        if (standardItemByKo) {
-          localMatchCount++
-          console.log(`📍 Local match (한글명): "${itemName}" → ${standardItemByKo.name}`)
-
-          mappingResults.push({
-            ocr_item: ocrItem,
-            suggested_mapping: {
-              standard_item_id: standardItemByKo.id,
-              standard_item_name: standardItemByKo.name,
-              display_name_ko: standardItemByKo.display_name_ko || localMatch.displayNameKo || '',
-              confidence: localMatch.confidence - 5, // 한글명 매칭은 신뢰도 약간 낮춤
-              reasoning: `로컬 매칭 (한글명): ${localMatch.displayNameKo}`
-            } as AiMappingSuggestion,
-            index: i
-          })
-          continue
-        }
-
-        // 여전히 DB에 없으면 AI 매칭으로 진행 (로컬 정보 활용)
-        console.log(`⚠️ Local match found but not in DB: ${localMatch.standardItemName}, proceeding to AI matching`)
       }
 
-      // 3-2. DB 매핑 사전에서 조회
+      // 3-3. DB 매핑 사전에서 조회 (기존 item_mappings 테이블 - 하위 호환)
       const existingMapping = mappingsMap.get(itemName.toUpperCase())
 
       if (existingMapping) {

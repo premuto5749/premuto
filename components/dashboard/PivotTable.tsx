@@ -28,9 +28,14 @@ interface TestRecord {
   test_results: TestResult[]
 }
 
+type SortType = 'by_exam_type' | 'by_organ' | 'by_clinical_priority' | 'by_panel'
+
 interface PivotTableProps {
   records: TestRecord[]
   onItemClick?: (itemName: string) => void
+  sortType?: SortType
+  organFilter?: string | null
+  panelFilter?: string | null
 }
 
 // 숫자를 소수점 첫째자리까지 표시 (정수면 그대로)
@@ -46,7 +51,45 @@ function isZeroValue(value: number): boolean {
   return value === 0
 }
 
-export function PivotTable({ records, onItemClick }: PivotTableProps) {
+// 패널별 아이템 매핑
+const PANEL_ITEMS: Record<string, string[]> = {
+  'Basic': ['WBC', 'RBC', 'HGB', 'HCT', 'PLT', 'ALT', 'BUN', 'Creatinine', 'Glucose', 'Protein-Total'],
+  'Pre-anesthetic': ['WBC', 'RBC', 'HGB', 'HCT', 'PLT', 'ALT', 'AST', 'BUN', 'Creatinine', 'Glucose', 'Protein-Total', 'Albumin', 'PT', 'APTT'],
+  'Senior': ['WBC', 'RBC', 'HGB', 'HCT', 'PLT', 'ALT', 'AST', 'ALKP', 'GGT', 'BUN', 'Creatinine', 'SDMA', 'Glucose', 'Protein-Total', 'Albumin', 'T.Cholesterol', 'Triglycerides', 'T.Bilirubin', 'Phosphorus', 'Calcium', 'Na', 'K', 'Cl', 'CRP', 'UPC', '요비중'],
+  'Pancreatitis': ['cPL', 'Lipase', 'Amylase', 'Glucose', 'Triglycerides', 'Calcium', 'CRP', 'WBC'],
+  'Coagulation': ['PLT', 'PT', 'APTT', 'Fibrinogen', 'D-dimer', 'TEG_R', 'TEG_K', 'TEG_Angle', 'TEG_MA'],
+  'Emergency': ['pH', 'pCO2', 'pO2', 'cHCO3', 'BE', 'Lactate', 'Na', 'K', 'Cl', 'Calcium', 'HCT', 'HGB', 'Glucose'],
+  'Cardiac': ['proBNP', '심장사상충', 'E', 'LVIDd', 'Systolic BP', 'CK'],
+  'Kidney': ['BUN', 'Creatinine', 'BUN:Cr Ratio', 'SDMA', 'Phosphorus', 'Calcium', 'UPC', 'PH(뇨)', '요비중', 'mOsm', 'K', 'Na', 'Albumin'],
+}
+
+const PANEL_LABELS: Record<string, string> = {
+  'Basic': '기본 혈액검사',
+  'Pre-anesthetic': '마취 전 검사',
+  'Senior': '노령견 종합',
+  'Pancreatitis': '췌장염 집중',
+  'Coagulation': '응고 검사',
+  'Emergency': '응급/중환자',
+  'Cardiac': '심장 검사',
+  'Kidney': '신장 집중',
+}
+
+// 장기별 아이템 매핑 (v3 마스터 데이터 기반)
+const ORGAN_ITEMS: Record<string, string[]> = {
+  '기본신체': ['BT', 'BW', 'Pulse', 'Systolic BP'],
+  '혈액': ['HCT', 'HGB', 'RBC', 'WBC', 'PLT', 'NEU', 'LYM', 'MONO', 'EOS', 'BASO', 'RDW', 'MCV', 'MCH', 'MCHC'],
+  '간': ['ALT', 'AST', 'ALKP', 'GGT', 'T.Bilirubin', 'NH3', 'Albumin', 'Globulin', 'Protein-Total'],
+  '신장': ['BUN', 'Creatinine', 'SDMA', 'Phosphorus', 'UPC', 'PH(뇨)', '요비중', 'mOsm'],
+  '췌장': ['Lipase', 'Amylase', 'cPL', 'Glucose', 'Triglycerides'],
+  '심장': ['proBNP', '심장사상충', 'CK', 'LDH', 'E', 'LVIDd', 'Pulse', 'Systolic BP'],
+  '전해질': ['Na', 'K', 'Cl', 'Calcium', 'Phosphorus', 'NA/K'],
+  '산염기': ['pH', 'pH(T)', 'pCO2', 'pCO2(T)', 'cHCO3', 'BE', 'Lactate', 'Anion Gap'],
+  '호흡': ['pO2', 'pO2(T)', 'sO2', 'ctO2'],
+  '지혈': ['PLT', 'PT', 'APTT', 'Fibrinogen', 'D-dimer', 'MPV', 'PDW', 'PCT'],
+  '안과': ['눈물량(OD)', '눈물량(OS)', '안압(OD)', '안압(OS)'],
+}
+
+export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', organFilter, panelFilter }: PivotTableProps) {
   // 날짜순으로 정렬 (오래된 날짜가 왼쪽, 최신이 오른쪽)
   const sortedRecords = useMemo(() => {
     return [...records].sort((a, b) =>
@@ -106,17 +149,80 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
       }
     })
 
-    // 카테고리별로 항목 그룹화 및 정렬
+    // 정렬 유형에 따라 항목 그룹화 및 정렬
     const itemsByCategory = new Map<string, string[]>()
-    itemDetails.forEach((detail, itemName) => {
-      const category = detail.category
-      if (!itemsByCategory.has(category)) {
-        itemsByCategory.set(category, [])
-      }
-      itemsByCategory.get(category)!.push(itemName)
-    })
 
-    // 각 카테고리 내에서 항목 정렬
+    // 검사유형 순서
+    const examTypeOrder = ['Vital', 'CBC', 'Chemistry', 'Special', 'Blood Gas', 'Coagulation', '뇨검사', '안과검사', 'Echo']
+
+    if (sortType === 'by_organ' && organFilter) {
+      // 특정 장기 필터링
+      const organItemNames = ORGAN_ITEMS[organFilter] || []
+      const filteredItems = Array.from(itemDetails.keys()).filter(name => organItemNames.includes(name))
+      if (filteredItems.length > 0) {
+        itemsByCategory.set(organFilter, filteredItems.sort())
+      }
+    } else if (sortType === 'by_organ') {
+      // 장기별 그룹화
+      const organOrder = Object.keys(ORGAN_ITEMS)
+      organOrder.forEach(organ => {
+        const organItemNames = ORGAN_ITEMS[organ] || []
+        const matchedItems = Array.from(itemDetails.keys()).filter(name => organItemNames.includes(name))
+        if (matchedItems.length > 0) {
+          itemsByCategory.set(organ, matchedItems.sort())
+        }
+      })
+      // 기타 항목
+      const allOrganItems = Object.values(ORGAN_ITEMS).flat()
+      const otherItems = Array.from(itemDetails.keys()).filter(name => !allOrganItems.includes(name))
+      if (otherItems.length > 0) {
+        itemsByCategory.set('기타', otherItems.sort())
+      }
+    } else if (sortType === 'by_panel' && panelFilter) {
+      // 특정 패널 필터링
+      const panelItemNames = PANEL_ITEMS[panelFilter] || []
+      const filteredItems = Array.from(itemDetails.keys()).filter(name => panelItemNames.includes(name))
+      if (filteredItems.length > 0) {
+        itemsByCategory.set(PANEL_LABELS[panelFilter] || panelFilter, filteredItems.sort())
+      }
+    } else if (sortType === 'by_panel') {
+      // 패널별 그룹화
+      Object.entries(PANEL_ITEMS).forEach(([panel, panelItemNames]) => {
+        const matchedItems = Array.from(itemDetails.keys()).filter(name => panelItemNames.includes(name))
+        if (matchedItems.length > 0) {
+          itemsByCategory.set(PANEL_LABELS[panel] || panel, matchedItems.sort())
+        }
+      })
+    } else {
+      // 기본: 검사유형별 (by_exam_type)
+      itemDetails.forEach((detail, itemName) => {
+        const category = detail.category
+        if (!itemsByCategory.has(category)) {
+          itemsByCategory.set(category, [])
+        }
+        itemsByCategory.get(category)!.push(itemName)
+      })
+
+      // 검사유형 순서대로 정렬
+      const sortedByCategory = new Map<string, string[]>()
+      examTypeOrder.forEach(type => {
+        if (itemsByCategory.has(type)) {
+          sortedByCategory.set(type, itemsByCategory.get(type)!.sort())
+        }
+      })
+      // 나머지 카테고리
+      itemsByCategory.forEach((items, category) => {
+        if (!sortedByCategory.has(category)) {
+          sortedByCategory.set(category, items.sort())
+        }
+      })
+      itemsByCategory.clear()
+      sortedByCategory.forEach((items, category) => {
+        itemsByCategory.set(category, items)
+      })
+    }
+
+    // 각 그룹 내에서 항목 정렬
     itemsByCategory.forEach((items) => {
       items.sort()
     })
@@ -132,7 +238,7 @@ export function PivotTable({ records, onItemClick }: PivotTableProps) {
     })
 
     return { itemsByCategory, itemDetails, dateMap }
-  }, [sortedRecords])
+  }, [sortedRecords, sortType, organFilter, panelFilter])
 
   const getStatusColor = (status: string) => {
     switch (status) {

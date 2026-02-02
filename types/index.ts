@@ -59,6 +59,7 @@ export interface AiMappingSuggestion {
   display_name_ko: string
   confidence: number // 0-100
   reasoning: string
+  source_hint?: string // 장비/병원 힌트 (v3)
 }
 
 export interface AiMappingResponse {

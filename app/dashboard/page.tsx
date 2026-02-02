@@ -11,6 +11,7 @@ import { Upload, Loader2, CheckCircle2, Filter, X } from 'lucide-react'
 import Link from 'next/link'
 import { PivotTable } from '@/components/dashboard/PivotTable'
 import { TrendChart } from '@/components/dashboard/TrendChart'
+import { ViewOptions, type SortType } from '@/components/dashboard/ViewOptions'
 
 interface TestResult {
   id: string
@@ -58,6 +59,11 @@ function DashboardContent() {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [tempSelectedItems, setTempSelectedItems] = useState<Set<string>>(new Set())
+
+  // View 옵션 상태 (v3)
+  const [sortType, setSortType] = useState<SortType>('by_exam_type')
+  const [organFilter, setOrganFilter] = useState<string | null>(null)
+  const [panelFilter, setPanelFilter] = useState<string | null>(null)
 
   useEffect(() => {
     fetchTestRecords()
@@ -239,6 +245,7 @@ function DashboardContent() {
         </Card>
       ) : (
         <div className="space-y-6">
+          {/* 상단 액션 바 */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm text-muted-foreground">
               총 {records.length}개의 검사 기록
@@ -269,7 +276,23 @@ function DashboardContent() {
             </div>
           </div>
 
-          <PivotTable records={filteredRecords} onItemClick={handleItemClick} />
+          {/* View 옵션 (v3) */}
+          <ViewOptions
+            sortType={sortType}
+            onSortTypeChange={setSortType}
+            organFilter={organFilter}
+            onOrganFilterChange={setOrganFilter}
+            panelFilter={panelFilter}
+            onPanelFilterChange={setPanelFilter}
+          />
+
+          <PivotTable
+            records={filteredRecords}
+            onItemClick={handleItemClick}
+            sortType={sortType}
+            organFilter={organFilter}
+            panelFilter={panelFilter}
+          />
 
           <TrendChart
             records={records}
