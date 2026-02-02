@@ -14,6 +14,7 @@ interface TestResult {
   standard_items: {
     name: string
     display_name_ko: string | null
+    default_unit?: string | null
   }
 }
 
@@ -50,6 +51,9 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
         )
         if (!result) return null
 
+        // standard_items.default_unit 우선, 없으면 test_results.unit 사용
+        const displayUnit = result.standard_items.default_unit || result.unit
+
         return {
           date: record.test_date,
           dateLabel: new Date(record.test_date).toLocaleDateString('ko-KR', {
@@ -61,7 +65,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
           ref_min: result.ref_min,
           ref_max: result.ref_max,
           status: result.status,
-          unit: result.unit,
+          unit: displayUnit,
           displayName: result.standard_items.display_name_ko || result.standard_items.name
         }
       })
