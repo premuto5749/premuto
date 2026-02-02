@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, ComposedChart } from 'recharts'
+import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Customized } from 'recharts'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface TestResult {
@@ -202,54 +202,77 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               />
               <Legend />
 
-              {/* 참고치가 있는 경우에만 Area 렌더링 */}
+              {/* 각 데이터 포인트별 참고치 수직 바 렌더링 */}
               {chartData.hasAnyRefRange && (
-                <>
-                  {/* 각 데이터 포인트별 참고치 영역 (ref_max 상한선) */}
-                  <Area
-                    type="stepAfter"
-                    dataKey="ref_max"
-                    stroke="#ef4444"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 2"
-                    fill="none"
-                    name="참고치 상한"
-                    dot={false}
-                    activeDot={false}
-                    connectNulls
-                    isAnimationActive={false}
-                  />
+                <Customized
+                  component={(props: { xAxisMap?: Record<string, { scale: (v: string) => number; bandwidth?: () => number }>; yAxisMap?: Record<string, { scale: (v: number) => number }> }) => {
+                    const { xAxisMap, yAxisMap } = props
+                    if (!xAxisMap || !yAxisMap) return null
 
-                  {/* 각 데이터 포인트별 참고치 영역 (ref_min 하한선) */}
-                  <Area
-                    type="stepAfter"
-                    dataKey="ref_min"
-                    stroke="#3b82f6"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 2"
-                    fill="none"
-                    name="참고치 하한"
-                    dot={false}
-                    activeDot={false}
-                    connectNulls
-                    isAnimationActive={false}
-                  />
+                    const xAxis = Object.values(xAxisMap)[0]
+                    const yAxis = Object.values(yAxisMap)[0]
+                    if (!xAxis || !yAxis) return null
 
-                  {/* 정상 범위 영역 (각 포인트별 ref_min ~ ref_max 사이 채우기) */}
-                  <Area
-                    type="stepAfter"
-                    dataKey="ref_max"
-                    stroke="none"
-                    fill="#22c55e"
-                    fillOpacity={0.15}
-                    name="정상 범위"
-                    dot={false}
-                    activeDot={false}
-                    connectNulls
-                    baseValue="dataMin"
-                    isAnimationActive={false}
-                  />
-                </>
+                    return (
+                      <g className="ref-range-bars">
+                        {chartData.data.map((point, index) => {
+                          if (point.ref_min === null && point.ref_max === null) return null
+
+                          const x = xAxis.scale(point.dateLabel) + (xAxis.bandwidth?.() || 0) / 2
+                          const yMin = point.ref_min !== null ? yAxis.scale(point.ref_min) : null
+                          const yMax = point.ref_max !== null ? yAxis.scale(point.ref_max) : null
+
+                          if (yMin === null || yMax === null) return null
+
+                          const barWidth = 8
+
+                          return (
+                            <g key={index}>
+                              {/* 참고치 범위 수직 바 (배경) */}
+                              <rect
+                                x={x - barWidth / 2}
+                                y={yMax}
+                                width={barWidth}
+                                height={yMin - yMax}
+                                fill="#22c55e"
+                                fillOpacity={0.2}
+                                rx={2}
+                              />
+                              {/* 상한선 */}
+                              <line
+                                x1={x - barWidth}
+                                y1={yMax}
+                                x2={x + barWidth}
+                                y2={yMax}
+                                stroke="#ef4444"
+                                strokeWidth={2}
+                              />
+                              {/* 하한선 */}
+                              <line
+                                x1={x - barWidth}
+                                y1={yMin}
+                                x2={x + barWidth}
+                                y2={yMin}
+                                stroke="#3b82f6"
+                                strokeWidth={2}
+                              />
+                              {/* 수직 연결선 */}
+                              <line
+                                x1={x}
+                                y1={yMax}
+                                x2={x}
+                                y2={yMin}
+                                stroke="#9ca3af"
+                                strokeWidth={1}
+                                strokeDasharray="2 2"
+                              />
+                            </g>
+                          )
+                        })}
+                      </g>
+                    )
+                  }}
+                />
               )}
 
               <Line
@@ -354,16 +377,12 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               {chartData.hasAnyRefRange && (
                 <div className="flex flex-wrap gap-4 text-xs mt-2">
                   <div className="flex items-center gap-1">
-                    <span className="w-6 border-t-2 border-dashed border-[#ef4444]"></span>
-                    <span>참고치 상한 (Max)</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="w-6 border-t-2 border-dashed border-[#3b82f6]"></span>
-                    <span>참고치 하한 (Min)</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="w-6 h-3 bg-[#22c55e] opacity-20"></span>
-                    <span>정상 범위 영역</span>
+                    <svg width="20" height="16" className="flex-shrink-0">
+                      <rect x="6" y="2" width="8" height="12" fill="#22c55e" fillOpacity="0.2" rx="1" />
+                      <line x1="4" y1="2" x2="16" y2="2" stroke="#ef4444" strokeWidth="2" />
+                      <line x1="4" y1="14" x2="16" y2="14" stroke="#3b82f6" strokeWidth="2" />
+                    </svg>
+                    <span>참고치 범위 (빨강=상한, 파랑=하한)</span>
                   </div>
                 </div>
               )}
