@@ -166,7 +166,7 @@ function MappingManagementContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-muted">
-        <AppHeader title="검사항목 매핑 관리" />
+        <AppHeader title="미분류 항목 정리" />
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
@@ -176,7 +176,7 @@ function MappingManagementContent() {
 
   return (
     <div className="min-h-screen bg-muted">
-      <AppHeader title="검사항목 매핑 관리" />
+      <AppHeader title="미분류 항목 정리" />
 
       <div className="container max-w-7xl mx-auto py-10 px-4">
 
@@ -248,9 +248,9 @@ function MappingManagementContent() {
       {/* 매핑 테이블 */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>표준 항목 목록 ({filteredItems.length}개)</CardTitle>
+          <CardTitle>미분류 항목 목록 ({filteredItems.length}개)</CardTitle>
           <CardDescription>
-            중복되거나 유사한 항목을 선택하여 다른 표준 항목과 병합할 수 있습니다 (예: BUN/CRE → BUN:CREATININE RATIO)
+            OCR에서 자동 생성된 미분류 항목을 표준 항목과 병합합니다. AI 정리 버튼으로 자동 매핑할 수 있습니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -350,13 +350,13 @@ function MappingManagementContent() {
       )}
 
       <div className="mt-8 p-4 bg-muted rounded-lg">
-        <h3 className="font-medium mb-2">💡 팁</h3>
+        <h3 className="font-medium mb-2">💡 미분류 항목 정리 안내</h3>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-          <li>&apos;Unmapped&apos; 카테고리는 OCR에서 자동 생성된 항목입니다</li>
-          <li>중복 항목 예시: &quot;BUN/CRE&quot;와 &quot;BUN:CREATININE RATIO&quot; 병합</li>
-          <li>병합 시 모든 검사 결과와 매핑 데이터가 선택한 항목으로 이동됩니다</li>
-          <li>병합은 되돌릴 수 없으니 신중히 선택하세요</li>
-          <li>정기적으로 이 페이지를 확인하여 데이터 품질을 유지하세요</li>
+          <li>미분류(Unmapped) 항목은 OCR에서 표준 항목과 매칭되지 않은 경우 자동 생성됩니다</li>
+          <li>&quot;AI로 정리하기&quot; 버튼을 클릭하면 AI가 자동으로 적절한 표준 항목을 찾아 매핑합니다</li>
+          <li>수동으로 병합할 항목을 선택한 후 &quot;재매핑 저장&quot; 버튼을 클릭하세요</li>
+          <li>병합 시 해당 항목의 모든 검사 결과가 선택한 표준 항목으로 이동됩니다</li>
+          <li>표준 항목 및 별칭 관리는 &quot;표준항목 관리&quot; 페이지에서 할 수 있습니다</li>
         </ul>
       </div>
       </div>

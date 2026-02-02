@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info } from 'lucide-react'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
@@ -974,11 +974,107 @@ function ThemeSection({
   )
 }
 
+// 마스터 데이터 상태 인터페이스
+interface SyncStatus {
+  current: {
+    standardItems: number
+    itemAliases: number
+    itemMappings: number
+  }
+  masterData: {
+    testItems: number
+    aliases: number
+  }
+  comparison: {
+    missingInDb: string[]
+    extraInDb: string[]
+    missingCount: number
+    extraCount: number
+  }
+}
+
 // 데이터 관리 섹션
 function DataManagementSection() {
   const [exporting, setExporting] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  // 마스터 데이터 초기화 관련 상태
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
+  const [loadingStatus, setLoadingStatus] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<{
+    success: boolean
+    mode: string
+    items: { inserted: number; updated: number; skipped: number }
+    aliases: { inserted: number; skipped: number }
+  } | null>(null)
+  const [fullResetDialogOpen, setFullResetDialogOpen] = useState(false)
+
+  // 마스터 데이터 상태 조회
+  const loadSyncStatus = async () => {
+    setLoadingStatus(true)
+    try {
+      const res = await fetch('/api/admin/sync-master-data')
+      const data = await res.json()
+      setSyncStatus(data)
+    } catch (error) {
+      console.error('Failed to load sync status:', error)
+    } finally {
+      setLoadingStatus(false)
+    }
+  }
+
+  // 마스터 데이터 초기화 (safe 모드: 신규만 추가)
+  const handleSafeSync = async () => {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const res = await fetch('/api/admin/sync-master-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'safe' })
+      })
+      const data = await res.json()
+      setSyncResult({
+        success: data.success,
+        mode: 'safe',
+        items: { inserted: data.items.inserted, updated: data.items.updated, skipped: data.items.skipped },
+        aliases: { inserted: data.aliases.inserted, skipped: data.aliases.skipped }
+      })
+      loadSyncStatus()
+    } catch (error) {
+      console.error('Sync failed:', error)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  // 마스터 데이터 전체 초기화 (full 모드: 덮어쓰기)
+  const handleFullSync = async () => {
+    setSyncing(true)
+    setSyncResult(null)
+    setFullResetDialogOpen(false)
+    try {
+      const res = await fetch('/api/admin/sync-master-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'full' })
+      })
+      const data = await res.json()
+      setSyncResult({
+        success: data.success,
+        mode: 'full',
+        items: { inserted: data.items.inserted, updated: data.items.updated, skipped: data.items.skipped },
+        aliases: { inserted: data.aliases.inserted, skipped: data.aliases.skipped }
+      })
+      loadSyncStatus()
+    } catch (error) {
+      console.error('Sync failed:', error)
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const handleExport = async (type: 'daily-log' | 'test-results') => {
     setExporting(type)
@@ -1047,6 +1143,128 @@ function DataManagementSection() {
 
   return (
     <div className="space-y-6">
+      {/* 마스터 데이터 초기화 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="w-5 h-5" />
+            마스터 데이터 초기화
+          </CardTitle>
+          <CardDescription>
+            106개 표준 검사항목과 60개 별칭을 설정합니다. 기존 검사 기록은 영향받지 않습니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 현재 상태 표시 */}
+          {syncStatus ? (
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>현재 표준항목</span>
+                <span className="font-medium">{syncStatus.current.standardItems}개</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>현재 별칭</span>
+                <span className="font-medium">{syncStatus.current.itemAliases}개</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>마스터 데이터</span>
+                <span className="font-medium text-blue-600">
+                  {syncStatus.masterData.testItems}개 항목 / {syncStatus.masterData.aliases}개 별칭
+                </span>
+              </div>
+              {syncStatus.comparison.missingCount > 0 && (
+                <div className="flex items-center gap-2 text-sm text-amber-600 mt-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>누락된 항목: {syncStatus.comparison.missingCount}개</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={loadSyncStatus} disabled={loadingStatus}>
+              {loadingStatus ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Info className="w-4 h-4 mr-2" />
+              )}
+              현재 상태 확인
+            </Button>
+          )}
+
+          {/* 초기화 결과 표시 */}
+          {syncResult && (
+            <div className={`p-4 rounded-lg ${syncResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                {syncResult.success ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                )}
+                <span className="font-medium">
+                  {syncResult.success ? '초기화 완료' : '초기화 실패'}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  ({syncResult.mode === 'safe' ? '신규만 추가' : '전체 초기화'})
+                </span>
+              </div>
+              <div className="text-sm space-y-1">
+                <p>표준항목: 추가 {syncResult.items.inserted}개, 업데이트 {syncResult.items.updated}개, 건너뜀 {syncResult.items.skipped}개</p>
+                <p>별칭: 추가 {syncResult.aliases.inserted}개, 건너뜀 {syncResult.aliases.skipped}개</p>
+              </div>
+            </div>
+          )}
+
+          {/* 초기화 버튼들 */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={handleSafeSync}
+              disabled={syncing}
+              className="flex-1"
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
+              신규 항목만 추가
+            </Button>
+
+            <AlertDialog open={fullResetDialogOpen} onOpenChange={setFullResetDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={syncing} className="flex-1">
+                  전체 초기화
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                    전체 초기화
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="space-y-2">
+                    <p>기존 표준항목이 마스터 데이터로 덮어씌워집니다.</p>
+                    <p className="text-amber-600">
+                      직접 수정한 항목명, 한글명, 단위 등이 초기값으로 되돌아갑니다.
+                    </p>
+                    <p>검사 기록(결과값)은 영향받지 않습니다.</p>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>취소</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleFullSync}>
+                    전체 초기화 실행
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            * 신규 항목만 추가: 기존에 없는 항목만 추가합니다. 사용자가 수정한 내용은 유지됩니다.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 데이터 내보내기 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -1085,6 +1303,7 @@ function DataManagementSection() {
         </CardContent>
       </Card>
 
+      {/* 계정 삭제 */}
       <Card className="border-destructive/50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-destructive">

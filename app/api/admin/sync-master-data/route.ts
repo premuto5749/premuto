@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import masterData from '@/config/master_data_v3.json';
 
+type SyncMode = 'safe' | 'full';
+
 interface SyncResult {
   success: boolean;
+  mode: SyncMode;
   items: {
     total: number;
     inserted: number;
     updated: number;
+    skipped: number;
     failed: number;
   };
   aliases: {
@@ -24,26 +28,35 @@ interface SyncResult {
  * POST /api/admin/sync-master-data
  * v3 마스터 데이터를 DB에 동기화
  *
+ * 옵션:
+ * - mode: 'safe' | 'full'
+ *   - safe: 신규 항목만 추가, 기존 항목은 건드리지 않음 (기본값)
+ *   - full: 기존 항목도 마스터 데이터로 덮어쓰기
+ * - migrateOldMappings: boolean - 기존 item_mappings를 item_aliases로 이전
+ *
  * 작업:
- * 1. 106개 test_items → standard_items 업서트
+ * 1. 106개 test_items → standard_items 삽입/업데이트
  * 2. 60개 aliases → item_aliases 삽입
  * 3. 기존 item_mappings → item_aliases 이전 (선택적)
  */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
+  // 옵션 파싱
+  const body = await request.json().catch(() => ({}));
+  const mode: SyncMode = body.mode === 'full' ? 'full' : 'safe';
+  const { migrateOldMappings = false } = body;
+
   const result: SyncResult = {
     success: false,
-    items: { total: 0, inserted: 0, updated: 0, failed: 0 },
+    mode,
+    items: { total: 0, inserted: 0, updated: 0, skipped: 0, failed: 0 },
     aliases: { total: 0, inserted: 0, skipped: 0, failed: 0 },
     migratedMappings: 0,
     errors: []
   };
 
   try {
-    // 옵션 파싱
-    const body = await request.json().catch(() => ({}));
-    const { migrateOldMappings = false } = body;
 
     // ============================================
     // 1. standard_items 동기화 (106개 항목)
@@ -61,25 +74,30 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (existing) {
-          // 업데이트
-          const { error } = await supabase
-            .from('standard_items')
-            .update({
-              display_name_ko: item.display_name_ko,
-              default_unit: item.unit,
-              exam_type: item.exam_type,
-              organ_tags: item.organ_tags,
-            })
-            .eq('id', existing.id);
-
-          if (error) {
-            result.items.failed++;
-            result.errors.push(`Update failed for ${item.name}: ${error.message}`);
+          if (mode === 'safe') {
+            // safe 모드: 기존 항목은 건너뜀
+            result.items.skipped++;
           } else {
-            result.items.updated++;
+            // full 모드: 기존 항목 덮어쓰기
+            const { error } = await supabase
+              .from('standard_items')
+              .update({
+                display_name_ko: item.display_name_ko,
+                default_unit: item.unit,
+                exam_type: item.exam_type,
+                organ_tags: item.organ_tags,
+              })
+              .eq('id', existing.id);
+
+            if (error) {
+              result.items.failed++;
+              result.errors.push(`Update failed for ${item.name}: ${error.message}`);
+            } else {
+              result.items.updated++;
+            }
           }
         } else {
-          // 신규 삽입
+          // 신규 삽입 (safe/full 모드 모두 실행)
           const { error } = await supabase
             .from('standard_items')
             .insert({
