@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus } from 'lucide-react'
 import type { DailyLog } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
+import { compressImage } from '@/lib/image-compressor'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -165,12 +166,18 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
     setIsSaving(true)
     try {
-      // 새 사진 업로드
+      // 새 사진 업로드 (압축 후)
       let uploadedPhotoUrls: string[] = []
       if (newPhotoFiles.length > 0) {
         setIsUploadingPhotos(true)
+
+        // 이미지 압축 (Vercel 4.5MB 페이로드 제한 방지)
+        const compressedFiles = await Promise.all(
+          newPhotoFiles.map(file => compressImage(file))
+        )
+
         const formData = new FormData()
-        newPhotoFiles.forEach(file => {
+        compressedFiles.forEach(file => {
           formData.append('files', file)
         })
 
