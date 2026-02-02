@@ -30,12 +30,6 @@ export async function GET() {
     const defaultSettings = {
       id: null,
       user_id: user.id,
-      pet_name: '미모',
-      pet_type: null,
-      pet_breed: null,
-      pet_birth_date: null,
-      pet_weight_kg: null,
-      pet_photo_url: null,
       theme: 'system',
       created_at: null,
       updated_at: null,

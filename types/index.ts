@@ -249,13 +249,6 @@ export interface DailyStats {
 export interface UserSettings {
   id: string
   user_id: string
-  // 반려동물 프로필
-  pet_name: string
-  pet_type: string | null
-  pet_breed: string | null
-  pet_birth_date: string | null
-  pet_weight_kg: number | null
-  pet_photo_url: string | null
   // 테마 설정
   theme: 'light' | 'dark' | 'system'
   created_at: string
@@ -263,12 +256,6 @@ export interface UserSettings {
 }
 
 export interface UserSettingsInput {
-  pet_name?: string
-  pet_type?: string | null
-  pet_breed?: string | null
-  pet_birth_date?: string | null
-  pet_weight_kg?: number | null
-  pet_photo_url?: string | null
   theme?: 'light' | 'dark' | 'system'
 }
 
