@@ -40,6 +40,17 @@ interface RefRangeSegment {
   dataCount: number
 }
 
+// Recharts Customized 컴포넌트 props 타입
+interface CustomizedProps {
+  formattedGraphicalItems?: Array<{
+    props?: {
+      type?: string
+      points?: Array<{ x: number; y: number }>
+    }
+  }>
+  yAxisMap?: Record<string, { scale: (value: number) => number }>
+}
+
 export function TrendChart({ records, itemName, open, onOpenChange }: TrendChartProps) {
   const chartData = useMemo(() => {
     if (!itemName) return null
@@ -205,21 +216,21 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               {/* 각 데이터 포인트별 참고치 수직 바 렌더링 */}
               {chartData.hasAnyRefRange && (
                 <Customized
-                  component={(props: any) => {
+                  component={(props: CustomizedProps) => {
                     const { formattedGraphicalItems, yAxisMap } = props
                     if (!formattedGraphicalItems || !yAxisMap) return null
 
                     // Line 컴포넌트의 points 가져오기
-                    const lineItem = formattedGraphicalItems.find((item: any) => item.props?.type === 'monotone')
+                    const lineItem = formattedGraphicalItems.find((item) => item.props?.type === 'monotone')
                     const points = lineItem?.props?.points
                     if (!points || points.length === 0) return null
 
-                    const yAxis = Object.values(yAxisMap)[0] as any
+                    const yAxis = Object.values(yAxisMap)[0]
                     if (!yAxis?.scale) return null
 
                     return (
                       <g className="ref-range-bars">
-                        {points.map((point: any, index: number) => {
+                        {points.map((point, index) => {
                           const dataPoint = chartData.data[index]
                           if (!dataPoint || dataPoint.ref_min === null || dataPoint.ref_max === null) return null
 
