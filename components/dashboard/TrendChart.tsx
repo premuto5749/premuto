@@ -43,9 +43,9 @@ interface RefRangeSegment {
 // Recharts Customized 컴포넌트 props 타입
 interface CustomizedProps {
   formattedGraphicalItems?: Array<{
+    item?: { props?: { dataKey?: string } }
     props?: {
-      type?: string
-      points?: Array<{ x: number; y: number }>
+      points?: Array<{ x: number; y: number; payload?: Record<string, unknown> }>
     }
   }>
   yAxisMap?: Record<string, { scale: (value: number) => number }>
@@ -220,8 +220,8 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                     const { formattedGraphicalItems, yAxisMap } = props
                     if (!formattedGraphicalItems || !yAxisMap) return null
 
-                    // Line 컴포넌트의 points 가져오기
-                    const lineItem = formattedGraphicalItems.find((item) => item.props?.type === 'monotone')
+                    // Line 컴포넌트의 points 가져오기 (dataKey가 'value'인 것)
+                    const lineItem = formattedGraphicalItems.find((item) => item.item?.props?.dataKey === 'value')
                     const points = lineItem?.props?.points
                     if (!points || points.length === 0) return null
 
@@ -240,7 +240,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
 
                           if (yMin === undefined || yMax === undefined) return null
 
-                          const barWidth = 10
+                          const barWidth = 12
 
                           return (
                             <g key={index}>
@@ -251,7 +251,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                                 width={barWidth}
                                 height={Math.abs(yMin - yMax)}
                                 fill="#22c55e"
-                                fillOpacity={0.25}
+                                fillOpacity={0.3}
                                 rx={2}
                               />
                               {/* 상한선 */}
@@ -278,9 +278,9 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                                 y1={yMax}
                                 x2={x}
                                 y2={yMin}
-                                stroke="#9ca3af"
-                                strokeWidth={1}
-                                strokeDasharray="3 3"
+                                stroke="#6b7280"
+                                strokeWidth={1.5}
+                                strokeDasharray="4 2"
                               />
                             </g>
                           )
