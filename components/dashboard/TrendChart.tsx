@@ -112,12 +112,16 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
     // 참고치가 하나라도 다른지 확인
     const hasMultipleRefRanges = refRangeSegments.length > 1
 
+    // 참고치가 하나라도 있는지 확인
+    const hasAnyRefRange = dataPoints.some(d => d.ref_min !== null || d.ref_max !== null)
+
     return {
       data: dataPoints,
       refMin,
       refMax,
       refRangeSegments,
       hasMultipleRefRanges,
+      hasAnyRefRange,
       unit: latestPoint?.unit || '',
       displayName: latestPoint?.displayName || itemName
     }
@@ -194,47 +198,55 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               />
               <Legend />
 
-              {/* 각 데이터 포인트별 참고치 영역 (ref_max 상한선) */}
-              <Area
-                type="stepAfter"
-                dataKey="ref_max"
-                stroke="#ef4444"
-                strokeWidth={1}
-                strokeDasharray="4 2"
-                fill="none"
-                name="참고치 상한"
-                dot={false}
-                activeDot={false}
-                connectNulls
-              />
+              {/* 참고치가 있는 경우에만 Area 렌더링 */}
+              {chartData.hasAnyRefRange && (
+                <>
+                  {/* 각 데이터 포인트별 참고치 영역 (ref_max 상한선) */}
+                  <Area
+                    type="stepAfter"
+                    dataKey="ref_max"
+                    stroke="#ef4444"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                    fill="none"
+                    name="참고치 상한"
+                    dot={false}
+                    activeDot={false}
+                    connectNulls
+                    isAnimationActive={false}
+                  />
 
-              {/* 각 데이터 포인트별 참고치 영역 (ref_min 하한선) */}
-              <Area
-                type="stepAfter"
-                dataKey="ref_min"
-                stroke="#3b82f6"
-                strokeWidth={1}
-                strokeDasharray="4 2"
-                fill="none"
-                name="참고치 하한"
-                dot={false}
-                activeDot={false}
-                connectNulls
-              />
+                  {/* 각 데이터 포인트별 참고치 영역 (ref_min 하한선) */}
+                  <Area
+                    type="stepAfter"
+                    dataKey="ref_min"
+                    stroke="#3b82f6"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 2"
+                    fill="none"
+                    name="참고치 하한"
+                    dot={false}
+                    activeDot={false}
+                    connectNulls
+                    isAnimationActive={false}
+                  />
 
-              {/* 정상 범위 영역 (각 포인트별 ref_min ~ ref_max 사이 채우기) */}
-              <Area
-                type="stepAfter"
-                dataKey="ref_max"
-                stroke="none"
-                fill="#22c55e"
-                fillOpacity={0.1}
-                name="정상 범위"
-                dot={false}
-                activeDot={false}
-                connectNulls
-                baseValue="dataMin"
-              />
+                  {/* 정상 범위 영역 (각 포인트별 ref_min ~ ref_max 사이 채우기) */}
+                  <Area
+                    type="stepAfter"
+                    dataKey="ref_max"
+                    stroke="none"
+                    fill="#22c55e"
+                    fillOpacity={0.15}
+                    name="정상 범위"
+                    dot={false}
+                    activeDot={false}
+                    connectNulls
+                    baseValue="dataMin"
+                    isAnimationActive={false}
+                  />
+                </>
+              )}
 
               <Line
                 type="monotone"
@@ -283,20 +295,20 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               </div>
             </div>
             {/* 참고치 변경 이력 */}
-            {chartData.refRangeSegments.length > 0 && (
-              <div className="mt-3 pt-3 border-t">
-                <p className="text-sm font-medium mb-2">
-                  참고치 이력
-                  {chartData.hasMultipleRefRanges && (
-                    <span className="ml-2 text-xs text-orange-500 font-normal">
-                      ⚠️ 참고치가 {chartData.refRangeSegments.length}회 변경됨
-                    </span>
-                  )}
-                </p>
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-sm font-medium mb-2">
+                참고치 이력
+                {chartData.hasMultipleRefRanges && (
+                  <span className="ml-2 text-xs text-orange-500 font-normal">
+                    ⚠️ 참고치가 {chartData.refRangeSegments.length}회 변경됨
+                  </span>
+                )}
+              </p>
+              {chartData.hasAnyRefRange ? (
                 <div className="space-y-1">
                   {chartData.refRangeSegments.map((segment, index) => (
-                    <div key={index} className="flex items-center gap-2 text-sm">
-                      <span className="text-muted-foreground min-w-[120px]">
+                    <div key={index} className="flex items-center gap-2 text-sm flex-wrap">
+                      <span className="text-muted-foreground min-w-[100px]">
                         {segment.startDate === segment.endDate
                           ? segment.startDate
                           : `${segment.startDate} ~ ${segment.endDate}`}
@@ -313,38 +325,44 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  참고치 정보가 없습니다. (검사지에 참고 범위가 기록되지 않았거나 OCR에서 인식되지 않았습니다)
+                </p>
+              )}
+            </div>
             <div className="mt-3 pt-3 border-t">
               <p className="text-sm text-muted-foreground mb-2">범례:</p>
               <div className="flex flex-wrap gap-4 text-xs">
                 <div className="flex items-center gap-1">
                   <span className="w-3 h-3 rounded-full bg-[#ef4444]"></span>
-                  <span>🔴 High (기준치 초과)</span>
+                  <span>High (기준치 초과)</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-3 h-3 rounded-full bg-[#22c55e]"></span>
-                  <span>🟢 Normal (정상 범위)</span>
+                  <span>Normal (정상 범위)</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <span className="w-3 h-3 rounded-full bg-[#3b82f6]"></span>
-                  <span>🔵 Low (기준치 미만)</span>
+                  <span>Low (기준치 미만)</span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-4 text-xs mt-2">
-                <div className="flex items-center gap-1">
-                  <span className="w-6 h-0.5 bg-[#ef4444]" style={{ borderStyle: 'dashed' }}></span>
-                  <span>참고치 상한 (Max)</span>
+              {chartData.hasAnyRefRange && (
+                <div className="flex flex-wrap gap-4 text-xs mt-2">
+                  <div className="flex items-center gap-1">
+                    <span className="w-6 border-t-2 border-dashed border-[#ef4444]"></span>
+                    <span>참고치 상한 (Max)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-6 border-t-2 border-dashed border-[#3b82f6]"></span>
+                    <span>참고치 하한 (Min)</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-6 h-3 bg-[#22c55e] opacity-20"></span>
+                    <span>정상 범위 영역</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-6 h-0.5 bg-[#3b82f6]" style={{ borderStyle: 'dashed' }}></span>
-                  <span>참고치 하한 (Min)</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-6 h-3 bg-[#22c55e] opacity-20"></span>
-                  <span>정상 범위 영역</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
