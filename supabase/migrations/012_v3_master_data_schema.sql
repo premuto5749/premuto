@@ -20,18 +20,29 @@ COMMENT ON COLUMN standard_items.organ_tags IS '장기/시스템 태그 배열. 
 ALTER TABLE standard_items
 DROP CONSTRAINT IF EXISTS check_exam_type;
 
+-- 기존 category를 exam_type으로 마이그레이션 (category가 있고 exam_type이 없는 경우)
+-- 레거시 값을 새 값으로 변환
+UPDATE standard_items
+SET exam_type = CASE category
+  WHEN 'Urinalysis' THEN '뇨검사'
+  WHEN 'Ophthalmology' THEN '안과검사'
+  WHEN 'Electrolyte' THEN 'Chemistry'
+  WHEN 'BloodGas' THEN 'Blood Gas'
+  WHEN 'Unmapped' THEN NULL
+  ELSE category
+END
+WHERE exam_type IS NULL AND category IS NOT NULL;
+
+-- 이제 제약 조건 적용 (레거시 값도 허용)
 ALTER TABLE standard_items
 ADD CONSTRAINT check_exam_type CHECK (
   exam_type IS NULL OR exam_type IN (
     'Vital', 'CBC', 'Chemistry', 'Special', 'Blood Gas',
-    'Coagulation', '뇨검사', '안과검사', 'Echo'
+    'Coagulation', '뇨검사', '안과검사', 'Echo',
+    -- 레거시 값 (하위 호환성)
+    'Urinalysis', 'Ophthalmology', 'Electrolyte', 'BloodGas', 'Unmapped', 'Other'
   )
 );
-
--- 기존 category를 exam_type으로 마이그레이션 (category가 있고 exam_type이 없는 경우)
-UPDATE standard_items
-SET exam_type = category
-WHERE exam_type IS NULL AND category IS NOT NULL;
 
 -- ============================================
 -- 2. item_aliases 테이블 생성
