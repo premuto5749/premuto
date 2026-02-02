@@ -283,9 +283,9 @@ function HospitalContactsContent() {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-lg truncate">{hospital.name}</h3>
                       {hospital.address && (
-                        <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                          <MapPin className="w-3 h-3 flex-shrink-0" />
-                          <span className="truncate">{hospital.address}</span>
+                        <p className="text-sm text-muted-foreground flex items-start gap-1 mt-1">
+                          <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                          <span className="break-words">{hospital.address}</span>
                         </p>
                       )}
                       {hospital.notes && (
