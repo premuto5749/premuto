@@ -40,6 +40,7 @@ export function HospitalSelector({
   const [newHospitalName, setNewHospitalName] = React.useState("")
   const [newHospitalAddress, setNewHospitalAddress] = React.useState("")
   const [newHospitalPhone, setNewHospitalPhone] = React.useState("")
+  const [newHospitalWebsite, setNewHospitalWebsite] = React.useState("")
   const [creating, setCreating] = React.useState(false)
 
   // 현재 선택된 병원이 목록에 있는지 확인
@@ -58,7 +59,8 @@ export function HospitalSelector({
         body: JSON.stringify({
           name: newHospitalName.trim(),
           address: newHospitalAddress.trim() || null,
-          phone: newHospitalPhone.trim() || null
+          phone: newHospitalPhone.trim() || null,
+          website: newHospitalWebsite.trim() || null
         })
       })
 
@@ -71,6 +73,7 @@ export function HospitalSelector({
         setNewHospitalName("")
         setNewHospitalAddress("")
         setNewHospitalPhone("")
+        setNewHospitalWebsite("")
       } else {
         alert(result.error || '병원 추가에 실패했습니다')
       }
@@ -177,6 +180,15 @@ export function HospitalSelector({
                 value={newHospitalPhone}
                 onChange={(e) => setNewHospitalPhone(e.target.value)}
                 placeholder="예: 02-1234-5678"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hospital-website">지도 링크</Label>
+              <Input
+                id="hospital-website"
+                value={newHospitalWebsite}
+                onChange={(e) => setNewHospitalWebsite(e.target.value)}
+                placeholder="예: https://naver.me/..."
               />
             </div>
           </div>

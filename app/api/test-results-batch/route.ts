@@ -3,6 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import type { BatchSaveRequest } from '@/types'
 import { parseValue } from '@/lib/ocr/value-parser'
 
+// 최대 실행 시간 설정 (30초)
+export const maxDuration = 30
+
 export async function POST(request: NextRequest) {
   try {
     const body: BatchSaveRequest = await request.json()

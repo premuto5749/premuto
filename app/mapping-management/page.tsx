@@ -149,7 +149,10 @@ function MappingManagementContent() {
         throw new Error(result.error || 'AI 정리 중 오류가 발생했습니다.')
       }
 
-      alert(`AI 정리 완료!\n- 매핑된 항목: ${result.data.mapped_count}개\n- 실패한 항목: ${result.data.failed_count}개`)
+      const remainingMsg = result.data.remaining_count > 0
+        ? `\n- 남은 항목: ${result.data.remaining_count}개 (다시 실행해주세요)`
+        : ''
+      alert(`AI 정리 완료!\n- 매핑된 항목: ${result.data.mapped_count}개\n- 실패한 항목: ${result.data.failed_count}개${remainingMsg}`)
       setSelectedRemappings({})
       fetchData() // 새로고침
     } catch (error) {

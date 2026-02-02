@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
 import { matchItem } from '@/lib/ocr/item-matcher'
 
+// 최대 실행 시간 설정 (60초)
+export const maxDuration = 60
+
 // Anthropic 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
 function getAnthropicClient() {
   return new Anthropic({

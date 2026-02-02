@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, phone, notes } = body
+    const { name, address, phone, website, notes } = body
 
     if (!name) {
       return NextResponse.json(
@@ -81,8 +81,10 @@ export async function POST(request: NextRequest) {
       .from('hospitals')
       .insert({
         name,
-        phone,
-        notes,
+        address: address || null,
+        phone: phone || null,
+        website: website || null,
+        notes: notes || null,
         user_id: user.id
       })
       .select()
