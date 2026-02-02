@@ -4,12 +4,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, CalendarIcon, Clock } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { LOG_CATEGORY_CONFIG } from '@/types'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
 
 interface BreathingTimerModalProps {
   open: boolean
@@ -33,20 +30,16 @@ export function BreathingTimerModal({
   const [breathingRate, setBreathingRate] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [flashVisible, setFlashVisible] = useState(true)
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
-  const [selectedTime, setSelectedTime] = useState('')
+  const [logDate, setLogDate] = useState('')
+  const [logTime, setLogTime] = useState('')
   const { toast } = useToast()
 
   // 모달 열릴 때 기본값 설정
   useEffect(() => {
     if (open) {
       const now = new Date()
-      if (defaultDate) {
-        setSelectedDate(new Date(defaultDate))
-      } else {
-        setSelectedDate(now)
-      }
-      setSelectedTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+      setLogDate(defaultDate || now.toISOString().split('T')[0])
+      setLogTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
     }
   }, [open, defaultDate])
 
@@ -57,8 +50,8 @@ export function BreathingTimerModal({
       setTimeLeft(60)
       setBreathingRate('')
       setFlashVisible(true)
-      setSelectedDate(undefined)
-      setSelectedTime('')
+      setLogDate('')
+      setLogTime('')
     }
   }, [open])
 
@@ -118,12 +111,8 @@ export function BreathingTimerModal({
     setIsSubmitting(true)
 
     try {
-      // 선택한 날짜와 시간으로 logged_at 생성
-      const dateStr = selectedDate
-        ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
-        : defaultDate || new Date().toISOString().split('T')[0]
-      const timeStr = selectedTime || `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`
-      const loggedAt = `${dateStr}T${timeStr}:00+09:00`
+      // KST 타임존을 명시적으로 포함하여 시간대 변환 문제 방지
+      const loggedAt = `${logDate}T${logTime}:00+09:00`
 
       const response = await fetch('/api/daily-logs', {
         method: 'POST',
@@ -286,46 +275,21 @@ export function BreathingTimerModal({
             </div>
 
             {/* 날짜/시간 선택 */}
-            <div className="w-full max-w-xs space-y-3 pt-2 border-t">
-              <div className="grid grid-cols-2 gap-2">
-                {/* 날짜 선택 */}
-                <div>
-                  <Label className="text-xs text-muted-foreground">날짜</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal h-9 text-sm"
-                      >
-                        <CalendarIcon className="mr-2 h-3 w-3" />
-                        {selectedDate
-                          ? `${selectedDate.getMonth() + 1}/${selectedDate.getDate()}`
-                          : '선택'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 z-[100]" align="start">
-                      <Calendar
-                        selected={selectedDate}
-                        onSelect={(date) => date && setSelectedDate(date)}
-                        maxDate={new Date()}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* 시간 선택 */}
-                <div>
-                  <Label className="text-xs text-muted-foreground">시간</Label>
-                  <div className="relative">
-                    <Clock className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                    <Input
-                      type="time"
-                      value={selectedTime}
-                      onChange={(e) => setSelectedTime(e.target.value)}
-                      className="h-9 text-sm pl-7"
-                    />
-                  </div>
-                </div>
+            <div className="w-full max-w-xs pt-2 border-t">
+              <label className="text-sm font-medium mb-1.5 block">시간</label>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={logDate}
+                  onChange={(e) => setLogDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  type="time"
+                  value={logTime}
+                  onChange={(e) => setLogTime(e.target.value)}
+                  className="w-28"
+                />
               </div>
             </div>
 
