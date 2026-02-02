@@ -49,6 +49,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
     { href: '/hospital-contacts', label: '병원 연락처', icon: '🏥' },
     { href: '/records-management', label: '검사 기록 관리', icon: '🗑️' },
     { href: '/mapping-management', label: '검사항목 매핑 관리', icon: '⚙️' },
+    { href: '/standard-items', label: '표준항목 관리', icon: '📋' },
     { href: '/settings', label: '설정', icon: '🔧' },
   ]
 

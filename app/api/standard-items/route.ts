@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const body = await request.json()
 
-    const { name, display_name_ko, category, default_unit, description } = body
+    const { name, display_name_ko, category, default_unit, description, exam_type, organ_tags } = body
 
     if (!name) {
       return NextResponse.json(
@@ -70,9 +70,11 @@ export async function POST(request: NextRequest) {
       .insert({
         name,
         display_name_ko: display_name_ko || name,
-        category: category || 'Unmapped',
+        category: category || exam_type || 'Unmapped',
         default_unit,
-        description
+        description,
+        exam_type: exam_type || category || 'Unmapped',
+        organ_tags: organ_tags || []
       })
       .select()
       .single()
