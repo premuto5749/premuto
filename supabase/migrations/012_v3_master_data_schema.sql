@@ -11,7 +11,8 @@
 
 ALTER TABLE standard_items
 ADD COLUMN IF NOT EXISTS exam_type VARCHAR(50),
-ADD COLUMN IF NOT EXISTS organ_tags JSONB DEFAULT '[]'::jsonb;
+ADD COLUMN IF NOT EXISTS organ_tags JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS sort_order INTEGER;
 
 COMMENT ON COLUMN standard_items.exam_type IS '검사유형: Vital, CBC, Chemistry, Special, Blood Gas, Coagulation, 뇨검사, 안과검사, Echo';
 COMMENT ON COLUMN standard_items.organ_tags IS '장기/시스템 태그 배열. 예: ["혈액", "면역"]';
