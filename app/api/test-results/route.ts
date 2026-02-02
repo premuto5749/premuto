@@ -112,12 +112,58 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET: 모든 검사 기록 조회 (대시보드용)
-export async function GET() {
+// GET: 모든 검사 기록 조회 (대시보드용) 또는 단일 레코드 조회
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    const recordId = searchParams.get('recordId')
 
-    // test_records와 test_results를 조인하여 조회
+    // 단일 레코드 조회 (수정 페이지용)
+    if (recordId) {
+      const { data: record, error } = await supabase
+        .from('test_records')
+        .select(`
+          id,
+          test_date,
+          hospital_name,
+          machine_type,
+          created_at,
+          test_results (
+            id,
+            standard_item_id,
+            value,
+            ref_min,
+            ref_max,
+            ref_text,
+            status,
+            unit,
+            standard_items (
+              id,
+              name,
+              display_name_ko,
+              default_unit
+            )
+          )
+        `)
+        .eq('id', recordId)
+        .single()
+
+      if (error) {
+        console.error('Failed to fetch test record:', error)
+        return NextResponse.json(
+          { error: '검사 기록 조회에 실패했습니다', details: error.message },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: record
+      })
+    }
+
+    // 전체 레코드 목록 조회
     const { data: records, error } = await supabase
       .from('test_records')
       .select(`

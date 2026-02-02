@@ -46,8 +46,7 @@ export async function POST(request: NextRequest) {
       .from('test_records')
       .update({
         test_date: targetDate,
-        hospital_name: targetHospital,
-        updated_at: new Date().toISOString()
+        hospital_name: targetHospital
       })
       .eq('id', targetRecordId)
 
