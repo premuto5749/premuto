@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,8 +65,9 @@ interface TestResultItem {
   } | null
 }
 
-export default function EditRecordPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export default function EditRecordPage() {
+  const params = useParams()
+  const id = params.id as string
   const router = useRouter()
   const { toast } = useToast()
 

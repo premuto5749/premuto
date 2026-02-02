@@ -278,11 +278,13 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
     for (let i = currentIndex - 1; i >= 0; i--) {
       const previousResult = sortedRecords[i].test_results.find(r => r.standard_items.name === itemName)
       if (previousResult) {
-        const currentRef = currentResult.ref_text || `${currentResult.ref_min}-${currentResult.ref_max}`
-        const previousRef = previousResult.ref_text || `${previousResult.ref_min}-${previousResult.ref_max}`
+        // ref_min과 ref_max 값을 직접 비교 (문자열 비교는 공백 차이로 인해 부정확함)
+        const minChanged = currentResult.ref_min !== previousResult.ref_min
+        const maxChanged = currentResult.ref_max !== previousResult.ref_max
 
-        if (currentRef !== previousRef) {
-          return { changed: true, previousRef: previousResult.ref_text || previousRef }
+        if (minChanged || maxChanged) {
+          const previousRef = previousResult.ref_text || `${previousResult.ref_min ?? '?'}-${previousResult.ref_max ?? '?'}`
+          return { changed: true, previousRef }
         }
         return { changed: false, previousRef: null }
       }
