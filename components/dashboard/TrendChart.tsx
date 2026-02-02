@@ -205,26 +205,31 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               {/* 각 데이터 포인트별 참고치 수직 바 렌더링 */}
               {chartData.hasAnyRefRange && (
                 <Customized
-                  component={(props: { xAxisMap?: Record<string, { scale: (v: string) => number; bandwidth?: () => number }>; yAxisMap?: Record<string, { scale: (v: number) => number }> }) => {
-                    const { xAxisMap, yAxisMap } = props
-                    if (!xAxisMap || !yAxisMap) return null
+                  component={(props: any) => {
+                    const { formattedGraphicalItems, yAxisMap } = props
+                    if (!formattedGraphicalItems || !yAxisMap) return null
 
-                    const xAxis = Object.values(xAxisMap)[0]
-                    const yAxis = Object.values(yAxisMap)[0]
-                    if (!xAxis || !yAxis) return null
+                    // Line 컴포넌트의 points 가져오기
+                    const lineItem = formattedGraphicalItems.find((item: any) => item.props?.type === 'monotone')
+                    const points = lineItem?.props?.points
+                    if (!points || points.length === 0) return null
+
+                    const yAxis = Object.values(yAxisMap)[0] as any
+                    if (!yAxis?.scale) return null
 
                     return (
                       <g className="ref-range-bars">
-                        {chartData.data.map((point, index) => {
-                          if (point.ref_min === null && point.ref_max === null) return null
+                        {points.map((point: any, index: number) => {
+                          const dataPoint = chartData.data[index]
+                          if (!dataPoint || dataPoint.ref_min === null || dataPoint.ref_max === null) return null
 
-                          const x = xAxis.scale(point.dateLabel) + (xAxis.bandwidth?.() || 0) / 2
-                          const yMin = point.ref_min !== null ? yAxis.scale(point.ref_min) : null
-                          const yMax = point.ref_max !== null ? yAxis.scale(point.ref_max) : null
+                          const x = point.x
+                          const yMin = yAxis.scale(dataPoint.ref_min)
+                          const yMax = yAxis.scale(dataPoint.ref_max)
 
-                          if (yMin === null || yMax === null) return null
+                          if (yMin === undefined || yMax === undefined) return null
 
-                          const barWidth = 8
+                          const barWidth = 10
 
                           return (
                             <g key={index}>
@@ -233,9 +238,9 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                                 x={x - barWidth / 2}
                                 y={yMax}
                                 width={barWidth}
-                                height={yMin - yMax}
+                                height={Math.abs(yMin - yMax)}
                                 fill="#22c55e"
-                                fillOpacity={0.2}
+                                fillOpacity={0.25}
                                 rx={2}
                               />
                               {/* 상한선 */}
@@ -264,7 +269,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                                 y2={yMin}
                                 stroke="#9ca3af"
                                 strokeWidth={1}
-                                strokeDasharray="2 2"
+                                strokeDasharray="3 3"
                               />
                             </g>
                           )
