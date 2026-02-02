@@ -337,6 +337,12 @@ export default function DailyLogPage() {
                   📊 검사 결과 대시보드
                 </Link>
                 <Link
+                  href="/hospital-contacts"
+                  className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
+                >
+                  🏥 병원 연락처
+                </Link>
+                <Link
                   href="/records-management"
                   className="flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors"
                 >
@@ -362,6 +368,21 @@ export default function DailyLogPage() {
                   <Heart className="w-4 h-4 mr-2 text-pink-500" />
                   후원하기
                 </button>
+                <a
+                  href="https://withpremuto.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
+                >
+                  <span className="flex items-center">
+                    <span className="w-4 h-4 mr-2">💬</span>
+                    피드백 주기
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                </a>
+                <p className="px-4 py-2 text-xs text-muted-foreground">
+                  버그나 개선 요청, 응원의 글을 보내주세요.
+                </p>
                 <form action="/auth/signout" method="post">
                   <button
                     type="submit"

@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Camera, X, Loader2, Image as ImageIcon } from 'lucide-react'
 import type { LogCategory, DailyLogInput } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
+import { compressImage } from '@/lib/image-compressor'
 
 const MAX_PHOTOS = 5
 
@@ -167,14 +168,19 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotoPreviews(prev => prev.filter((_, i) => i !== index))
   }
 
-  // 사진 업로드 함수
+  // 사진 업로드 함수 (압축 후 업로드)
   const uploadPhotos = async (): Promise<string[]> => {
     if (photos.length === 0) return []
 
     setIsUploading(true)
     try {
+      // 이미지 압축 (Vercel 4.5MB 페이로드 제한 방지)
+      const compressedPhotos = await Promise.all(
+        photos.map(photo => compressImage(photo))
+      )
+
       const formData = new FormData()
-      photos.forEach((photo, index) => {
+      compressedPhotos.forEach((photo, index) => {
         formData.append(`photo${index}`, photo)
       })
 
