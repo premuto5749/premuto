@@ -46,9 +46,11 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
 
     const dataPoints = records
       .map(record => {
-        const result = record.test_results.find(
+        // 동일 항목의 중복 결과가 있을 경우 마지막 값을 선택 (PivotTable과 일관성 유지)
+        const matchingResults = record.test_results.filter(
           r => r.standard_items.name === itemName
         )
+        const result = matchingResults[matchingResults.length - 1]
         if (!result) return null
 
         // standard_items.default_unit 우선, 없으면 test_results.unit 사용
