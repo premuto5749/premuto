@@ -20,8 +20,8 @@ const UNIT_ALIASES: Record<string, string[]> = {
   'mU/L': ['mU/L', 'mU/l', 'mIU/L'],
 
   // 혈구 수
-  'K/μL': ['K/μL', 'K/uL', 'K/ul', '10^3/μL', '10^3/uL', 'x10^3/μL', 'x10^3/uL', '10³/μL', 'thou/uL', 'K/µL'],
-  'M/μL': ['M/μL', 'M/uL', 'M/ul', '10^6/μL', '10^6/uL', 'x10^6/μL', 'x10^6/uL', '10⁶/μL', 'mil/uL', 'M/µL'],
+  'K/μL': ['K/μL', 'K/uL', 'K/ul', '10^3/μL', '10^3/uL', 'x10^3/μL', 'x10^3/uL', '10³/μL', 'thou/uL', 'K/µL', '10e3/μL', '10e3/uL', '10e3/ul', '10e3/', 'x10e3/μL'],
+  'M/μL': ['M/μL', 'M/uL', 'M/ul', '10^6/μL', '10^6/uL', 'x10^6/μL', 'x10^6/uL', '10⁶/μL', 'mil/uL', 'M/µL', '10e6/μL', '10e6/uL', '10e6/ul', '10e6/', 'x10e6/μL'],
   '/μL': ['/μL', '/uL', '/ul', '/µL', 'cells/uL', 'cells/μL'],
 
   // 백분율
