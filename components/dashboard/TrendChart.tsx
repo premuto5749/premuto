@@ -227,12 +227,15 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 strokeWidth={2}
                 dot={(props) => {
                   const { cx, cy, payload } = props
+
+                  // cx, cy가 없으면 렌더링하지 않음
+                  if (cx === undefined || cy === undefined) return null
+
                   const statusColor = payload.status === 'High' ? '#ef4444' : payload.status === 'Low' ? '#3b82f6' : '#22c55e'
 
                   // 참고치 범위가 있으면 수직 바 그리기
                   const refMin = payload.ref_min
                   const refMax = payload.ref_max
-                  const value = payload.value
 
                   // Y 좌표 계산을 위한 상수 (차트 설정에 맞춤)
                   // chart height: 400, margin top: 5, margin bottom: 5, XAxis height: 80
