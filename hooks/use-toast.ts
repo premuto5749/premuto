@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { toast as sonnerToast } from 'sonner'
 
 interface ToastProps {
@@ -7,7 +8,7 @@ interface ToastProps {
 }
 
 export function useToast() {
-  const toast = ({ title, description, variant }: ToastProps) => {
+  const toast = useCallback(({ title, description, variant }: ToastProps) => {
     if (variant === 'destructive') {
       sonnerToast.error(title, {
         description,
@@ -17,7 +18,7 @@ export function useToast() {
         description,
       })
     }
-  }
+  }, [])
 
   return { toast }
 }
