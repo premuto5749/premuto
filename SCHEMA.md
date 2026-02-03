@@ -1,7 +1,7 @@
-# Database Schema: Mimo Health Log
+# Database Schema: Premuto - Pet Health Log
 
 ## Overview
-반려동물 '미모'의 건강을 종합적으로 관리하기 위한 데이터베이스 구조입니다.
+반려동물의 건강을 종합적으로 관리하기 위한 **다중 사용자** 데이터베이스 구조입니다.
 
 **주요 기능**:
 1. **일일 건강 기록**: 식사, 음수, 약, 배변, 배뇨, 호흡수 기록 (`daily_logs`)
@@ -10,6 +10,47 @@
 **v2 업데이트**: 다중 파일 업로드 지원 및 AI 기반 매칭 신뢰도 저장 기능 추가
 **v3 업데이트**: 일일 건강 기록 기능 추가
 **v3.2 업데이트**: 마스터 데이터 v3 스키마 확장 (exam_type, organ_tags, item_aliases, sort_order_configs)
+**v4 업데이트**: 관리자/사용자 데이터 분리 (마스터 + 오버라이드 구조)
+
+---
+
+## 데이터 구조 개요 (v4)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│            🔒 마스터 테이블 (슈퍼어드민 관리)                      │
+│            모든 사용자 읽기 가능, 쓰기는 service_role만           │
+├─────────────────────────────────────────────────────────────────┤
+│  standard_items_master   │ 표준 검사항목 (106개)                 │
+│  item_aliases_master     │ 장비별 별칭                          │
+│  item_mappings_master    │ AI 학습된 매핑 사전                   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                   사용자가 수정/추가 시
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│            👤 사용자 오버라이드 테이블                             │
+│            본인 데이터만 CRUD (RLS 격리)                          │
+├─────────────────────────────────────────────────────────────────┤
+│  user_standard_items     │ 마스터 항목 수정 또는 신규 추가         │
+│  user_item_aliases       │ 마스터 별칭 수정 또는 신규 추가         │
+│  user_item_mappings      │ 마스터 매핑 수정 또는 신규 추가         │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│            👤 사용자 고유 데이터 (RLS 격리)                        │
+├─────────────────────────────────────────────────────────────────┤
+│  daily_logs              │ 일일 건강 기록                        │
+│  pets                    │ 반려동물 프로필                       │
+│  test_records            │ 검사 기록 헤더 (user_id 추가)          │
+│  test_results            │ 검사 상세 결과 (record_id 통해 격리)   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**오버라이드 동작 방식**:
+- `master_item_id = UUID` → 마스터 항목 **수정** (NULL이 아닌 필드만 덮어씀)
+- `master_item_id = NULL` → 사용자가 **새로 추가**한 항목
+- 초기화 시 → `user_*` 테이블에서 해당 user_id 레코드 DELETE (마스터 영향 없음)
 
 ## Tables
 
@@ -69,11 +110,11 @@ GROUP BY (logged_at AT TIME ZONE 'UTC')::date;
 
 ---
 
-### 1. 표준 항목 마스터 (Standard Items) - **v3.2 업데이트**
-미모 데이터의 'Category'와 'Item'을 관리하는 기준 테이블
+### 1. 표준 항목 마스터 (Standard Items Master) - **v4 업데이트**
+표준 검사항목을 관리하는 기준 테이블 (슈퍼어드민만 수정 가능)
 
 ```sql
-create table standard_items (
+create table standard_items_master (
   id uuid primary key default gen_random_uuid(),
   category varchar, -- 예: CBC, Chemistry, Electrolyte, Special (하위 호환)
   name varchar not null, -- 표준명 (예: 'Creatinine', 'cPL')
@@ -88,9 +129,13 @@ create table standard_items (
 );
 
 -- v3.2 인덱스
-create index idx_standard_items_exam_type on standard_items(exam_type);
-create index idx_standard_items_organ_tags on standard_items using gin(organ_tags);
+create index idx_standard_items_exam_type on standard_items_master(exam_type);
+create index idx_standard_items_organ_tags on standard_items_master using gin(organ_tags);
 ```
+
+**RLS 정책**:
+- `SELECT`: 모든 인증된 사용자 (`authenticated`)
+- `INSERT/UPDATE/DELETE`: `service_role`만 (슈퍼어드민 API)
 
 **v3.2 exam_type 목록** (9개):
 - `Vital`: 기본 신체 검사 (체온, 체중, 맥박, 혈압)
@@ -110,27 +155,28 @@ create index idx_standard_items_organ_tags on standard_items using gin(organ_tag
 담도, 영양, 알레르기, 감염, 안과
 ```
 
-### 2. 항목 별칭 (Item Aliases) - **v3.2 추가**
-OCR 결과가 다양하게 나와도 표준 항목으로 연결해주는 별칭 테이블
-- `item_mappings`을 대체하는 새로운 테이블 (하위 호환성 유지)
+### 2. 항목 별칭 마스터 (Item Aliases Master) - **v4 업데이트**
+OCR 결과가 다양하게 나와도 표준 항목으로 연결해주는 별칭 테이블 (슈퍼어드민만 수정 가능)
 - **source_hint**: 장비/병원별 힌트 지원 (예: ABL80F, IDEXX)
 
 ```sql
-create table item_aliases (
+create table item_aliases_master (
   id uuid primary key default gen_random_uuid(),
   alias varchar(100) not null, -- 검사지에 적힌 날것의 이름
-  canonical_name varchar(100) not null, -- 표준 항목명 (standard_items.name)
+  canonical_name varchar(100) not null, -- 표준 항목명 (standard_items_master.name)
   source_hint varchar(100), -- 장비/병원 힌트 (예: ABL80F, IDEXX, Fuji)
-  standard_item_id uuid references standard_items(id) on delete cascade,
+  standard_item_id uuid references standard_items_master(id) on delete cascade,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
 
 -- 동일한 alias가 중복 생성되지 않도록 유니크 제약
-create unique index idx_unique_alias on item_aliases(alias);
+create unique index idx_unique_alias on item_aliases_master(alias);
 -- 표준 항목으로 빠른 조회
-create index idx_alias_standard_item on item_aliases(standard_item_id);
+create index idx_alias_standard_item on item_aliases_master(standard_item_id);
 ```
+
+**RLS 정책**: `standard_items_master`와 동일
 
 **source_hint 예시**:
 | alias | canonical_name | source_hint | 설명 |
@@ -141,30 +187,29 @@ create index idx_alias_standard_item on item_aliases(standard_item_id);
 
 ---
 
-### 3. 항목 매핑 사전 (Item Mappings) - **레거시, v3.2부터 item_aliases 사용 권장**
-OCR 결과가 다양하게 나와도 표준 항목으로 연결해주는 사전
+### 3. 항목 매핑 사전 마스터 (Item Mappings Master) - **v4 업데이트**
+OCR 결과를 표준 항목으로 연결해주는 AI 학습 사전 (슈퍼어드민만 수정 가능)
 - 예: raw_name='Cre' -> standard_item_id='Creatinine의 ID'
-- 예: raw_name='CREA' -> standard_item_id='Creatinine의 ID'
-- **v2 추가**: AI가 제안한 매칭을 사용자가 승인하면 자동으로 이 테이블에 추가되어 다음번 학습에 활용
-- **v3.2 참고**: 새로운 매핑은 `item_aliases` 테이블에 저장 권장
+- AI가 제안한 매칭을 사용자가 승인하면 자동으로 추가되어 학습에 활용
 
 ```sql
-create table item_mappings (
+create table item_mappings_master (
   id uuid primary key default gen_random_uuid(),
   raw_name varchar not null, -- 검사지에 적힌 날것의 이름
-  standard_item_id uuid references standard_items(id),
+  standard_item_id uuid references standard_items_master(id),
 
-  -- v2 추가 필드
   confidence_score numeric(5,2), -- AI 매칭 신뢰도 (0.00~100.00)
   mapping_source varchar check (mapping_source in ('ai', 'user', 'manual')),
     -- ai: AI가 자동 매칭, user: 사용자가 AI 제안 승인, manual: 사용자가 직접 입력
   created_at timestamptz default now(),
-  created_by varchar -- 매핑을 생성한 사용자 (향후 다중 사용자 지원 시)
+  created_by varchar
 );
 
 -- 동일한 raw_name이 중복 생성되지 않도록 유니크 제약
-create unique index idx_unique_raw_name on item_mappings(raw_name);
+create unique index idx_unique_raw_name on item_mappings_master(raw_name);
 ```
+
+**RLS 정책**: `standard_items_master`와 동일
 
 ---
 
@@ -204,31 +249,118 @@ create table sort_order_configs (
 }
 ```
 
-### 5. 검사 기록 헤더 (Test Records) - **다중 파일 통합**
+### 5. 사용자 오버라이드 테이블 (User Override Tables) - **v4 추가**
+사용자가 마스터 데이터를 수정하거나 새 항목을 추가할 때 저장되는 테이블들
+
+#### 5-1. user_standard_items
+```sql
+create table user_standard_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+
+  -- master_item_id가 있으면 마스터 수정, NULL이면 신규 추가
+  master_item_id uuid references standard_items_master(id) on delete cascade,
+
+  -- 오버라이드 가능한 필드들 (NULL이면 마스터 값 사용)
+  category varchar(50),
+  name varchar(100),
+  display_name_ko varchar(100),
+  default_unit varchar(20),
+  description text,
+  exam_type varchar(50),
+  organ_tags jsonb,
+  sort_order integer,
+
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+
+  constraint unique_user_master_item unique(user_id, master_item_id)
+);
+```
+
+#### 5-2. user_item_aliases
+```sql
+create table user_item_aliases (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  master_alias_id uuid references item_aliases_master(id) on delete cascade,
+
+  alias varchar(100),
+  canonical_name varchar(100),
+  source_hint varchar(100),
+  standard_item_id uuid references standard_items_master(id) on delete cascade,
+
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+
+  constraint unique_user_master_alias unique(user_id, master_alias_id),
+  constraint unique_user_alias unique(user_id, alias)
+);
+```
+
+#### 5-3. user_item_mappings
+```sql
+create table user_item_mappings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  master_mapping_id uuid references item_mappings_master(id) on delete cascade,
+
+  raw_name varchar(100),
+  standard_item_id uuid references standard_items_master(id) on delete cascade,
+  confidence_score numeric(5,2),
+  mapping_source varchar check (mapping_source in ('ai', 'user', 'manual')),
+
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+
+  constraint unique_user_master_mapping unique(user_id, master_mapping_id),
+  constraint unique_user_raw_name unique(user_id, raw_name)
+);
+```
+
+**RLS 정책**: 모든 user_* 테이블은 `auth.uid() = user_id`로 본인 데이터만 접근 가능
+
+**조회 함수**: `get_user_standard_items(user_id)`, `get_user_item_aliases(user_id)`, `get_user_item_mappings(user_id)`
+- 마스터 + 사용자 오버라이드를 병합하여 반환
+- `is_custom`: 사용자가 새로 추가한 항목 여부
+- `is_modified`: 마스터를 수정한 항목 여부
+
+**초기화 함수**: `reset_user_master_data(user_id)`
+- 사용자의 모든 오버라이드/커스텀 데이터 삭제
+- 마스터 데이터에는 영향 없음
+
+---
+
+### 6. 검사 기록 헤더 (Test Records) - **v4 업데이트**
 병원 방문 1회당 1개의 레코드 생성 (여러 파일에서 추출된 결과를 하나로 통합)
 
 ```sql
 create table test_records (
   id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade, -- v4 추가
   test_date date not null, -- 검사 날짜 (2025-12-02 등)
   hospital_name varchar, -- 병원명 (타임즈, 서동심 등)
   machine_type varchar, -- 장비명 (선택사항, 예: Fuji, IDEXX)
 
   -- v2 추가 필드: 다중 파일 업로드 지원
   uploaded_files jsonb, -- 업로드된 파일들의 메타데이터 배열
-    -- 예: [
-    --   {"filename": "cbc_2025-12-02.pdf", "size": 245120, "type": "application/pdf"},
-    --   {"filename": "chemistry_2025-12-02.jpg", "size": 1048576, "type": "image/jpeg"}
-    -- ]
   file_count integer default 1, -- 업로드된 파일 개수
-  batch_upload_id varchar, -- 같은 배치로 업로드된 파일들을 그룹화 (UUID 또는 타임스탬프)
+  batch_upload_id varchar, -- 같은 배치로 업로드된 파일들을 그룹화
 
   created_at timestamptz default now()
 );
+
+-- v4 인덱스
+create index idx_test_records_user on test_records(user_id);
+create index idx_test_records_user_date on test_records(user_id, test_date desc);
 ```
 
-### 6. 검사 상세 결과 (Test Results) - **핵심 테이블**
+**RLS 정책**: `auth.uid() = user_id`로 본인 검사 기록만 접근 가능
+
+### 7. 검사 상세 결과 (Test Results) - **핵심 테이블**
 **중요**: 검사 당시의 참고치(Snapshot)를 여기에 직접 저장합니다.
+
+**RLS 정책**: `test_records.user_id`를 통해 간접 격리 (본인 검사 결과만 접근 가능)
 
 **설계 철학 - 장비별 참고치 독립성**:
 - 같은 항목(예: Creatinine)이라도 검사 장비에 따라 참고치가 다릅니다.
@@ -242,7 +374,7 @@ create table test_records (
 create table test_results (
   id uuid primary key default gen_random_uuid(),
   record_id uuid references test_records(id) on delete cascade,
-  standard_item_id uuid references standard_items(id), -- 어떤 항목인가
+  standard_item_id uuid references standard_items_master(id), -- 어떤 항목인가
 
   value numeric not null, -- 검사 결과 수치
 
