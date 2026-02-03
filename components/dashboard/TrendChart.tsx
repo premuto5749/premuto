@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, Customized } from 'recharts'
+import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface TestResult {
@@ -38,17 +38,6 @@ interface RefRangeSegment {
   ref_min: number | null
   ref_max: number | null
   dataCount: number
-}
-
-// Recharts Customized 컴포넌트 props 타입
-interface CustomizedProps {
-  formattedGraphicalItems?: Array<{
-    props?: {
-      type?: string
-      points?: Array<{ x: number; y: number }>
-    }
-  }>
-  yAxisMap?: Record<string, { scale: (value: number) => number }>
 }
 
 export function TrendChart({ records, itemName, open, onOpenChange }: TrendChartProps) {
@@ -130,6 +119,22 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
     // 참고치가 하나라도 있는지 확인
     const hasAnyRefRange = dataPoints.some(d => d.ref_min !== null || d.ref_max !== null)
 
+    // Y축 domain 계산 (모든 값, ref_min, ref_max 포함)
+    const allYValues = dataPoints.flatMap(d => [
+      d.value,
+      d.ref_min,
+      d.ref_max
+    ]).filter((v): v is number => v !== null)
+
+    const yMin = Math.min(...allYValues)
+    const yMax = Math.max(...allYValues)
+    // 약간의 패딩 추가
+    const yPadding = (yMax - yMin) * 0.1 || 1
+    const yDomain: [number, number] = [
+      Math.max(0, yMin - yPadding),
+      yMax + yPadding
+    ]
+
     return {
       data: dataPoints,
       refMin,
@@ -137,6 +142,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
       refRangeSegments,
       hasMultipleRefRanges,
       hasAnyRefRange,
+      yDomain,
       unit: latestPoint?.unit || '',
       displayName: latestPoint?.displayName || itemName
     }
@@ -184,6 +190,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 tick={{ fontSize: 12 }}
               />
               <YAxis
+                domain={chartData.yDomain}
                 label={{ value: chartData.unit, angle: -90, position: 'insideLeft' }}
                 tick={{ fontSize: 12 }}
               />
@@ -213,84 +220,6 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               />
               <Legend />
 
-              {/* 각 데이터 포인트별 참고치 수직 바 렌더링 */}
-              {chartData.hasAnyRefRange && (
-                <Customized
-                  component={(props: CustomizedProps) => {
-                    const { formattedGraphicalItems, yAxisMap } = props
-                    if (!formattedGraphicalItems || !yAxisMap) return null
-
-                    // Line 컴포넌트의 points 가져오기
-                    const lineItem = formattedGraphicalItems.find((item) => item.props?.type === 'monotone')
-                    const points = lineItem?.props?.points
-                    if (!points || points.length === 0) return null
-
-                    const yAxis = Object.values(yAxisMap)[0]
-                    if (!yAxis?.scale) return null
-
-                    return (
-                      <g className="ref-range-bars">
-                        {points.map((point, index) => {
-                          const dataPoint = chartData.data[index]
-                          if (!dataPoint || dataPoint.ref_min === null || dataPoint.ref_max === null) return null
-
-                          const x = point.x
-                          const yMin = yAxis.scale(dataPoint.ref_min)
-                          const yMax = yAxis.scale(dataPoint.ref_max)
-
-                          if (yMin === undefined || yMax === undefined) return null
-
-                          const barWidth = 10
-
-                          return (
-                            <g key={index}>
-                              {/* 참고치 범위 수직 바 (배경) */}
-                              <rect
-                                x={x - barWidth / 2}
-                                y={yMax}
-                                width={barWidth}
-                                height={Math.abs(yMin - yMax)}
-                                fill="#22c55e"
-                                fillOpacity={0.25}
-                                rx={2}
-                              />
-                              {/* 상한선 */}
-                              <line
-                                x1={x - barWidth}
-                                y1={yMax}
-                                x2={x + barWidth}
-                                y2={yMax}
-                                stroke="#ef4444"
-                                strokeWidth={2}
-                              />
-                              {/* 하한선 */}
-                              <line
-                                x1={x - barWidth}
-                                y1={yMin}
-                                x2={x + barWidth}
-                                y2={yMin}
-                                stroke="#3b82f6"
-                                strokeWidth={2}
-                              />
-                              {/* 수직 연결선 */}
-                              <line
-                                x1={x}
-                                y1={yMax}
-                                x2={x}
-                                y2={yMin}
-                                stroke="#9ca3af"
-                                strokeWidth={1}
-                                strokeDasharray="3 3"
-                              />
-                            </g>
-                          )
-                        })}
-                      </g>
-                    )
-                  }}
-                />
-              )}
-
               <Line
                 type="monotone"
                 dataKey="value"
@@ -298,7 +227,82 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 strokeWidth={2}
                 dot={(props) => {
                   const { cx, cy, payload } = props
+
+                  // cx, cy가 없으면 렌더링하지 않음
+                  if (cx === undefined || cy === undefined) return null
+
                   const statusColor = payload.status === 'High' ? '#ef4444' : payload.status === 'Low' ? '#3b82f6' : '#22c55e'
+
+                  // 참고치 범위가 있으면 수직 바 그리기
+                  const refMin = payload.ref_min
+                  const refMax = payload.ref_max
+
+                  // Y 좌표 계산을 위한 상수 (차트 설정에 맞춤)
+                  // chart height: 400, margin top: 5, margin bottom: 5, XAxis height: 80
+                  // plotTop = 5, plotHeight = 400 - 5 - 5 - 80 = 310
+                  const plotTop = 5
+                  const plotHeight = 310
+                  const [yDomainMin, yDomainMax] = chartData.yDomain
+
+                  // cy에서 scale 역산: cy = plotTop + plotHeight * (yDomainMax - value) / (yDomainMax - yDomainMin)
+                  // 따라서: (cy - plotTop) / plotHeight = (yDomainMax - value) / (yDomainMax - yDomainMin)
+                  // scale = plotHeight / (yDomainMax - yDomainMin)
+
+                  const calcY = (v: number) => {
+                    return plotTop + plotHeight * (yDomainMax - v) / (yDomainMax - yDomainMin)
+                  }
+
+                  if (refMin !== null && refMax !== null) {
+                    const yRefMin = calcY(refMin)
+                    const yRefMax = calcY(refMax)
+                    const barWidth = 10
+
+                    return (
+                      <g>
+                        {/* 참고치 범위 수직 바 (배경) */}
+                        <rect
+                          x={cx - barWidth / 2}
+                          y={yRefMax}
+                          width={barWidth}
+                          height={Math.abs(yRefMin - yRefMax)}
+                          fill="#22c55e"
+                          fillOpacity={0.25}
+                          rx={2}
+                        />
+                        {/* 상한선 */}
+                        <line
+                          x1={cx - barWidth}
+                          y1={yRefMax}
+                          x2={cx + barWidth}
+                          y2={yRefMax}
+                          stroke="#ef4444"
+                          strokeWidth={2}
+                        />
+                        {/* 하한선 */}
+                        <line
+                          x1={cx - barWidth}
+                          y1={yRefMin}
+                          x2={cx + barWidth}
+                          y2={yRefMin}
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                        />
+                        {/* 수직 연결선 */}
+                        <line
+                          x1={cx}
+                          y1={yRefMax}
+                          x2={cx}
+                          y2={yRefMin}
+                          stroke="#9ca3af"
+                          strokeWidth={1}
+                          strokeDasharray="3 3"
+                        />
+                        {/* 데이터 포인트 */}
+                        <circle cx={cx} cy={cy} r={5} fill={statusColor} stroke="white" strokeWidth={2} />
+                      </g>
+                    )
+                  }
+
                   return (
                     <circle cx={cx} cy={cy} r={5} fill={statusColor} stroke="white" strokeWidth={2} />
                   )
