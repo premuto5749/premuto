@@ -58,10 +58,25 @@ export async function POST(request: NextRequest) {
       console.log(`✅ Created test_record: ${recordId}`)
 
       // 2. 각 결과의 상태 계산 및 test_results 생성
-      const testResultsToInsert = results.map(result => {
-        // parseValue를 사용하여 값 파싱 (Lo, Low, <500 등 특수값 처리)
+      // 중복 제거: 같은 standard_item_id가 여러 개면 0이 아닌 값 우선, 그 다음 마지막 값 사용
+      const dedupedResults = new Map<string, typeof results[0] & { numericValue: number | null }>()
+
+      results.forEach(result => {
         const parsed = parseValue(result.value)
         const numericValue = parsed.numeric
+        const existing = dedupedResults.get(result.standard_item_id)
+
+        // 기존 값이 없거나, 기존 값이 0이고 새 값이 0이 아니면 덮어쓰기
+        if (!existing || (existing.numericValue === 0 && numericValue !== 0 && numericValue !== null)) {
+          dedupedResults.set(result.standard_item_id, { ...result, numericValue })
+        } else if (existing.numericValue === null && numericValue !== null) {
+          // 기존 값이 null이고 새 값이 있으면 덮어쓰기
+          dedupedResults.set(result.standard_item_id, { ...result, numericValue })
+        }
+      })
+
+      const testResultsToInsert = Array.from(dedupedResults.values()).map(result => {
+        const numericValue = result.numericValue
 
         // 상태 계산 (Low/Normal/High/Unknown)
         let status: 'Low' | 'Normal' | 'High' | 'Unknown' = 'Unknown'
@@ -93,10 +108,15 @@ export async function POST(request: NextRequest) {
         }
       })
 
-      // 3. test_results 일괄 삽입
+      console.log(`📊 Deduplicated: ${results.length} → ${testResultsToInsert.length} items`)
+
+      // 3. test_results 일괄 삽입 (upsert로 중복 방지)
       const { data: resultsData, error: resultsError } = await supabase
         .from('test_results')
-        .insert(testResultsToInsert)
+        .upsert(testResultsToInsert, {
+          onConflict: 'record_id,standard_item_id',
+          ignoreDuplicates: false
+        })
         .select('id')
 
       if (resultsError) {
