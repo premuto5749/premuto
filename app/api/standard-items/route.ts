@@ -6,7 +6,7 @@ export async function GET() {
     const supabase = await createClient()
 
     const { data: standardItems, error } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .select('*')
       .order('category, name')
 
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     // 중복 체크
     const { data: existing } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .select('id')
       .eq('name', name)
       .single()
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     // 새 항목 생성
     const { data: newItem, error } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .insert({
         name,
         display_name_ko: display_name_ko || name,

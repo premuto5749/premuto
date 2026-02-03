@@ -10,7 +10,7 @@ export async function GET() {
     const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('item_aliases')
+      .from('item_aliases_master')
       .select('id, alias, canonical_name, source_hint, standard_item_id')
       .order('alias')
 
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     let itemId = standard_item_id
     if (!itemId) {
       const { data: item } = await supabase
-        .from('standard_items')
+        .from('standard_items_master')
         .select('id')
         .ilike('name', canonical_name)
         .single()
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // 중복 체크 및 업서트
     const { data, error } = await supabase
-      .from('item_aliases')
+      .from('item_aliases_master')
       .upsert({
         alias,
         canonical_name,
@@ -132,7 +132,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { error } = await supabase
-      .from('item_aliases')
+      .from('item_aliases_master')
       .delete()
       .eq('id', id)
 

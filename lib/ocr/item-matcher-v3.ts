@@ -79,9 +79,9 @@ async function initializeCache(supabase: SupabaseClientType) {
     return;
   }
 
-  // standard_items 로드
+  // standard_items_master 로드
   const { data: items } = await supabase
-    .from('standard_items')
+    .from('standard_items_master')
     .select('id, name, display_name_ko, exam_type, organ_tags, category, default_unit');
 
   cachedStandardItems = new Map();
@@ -89,9 +89,9 @@ async function initializeCache(supabase: SupabaseClientType) {
     cachedStandardItems.set(item.name.toUpperCase(), item as StandardItem);
   }
 
-  // item_aliases 로드
+  // item_aliases_master 로드
   const { data: aliases } = await supabase
-    .from('item_aliases')
+    .from('item_aliases_master')
     .select('id, alias, canonical_name, source_hint, standard_item_id');
 
   cachedAliases = new Map();
@@ -235,9 +235,9 @@ export async function registerNewAlias(
 ): Promise<boolean> {
   const client = supabase || (await createServerClient());
 
-  // standard_item_id 조회
+  // standard_item_id 조회 (마스터 테이블에서)
   const { data: item } = await client
-    .from('standard_items')
+    .from('standard_items_master')
     .select('id')
     .ilike('name', canonicalName)
     .single();
@@ -247,8 +247,9 @@ export async function registerNewAlias(
     return false;
   }
 
+  // 사용자별 별칭 테이블에 저장 (TODO: user_id 필요)
   const { error } = await client
-    .from('item_aliases')
+    .from('item_aliases_master')
     .upsert({
       alias,
       canonical_name: canonicalName,
@@ -283,8 +284,9 @@ export async function registerNewStandardItem(
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const client = supabase || (await createServerClient());
 
+  // 사용자별 항목 테이블에 저장 (TODO: user_id 필요)
   const { data, error } = await client
-    .from('standard_items')
+    .from('standard_items_master')
     .insert({
       name: item.name,
       display_name_ko: item.displayNameKo,
@@ -320,7 +322,7 @@ export async function getAllStandardItemsV3(
   ];
 
   const { data } = await client
-    .from('standard_items')
+    .from('standard_items_master')
     .select('id, name, display_name_ko, exam_type, organ_tags, category, default_unit')
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
@@ -353,7 +355,7 @@ export async function getItemsByOrgan(
   const client = supabase || (await createServerClient());
 
   const { data } = await client
-    .from('standard_items')
+    .from('standard_items_master')
     .select('id, name, display_name_ko, exam_type, organ_tags, category, default_unit')
     .contains('organ_tags', [organ]);
 

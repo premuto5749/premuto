@@ -29,7 +29,7 @@ export async function POST() {
 
     // 1. Get all unmapped standard items
     const { data: unmappedItems, error: unmappedError } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .select('*')
       .eq('category', 'Unmapped')
 
@@ -55,7 +55,7 @@ export async function POST() {
 
     // 2. Get all mapped standard items (for matching targets)
     const { data: mappedItems, error: mappedError } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .select('*')
       .neq('category', 'Unmapped')
 
@@ -103,7 +103,7 @@ export async function POST() {
           } else {
             // Delete the unmapped item after successful remap
             await supabase
-              .from('standard_items')
+              .from('standard_items_master')
               .delete()
               .eq('id', unmappedItem.id)
 
@@ -190,7 +190,7 @@ async function remapItem(
 ): Promise<{ error: string | null }> {
   // Update item_mappings
   const { error: mappingsError } = await supabase
-    .from('item_mappings')
+    .from('item_mappings_master')
     .update({ standard_item_id: newId })
     .eq('standard_item_id', oldId)
 

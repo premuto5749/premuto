@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     // 1. item_mappings의 모든 old_standard_item_id를 new_standard_item_id로 업데이트
     const { error: updateMappingsError } = await supabase
-      .from('item_mappings')
+      .from('item_mappings_master')
       .update({ standard_item_id: new_standard_item_id })
       .eq('standard_item_id', old_standard_item_id)
 

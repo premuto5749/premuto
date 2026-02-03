@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       try {
         // 기존 항목 확인 (name으로 검색)
         const { data: existing } = await supabase
-          .from('standard_items')
+          .from('standard_items_master')
           .select('id')
           .ilike('name', item.name)
           .single();
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
           } else {
             // full 모드: 기존 항목 덮어쓰기
             const { error } = await supabase
-              .from('standard_items')
+              .from('standard_items_master')
               .update({
                 display_name_ko: item.display_name_ko,
                 default_unit: item.unit,
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         } else {
           // 신규 삽입 (safe/full 모드 모두 실행)
           const { error } = await supabase
-            .from('standard_items')
+            .from('standard_items_master')
             .insert({
               name: item.name,
               display_name_ko: item.display_name_ko,
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     // 먼저 standard_items 맵 구축
     const { data: allItems } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .select('id, name');
 
     const itemNameToId = new Map(
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
         }
 
         const { error } = await supabase
-          .from('item_aliases')
+          .from('item_aliases_master')
           .upsert({
             alias: alias.alias,
             canonical_name: alias.canonical,
@@ -179,14 +179,14 @@ export async function POST(request: NextRequest) {
     // ============================================
     if (migrateOldMappings) {
       const { data: oldMappings } = await supabase
-        .from('item_mappings')
+        .from('item_mappings_master')
         .select('raw_name, standard_item_id, standard_items(name)');
 
       for (const mapping of oldMappings || []) {
         try {
           // 이미 item_aliases에 있는지 확인
           const { data: existingAlias } = await supabase
-            .from('item_aliases')
+            .from('item_aliases_master')
             .select('id')
             .ilike('alias', mapping.raw_name)
             .single();
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
           const canonicalName = standardItem?.name || '';
 
           const { error } = await supabase
-            .from('item_aliases')
+            .from('item_aliases_master')
             .insert({
               alias: mapping.raw_name,
               canonical_name: canonicalName,
@@ -234,9 +234,9 @@ export async function GET() {
 
   // 현재 DB 상태 조회
   const [itemsResult, aliasesResult, mappingsResult] = await Promise.all([
-    supabase.from('standard_items').select('id, name, exam_type, organ_tags', { count: 'exact' }),
-    supabase.from('item_aliases').select('id', { count: 'exact' }),
-    supabase.from('item_mappings').select('id', { count: 'exact' }),
+    supabase.from('standard_items_master').select('id, name, exam_type, organ_tags', { count: 'exact' }),
+    supabase.from('item_aliases_master').select('id', { count: 'exact' }),
+    supabase.from('item_mappings_master').select('id', { count: 'exact' }),
   ]);
 
   // exam_type 분포
