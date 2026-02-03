@@ -236,25 +236,28 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                   // 참고치 범위가 있으면 수직 바 그리기
                   const refMin = payload.ref_min
                   const refMax = payload.ref_max
+                  const value = payload.value
 
-                  // Y 좌표 계산을 위한 상수 (차트 설정에 맞춤)
-                  // chart height: 400, margin top: 5, margin bottom: 5, XAxis height: 80
-                  // plotTop = 5, plotHeight = 400 - 5 - 5 - 80 = 310
+                  const [, yDomainMax] = chartData.yDomain
+
+                  // cy를 기준으로 상대적인 Y 좌표 계산
+                  // cy는 value의 정확한 위치이므로, 이를 anchor로 사용
+                  // cy = plotTop + (yDomainMax - value) * pixelsPerUnit
+                  // pixelsPerUnit = (cy - plotTop) / (yDomainMax - value)
+
                   const plotTop = 5
-                  const plotHeight = 310
-                  const [yDomainMin, yDomainMax] = chartData.yDomain
+                  const yDiff = yDomainMax - value
 
-                  // cy에서 scale 역산: cy = plotTop + plotHeight * (yDomainMax - value) / (yDomainMax - yDomainMin)
-                  // 따라서: (cy - plotTop) / plotHeight = (yDomainMax - value) / (yDomainMax - yDomainMin)
-                  // scale = plotHeight / (yDomainMax - yDomainMin)
-
-                  const calcY = (v: number) => {
-                    return plotTop + plotHeight * (yDomainMax - v) / (yDomainMax - yDomainMin)
-                  }
+                  // yDiff가 0에 가까우면 기본 scale 사용 (310px / yRange)
+                  const yRange = chartData.yDomain[1] - chartData.yDomain[0]
+                  const pixelsPerUnit = Math.abs(yDiff) < 0.001
+                    ? 310 / yRange
+                    : (cy - plotTop) / yDiff
 
                   if (refMin !== null && refMax !== null) {
-                    const yRefMin = calcY(refMin)
-                    const yRefMax = calcY(refMax)
+                    // cy 기준 상대 좌표 계산
+                    const yRefMin = cy + (value - refMin) * pixelsPerUnit
+                    const yRefMax = cy + (value - refMax) * pixelsPerUnit
                     const barWidth = 10
 
                     return (
