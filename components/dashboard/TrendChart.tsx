@@ -233,19 +233,42 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               {chartData.hasAnyRefRange && (
                 <Customized
                   component={(props: CustomizedProps) => {
+                    // 디버깅: 전체 props 키 확인
+                    console.log('Customized props keys:', Object.keys(props))
+                    console.log('formattedGraphicalItems:', JSON.stringify(props.formattedGraphicalItems?.map(item => ({
+                      hasItem: !!item.item,
+                      hasProps: !!item.props,
+                      pointsLength: item.props?.points?.length
+                    }))))
+                    console.log('yAxisMap keys:', props.yAxisMap ? Object.keys(props.yAxisMap) : 'null')
+
                     const { formattedGraphicalItems, yAxisMap } = props
 
-                    if (!formattedGraphicalItems || !yAxisMap) return null
+                    if (!formattedGraphicalItems || !yAxisMap) {
+                      console.log('Early return: missing formattedGraphicalItems or yAxisMap')
+                      return null
+                    }
 
                     // points가 있는 첫 번째 아이템 찾기
                     const lineItem = formattedGraphicalItems.find((item) =>
                       item.props?.points && item.props.points.length > 0
                     )
                     const points = lineItem?.props?.points
-                    if (!points || points.length === 0) return null
+
+                    console.log('lineItem found:', !!lineItem, 'points:', points?.length)
+
+                    if (!points || points.length === 0) {
+                      console.log('Early return: no points')
+                      return null
+                    }
 
                     const yAxis = Object.values(yAxisMap)[0]
-                    if (!yAxis?.scale) return null
+                    if (!yAxis?.scale) {
+                      console.log('Early return: no yAxis scale')
+                      return null
+                    }
+
+                    console.log('Drawing ref bars for', points.length, 'points')
 
                     return (
                       <g className="ref-range-bars">
