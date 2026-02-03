@@ -123,13 +123,15 @@ export default function EditRecordPage() {
     } finally {
       setLoading(false)
     }
-  }, [id, router, toast])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   useEffect(() => {
     fetchRecord()
     fetchHospitals()
     fetchStandardItems()
-  }, [fetchRecord])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
 
   const fetchHospitals = async () => {
     try {
