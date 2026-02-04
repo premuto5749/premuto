@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { requireAdmin } from '@/lib/auth/admin';
 import masterData from '@/config/master_data_v3.json';
 
 type SyncMode = 'safe' | 'full';
@@ -40,6 +41,15 @@ interface SyncResult {
  * 3. 기존 item_mappings → item_aliases 이전 (선택적)
  */
 export async function POST(request: NextRequest) {
+  // 관리자 권한 체크
+  const auth = await requireAdmin();
+  if (!auth.authorized) {
+    return NextResponse.json(
+      { error: auth.error || 'Admin access required' },
+      { status: auth.userId ? 403 : 401 }
+    );
+  }
+
   const supabase = await createClient();
 
   // 옵션 파싱

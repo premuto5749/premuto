@@ -93,13 +93,29 @@ export async function POST(request: NextRequest) {
         })
 
       if (uploadError) {
-        console.error('Upload error:', uploadError)
+        console.error('Upload error details:', {
+          error: uploadError,
+          code: uploadError.message,
+          statusCode: (uploadError as { statusCode?: string }).statusCode,
+          bucket: BUCKET_NAME,
+          filePath: filePath,
+          userId: user.id,
+        })
         // 이미 업로드된 파일들 삭제 시도
         if (uploadedPaths.length > 0) {
           await supabase.storage.from(BUCKET_NAME).remove(uploadedPaths)
         }
+
+        // 권한 관련 에러 메시지 개선
+        let errorMessage = uploadError.message
+        if (uploadError.message.includes('security') || uploadError.message.includes('policy')) {
+          errorMessage = `Storage 권한 오류: ${uploadError.message}. Supabase Dashboard에서 'daily-log-photos' 버킷의 RLS 정책을 확인하세요.`
+        } else if (uploadError.message.includes('Bucket not found')) {
+          errorMessage = `Storage 버킷 'daily-log-photos'가 존재하지 않습니다. Supabase Dashboard에서 버킷을 생성하세요.`
+        }
+
         return NextResponse.json(
-          { error: `Failed to upload ${file.name}: ${uploadError.message}` },
+          { error: `Failed to upload ${file.name}: ${errorMessage}` },
           { status: 500 }
         )
       }
