@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Camera, X, Loader2, Image as ImageIcon } from 'lucide-react'
 import type { LogCategory, DailyLogInput } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
-import { compressImage } from '@/lib/image-compressor'
+import { uploadPhotosDirectly } from '@/lib/storage-client'
 
 const MAX_PHOTOS = 5
 
@@ -168,34 +168,29 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotoPreviews(prev => prev.filter((_, i) => i !== index))
   }
 
-  // 사진 업로드 함수 (압축 후 업로드)
+  // 사진 업로드 함수 (클라이언트에서 직접 Supabase Storage로 업로드)
+  // Vercel Serverless Function의 4.5MB payload 제한을 우회합니다.
   const uploadPhotos = async (): Promise<string[]> => {
     if (photos.length === 0) return []
 
     setIsUploading(true)
     try {
-      // 이미지 압축 (Vercel 4.5MB 페이로드 제한 방지)
-      const compressedPhotos = await Promise.all(
-        photos.map(photo => compressImage(photo))
-      )
+      const result = await uploadPhotosDirectly(photos)
 
-      const formData = new FormData()
-      compressedPhotos.forEach((photo, index) => {
-        formData.append(`photo${index}`, photo)
-      })
-
-      const response = await fetch('/api/daily-logs/upload', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || '사진 업로드 실패')
+      if (!result.success && result.paths.length === 0) {
+        throw new Error(result.errors.join(', ') || '사진 업로드 실패')
       }
 
-      return result.data.urls
+      // 일부 실패가 있으면 경고 표시
+      if (result.errors.length > 0) {
+        toast({
+          title: '일부 사진 업로드 실패',
+          description: result.errors.join('\n'),
+          variant: 'destructive',
+        })
+      }
+
+      return result.paths
     } finally {
       setIsUploading(false)
     }
