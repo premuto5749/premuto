@@ -67,10 +67,16 @@ export async function POST(request: NextRequest) {
     for (const item of testItems) {
       try {
         // 기존 항목 확인 (name으로 검색)
+        // 특수문자 escape: % _ 는 LIKE에서 와일드카드이므로 escape 필요
+        const escapedName = item.name
+          .replace(/\\/g, '\\\\')
+          .replace(/%/g, '\\%')
+          .replace(/_/g, '\\_');
+
         const { data: existing } = await supabase
           .from('standard_items_master')
           .select('id')
-          .ilike('name', item.name)
+          .ilike('name', escapedName)
           .single();
 
         if (existing) {
