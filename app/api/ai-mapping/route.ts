@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // 1. DB에서 모든 표준 항목 가져오기
     const { data: standardItems, error: standardItemsError } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .select('*')
 
     if (standardItemsError) {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // 2. 기존 매핑 사전 가져오기
     const { data: existingMappings, error: mappingsError } = await supabase
-      .from('item_mappings')
+      .from('item_mappings_master')
       .select('raw_name, standard_item_id, confidence_score, mapping_source')
 
     if (mappingsError) {

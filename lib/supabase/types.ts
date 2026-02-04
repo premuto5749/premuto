@@ -12,7 +12,7 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      standard_items: {
+      standard_items_master: {
         Row: {
           id: string
           category: string | null
@@ -41,7 +41,7 @@ export interface Database {
           created_at?: string
         }
       }
-      item_mappings: {
+      item_mappings_master: {
         Row: {
           id: string
           raw_name: string

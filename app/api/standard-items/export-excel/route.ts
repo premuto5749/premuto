@@ -12,7 +12,7 @@ export async function GET() {
 
     // 표준 항목 조회
     const { data: standardItems, error: itemsError } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .select('*')
       .order('exam_type', { ascending: true })
       .order('sort_order', { ascending: true })
@@ -28,7 +28,7 @@ export async function GET() {
 
     // 별칭 조회
     const { data: aliases, error: aliasesError } = await supabase
-      .from('item_aliases')
+      .from('item_aliases_master')
       .select('*')
       .order('canonical_name', { ascending: true })
 

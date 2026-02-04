@@ -44,7 +44,18 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getSession()
 
   // 로그인이 필요한 경로들
-  const protectedPaths = ['/upload', '/dashboard', '/preview', '/staging', '/mapping-management']
+  const protectedPaths = [
+    '/upload',
+    '/dashboard',
+    '/preview',
+    '/staging',
+    '/mapping-management',
+    '/admin',           // 관리자 페이지
+    '/standard-items',  // 표준항목 관리
+    '/settings',        // 설정
+    '/records-management',
+    '/hospital-contacts'
+  ]
   const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
 
   // 보호된 경로에 접근하려는데 세션이 없으면 로그인 페이지로

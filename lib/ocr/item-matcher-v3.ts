@@ -62,26 +62,58 @@ export interface ItemAlias {
   standard_item?: StandardItem;
 }
 
-// 캐시 (서버 사이드에서 재사용)
+// 캐시 (서버 사이드에서 재사용, 사용자별로 구분)
 let cachedStandardItems: Map<string, StandardItem> | null = null;
 let cachedAliases: Map<string, ItemAlias> | null = null;
 let cacheTimestamp: number = 0;
+let cachedUserId: string | null = null;
 const CACHE_TTL = 5 * 60 * 1000; // 5분
 
 /**
- * 캐시 초기화 (DB에서 로드)
+ * 캐시 초기화 (DB에서 로드, 사용자 오버라이드 병합)
  */
-async function initializeCache(supabase: SupabaseClientType) {
+async function initializeCache(supabase: SupabaseClientType, userId?: string) {
   const now = Date.now();
 
-  // 캐시가 유효하면 재사용
-  if (cachedStandardItems && cachedAliases && (now - cacheTimestamp) < CACHE_TTL) {
+  // 캐시가 유효하고 같은 사용자면 재사용
+  if (cachedStandardItems && cachedAliases &&
+      (now - cacheTimestamp) < CACHE_TTL &&
+      cachedUserId === userId) {
     return;
   }
 
-  // standard_items 로드
+  // 사용자가 있으면 오버라이드 병합 데이터 사용
+  if (userId) {
+    // get_user_standard_items 함수 호출
+    const { data: items, error: itemsError } = await supabase
+      .rpc('get_user_standard_items', { p_user_id: userId });
+
+    if (!itemsError && items) {
+      cachedStandardItems = new Map();
+      for (const item of items) {
+        cachedStandardItems.set(item.name.toUpperCase(), item as StandardItem);
+      }
+    }
+
+    // get_user_item_aliases 함수 호출
+    const { data: aliases, error: aliasesError } = await supabase
+      .rpc('get_user_item_aliases', { p_user_id: userId });
+
+    if (!aliasesError && aliases) {
+      cachedAliases = new Map();
+      for (const alias of aliases) {
+        cachedAliases.set(alias.alias.toUpperCase(), alias as ItemAlias);
+      }
+    }
+
+    cachedUserId = userId;
+    cacheTimestamp = now;
+    return;
+  }
+
+  // 비로그인 시 마스터 테이블만 사용
   const { data: items } = await supabase
-    .from('standard_items')
+    .from('standard_items_master')
     .select('id, name, display_name_ko, exam_type, organ_tags, category, default_unit');
 
   cachedStandardItems = new Map();
@@ -89,9 +121,8 @@ async function initializeCache(supabase: SupabaseClientType) {
     cachedStandardItems.set(item.name.toUpperCase(), item as StandardItem);
   }
 
-  // item_aliases 로드
   const { data: aliases } = await supabase
-    .from('item_aliases')
+    .from('item_aliases_master')
     .select('id, alias, canonical_name, source_hint, standard_item_id');
 
   cachedAliases = new Map();
@@ -99,6 +130,7 @@ async function initializeCache(supabase: SupabaseClientType) {
     cachedAliases.set(alias.alias.toUpperCase(), alias as ItemAlias);
   }
 
+  cachedUserId = null;
   cacheTimestamp = now;
 }
 
@@ -111,11 +143,12 @@ export async function matchItemV3(
   options: {
     supabase?: SupabaseClientType;
     skipFuzzy?: boolean;
+    userId?: string;
   } = {}
 ): Promise<MatchResultV3> {
   const supabase = options.supabase || (await createServerClient());
 
-  await initializeCache(supabase);
+  await initializeCache(supabase, options.userId);
 
   if (!rawName || !cachedStandardItems || !cachedAliases) {
     return createEmptyResult();
@@ -212,32 +245,34 @@ export async function matchItemsV3(
   rawNames: string[],
   options: {
     supabase?: SupabaseClientType;
+    userId?: string;
   } = {}
 ): Promise<MatchResultV3[]> {
   const supabase = options.supabase || (await createServerClient());
 
-  // 캐시 한 번만 초기화
-  await initializeCache(supabase);
+  // 캐시 한 번만 초기화 (사용자 오버라이드 반영)
+  await initializeCache(supabase, options.userId);
 
   return Promise.all(
-    rawNames.map(name => matchItemV3(name, { supabase, skipFuzzy: false }))
+    rawNames.map(name => matchItemV3(name, { supabase, skipFuzzy: false, userId: options.userId }))
   );
 }
 
 /**
- * 새 별칭 등록 (AI 매칭 후 자동 학습)
+ * 새 별칭 등록 (AI 매칭 후 자동 학습, 사용자별 저장)
  */
 export async function registerNewAlias(
   alias: string,
   canonicalName: string,
   sourceHint: string | null,
-  supabase?: SupabaseClientType
+  supabase?: SupabaseClientType,
+  userId?: string
 ): Promise<boolean> {
   const client = supabase || (await createServerClient());
 
-  // standard_item_id 조회
+  // standard_item_id 조회 (마스터 테이블에서)
   const { data: item } = await client
-    .from('standard_items')
+    .from('standard_items_master')
     .select('id')
     .ilike('name', canonicalName)
     .single();
@@ -247,20 +282,42 @@ export async function registerNewAlias(
     return false;
   }
 
-  const { error } = await client
-    .from('item_aliases')
-    .upsert({
-      alias,
-      canonical_name: canonicalName,
-      source_hint: sourceHint,
-      standard_item_id: item.id,
-    }, {
-      onConflict: 'alias',
-    });
+  // 사용자가 있으면 사용자 테이블에 저장
+  if (userId) {
+    const { error } = await client
+      .from('user_item_aliases')
+      .upsert({
+        user_id: userId,
+        master_alias_id: null,
+        alias,
+        canonical_name: canonicalName,
+        source_hint: sourceHint,
+        standard_item_id: item.id,
+      }, {
+        onConflict: 'user_id,alias',
+      });
 
-  if (error) {
-    console.error('Failed to register alias:', error);
-    return false;
+    if (error) {
+      console.error('Failed to register user alias:', error);
+      return false;
+    }
+  } else {
+    // 사용자 없으면 마스터 테이블에 저장 (관리자용)
+    const { error } = await client
+      .from('item_aliases_master')
+      .upsert({
+        alias,
+        canonical_name: canonicalName,
+        source_hint: sourceHint,
+        standard_item_id: item.id,
+      }, {
+        onConflict: 'alias',
+      });
+
+    if (error) {
+      console.error('Failed to register alias:', error);
+      return false;
+    }
   }
 
   // 캐시 무효화
@@ -269,7 +326,7 @@ export async function registerNewAlias(
 }
 
 /**
- * 신규 항목 등록 (사용자 확인 후)
+ * 신규 항목 등록 (사용자 확인 후, 사용자별 저장)
  */
 export async function registerNewStandardItem(
   item: {
@@ -279,12 +336,39 @@ export async function registerNewStandardItem(
     examType: string;
     organTags: string[];
   },
-  supabase?: SupabaseClientType
+  supabase?: SupabaseClientType,
+  userId?: string
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const client = supabase || (await createServerClient());
 
+  // 사용자가 있으면 사용자 테이블에 저장
+  if (userId) {
+    const { data, error } = await client
+      .from('user_standard_items')
+      .insert({
+        user_id: userId,
+        master_item_id: null,
+        name: item.name,
+        display_name_ko: item.displayNameKo,
+        default_unit: item.unit,
+        category: item.examType,
+        exam_type: item.examType,
+        organ_tags: item.organTags,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    clearCacheV3();
+    return { success: true, id: data.id };
+  }
+
+  // 사용자 없으면 마스터 테이블에 저장 (관리자용)
   const { data, error } = await client
-    .from('standard_items')
+    .from('standard_items_master')
     .insert({
       name: item.name,
       display_name_ko: item.displayNameKo,
@@ -306,11 +390,12 @@ export async function registerNewStandardItem(
 }
 
 /**
- * 모든 표준 항목 조회 (정렬 포함)
+ * 모든 표준 항목 조회 (정렬 포함, 사용자 오버라이드 병합)
  */
 export async function getAllStandardItemsV3(
   sortBy: 'exam_type' | 'name' = 'exam_type',
-  supabase?: SupabaseClientType
+  supabase?: SupabaseClientType,
+  userId?: string
 ): Promise<StandardItem[]> {
   const client = supabase || (await createServerClient());
 
@@ -319,11 +404,21 @@ export async function getAllStandardItemsV3(
     'Coagulation', '뇨검사', '안과검사', 'Echo'
   ];
 
-  const { data } = await client
-    .from('standard_items')
-    .select('id, name, display_name_ko, exam_type, organ_tags, category, default_unit')
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true });
+  let data: StandardItem[] | null = null;
+
+  // 사용자가 있으면 오버라이드 병합 데이터 사용
+  if (userId) {
+    const { data: mergedData } = await client
+      .rpc('get_user_standard_items', { p_user_id: userId });
+    data = mergedData;
+  } else {
+    const { data: masterData } = await client
+      .from('standard_items_master')
+      .select('id, name, display_name_ko, exam_type, organ_tags, category, default_unit')
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
+    data = masterData;
+  }
 
   if (!data) return [];
 
@@ -353,7 +448,7 @@ export async function getItemsByOrgan(
   const client = supabase || (await createServerClient());
 
   const { data } = await client
-    .from('standard_items')
+    .from('standard_items_master')
     .select('id, name, display_name_ko, exam_type, organ_tags, category, default_unit')
     .contains('organ_tags', [organ]);
 

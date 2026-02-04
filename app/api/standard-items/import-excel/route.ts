@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // 기존 표준 항목 조회 (이름 기준 매핑)
     const { data: existingItems } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .select('id, name')
 
     const existingItemMap = new Map<string, string>()
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
     // 기존 별칭 조회
     const { data: existingAliases } = await supabase
-      .from('item_aliases')
+      .from('item_aliases_master')
       .select('alias, canonical_name')
 
     const existingAliasSet = new Set<string>()
@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
       if (existingId) {
         // 업데이트
         const { error } = await supabase
-          .from('standard_items')
+          .from('standard_items_master')
           .update(itemData)
           .eq('id', existingId)
 
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
       } else {
         // 새로 생성
         const { data: newItem, error } = await supabase
-          .from('standard_items')
+          .from('standard_items_master')
           .insert(itemData)
           .select('id')
           .single()
@@ -248,7 +248,7 @@ export async function POST(request: NextRequest) {
           }
 
           const { error } = await supabase
-            .from('item_aliases')
+            .from('item_aliases_master')
             .insert(aliasData)
 
           if (error) {

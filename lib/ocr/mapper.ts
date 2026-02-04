@@ -9,7 +9,7 @@ export async function autoMapItem(rawName: string): Promise<string | null> {
   
   // 1. item_mappings 테이블에서 동의어 검색
   const { data, error } = await supabase
-    .from('item_mappings')
+    .from('item_mappings_master')
     .select('standard_item_id')
     .eq('raw_name', rawName)
     .single()
@@ -28,7 +28,7 @@ export async function getAllStandardItems(): Promise<StandardItem[]> {
   const supabase = createClient()
   
   const { data, error } = await supabase
-    .from('standard_items')
+    .from('standard_items_master')
     .select('*')
     .order('category', { ascending: true })
     .order('name', { ascending: true })
@@ -97,7 +97,7 @@ export async function createStandardItem(
   const supabase = createClient()
   
   const { data, error } = await supabase
-    .from('standard_items')
+    .from('standard_items_master')
     .insert({
       name,
       category,
@@ -126,7 +126,7 @@ export async function createItemMapping(
   const supabase = createClient()
   
   const { error } = await supabase
-    .from('item_mappings')
+    .from('item_mappings_master')
     .insert({
       raw_name: rawName,
       standard_item_id: standardItemId

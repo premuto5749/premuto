@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const { data, error } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .update(updateData)
       .eq('id', id)
       .select()
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const supabase = await createClient()
 
     const { data, error } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .select('*')
       .eq('id', id)
       .single()
@@ -140,7 +140,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     const { error } = await supabase
-      .from('standard_items')
+      .from('standard_items_master')
       .delete()
       .eq('id', id)
 

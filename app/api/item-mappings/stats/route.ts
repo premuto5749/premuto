@@ -7,7 +7,7 @@ export async function GET() {
 
     // 각 standard_item_id별로 매핑된 raw_name 개수 집계
     const { data: mappings, error } = await supabase
-      .from('item_mappings')
+      .from('item_mappings_master')
       .select('standard_item_id')
 
     if (error) {
