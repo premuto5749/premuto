@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus } from 'lucide-react'
+import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { DailyLog } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
@@ -51,7 +51,9 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const [newPhotoFiles, setNewPhotoFiles] = useState<File[]>([])
   const [newPhotoPreviews, setNewPhotoPreviews] = useState<string[]>([])
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  // Lightbox carousel state
+  const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([])
+  const [lightboxIndex, setLightboxIndex] = useState(0)
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -644,7 +646,10 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                           <div
                             key={idx}
                             className="relative aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={() => setLightboxUrl(url)}
+                            onClick={() => {
+                              setLightboxPhotos(selectedLog.photo_urls || [])
+                              setLightboxIndex(idx)
+                            }}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
@@ -711,21 +716,58 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
         </DialogContent>
       </Dialog>
 
-      {/* 이미지 확대 보기 (Lightbox) */}
-      <Dialog open={!!lightboxUrl} onOpenChange={() => setLightboxUrl(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
+      {/* 이미지 확대 보기 (Lightbox Carousel) */}
+      <Dialog open={lightboxPhotos.length > 0} onOpenChange={() => setLightboxPhotos([])}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden">
+          {/* 닫기 버튼 */}
           <button
-            onClick={() => setLightboxUrl(null)}
+            onClick={() => setLightboxPhotos([])}
             className="absolute top-4 right-4 z-50 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
-          {lightboxUrl && (
+
+          {/* 이전 버튼 */}
+          {lightboxPhotos.length > 1 && (
+            <button
+              onClick={() => setLightboxIndex((prev) => (prev - 1 + lightboxPhotos.length) % lightboxPhotos.length)}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+            >
+              <ChevronLeft className="w-8 h-8" />
+            </button>
+          )}
+
+          {/* 다음 버튼 */}
+          {lightboxPhotos.length > 1 && (
+            <button
+              onClick={() => setLightboxIndex((prev) => (prev + 1) % lightboxPhotos.length)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+            >
+              <ChevronRight className="w-8 h-8" />
+            </button>
+          )}
+
+          {/* 페이지 인디케이터 */}
+          {lightboxPhotos.length > 1 && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-2">
+              {lightboxPhotos.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setLightboxIndex(idx)}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    idx === lightboxIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/60'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+
+          {lightboxPhotos[lightboxIndex] && (
             <div className="w-full h-full flex items-center justify-center p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={lightboxUrl}
-                alt="확대 이미지"
+                src={lightboxPhotos[lightboxIndex]}
+                alt={`사진 ${lightboxIndex + 1}/${lightboxPhotos.length}`}
                 className="max-w-full max-h-[85vh] object-contain"
                 onClick={(e) => e.stopPropagation()}
               />
