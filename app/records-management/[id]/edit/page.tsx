@@ -57,7 +57,7 @@ interface TestResultItem {
   ref_max: number | null
   ref_text: string | null
   status: 'Low' | 'Normal' | 'High' | 'Unknown'
-  standard_items: {
+  standard_items_master: {
     id: string
     name: string
     display_name_ko: string | null
@@ -493,11 +493,11 @@ export default function EditRecordPage() {
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {item.standard_items?.display_name_ko || item.standard_items?.name || '알 수 없음'}
+                              {item.standard_items_master?.display_name_ko || item.standard_items_master?.name || '알 수 없음'}
                             </div>
-                            {item.standard_items?.display_name_ko && (
+                            {item.standard_items_master?.display_name_ko && (
                               <div className="text-xs text-muted-foreground">
-                                {item.standard_items.name}
+                                {item.standard_items_master.name}
                               </div>
                             )}
                           </div>

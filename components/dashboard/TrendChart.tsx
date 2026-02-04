@@ -11,7 +11,7 @@ interface TestResult {
   ref_max: number | null
   status: string
   unit: string | null
-  standard_items: {
+  standard_items_master: {
     name: string
     display_name_ko: string | null
     default_unit?: string | null
@@ -48,13 +48,13 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
       .map(record => {
         // 동일 항목의 중복 결과가 있을 경우 마지막 값을 선택 (PivotTable과 일관성 유지)
         const matchingResults = record.test_results.filter(
-          r => r.standard_items.name === itemName
+          r => r.standard_items_master.name === itemName
         )
         const result = matchingResults[matchingResults.length - 1]
         if (!result) return null
 
-        // standard_items.default_unit 우선, 없으면 test_results.unit 사용
-        const displayUnit = result.standard_items.default_unit || result.unit
+        // standard_items_master.default_unit 우선, 없으면 test_results.unit 사용
+        const displayUnit = result.standard_items_master.default_unit || result.unit
 
         return {
           date: record.test_date,
@@ -68,7 +68,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
           ref_max: result.ref_max,
           status: result.status,
           unit: displayUnit,
-          displayName: result.standard_items.display_name_ko || result.standard_items.name
+          displayName: result.standard_items_master.display_name_ko || result.standard_items_master.name
         }
       })
       .filter((d): d is NonNullable<typeof d> => d !== null)

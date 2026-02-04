@@ -42,7 +42,7 @@ interface TestRecord {
   created_at: string
   test_results: Array<{
     id: string
-    standard_items: {
+    standard_items_master: {
       name: string
     }
   }>

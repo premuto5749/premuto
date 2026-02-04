@@ -22,7 +22,7 @@ interface TestResult {
   ref_text: string | null
   status: string
   unit: string | null
-  standard_items: {
+  standard_items_master: {
     name: string
     display_name_ko: string | null
     category: string | null
@@ -93,11 +93,11 @@ function DashboardContent() {
 
     records.forEach(record => {
       record.test_results.forEach(result => {
-        if (!itemMap.has(result.standard_items.name)) {
-          itemMap.set(result.standard_items.name, {
-            name: result.standard_items.name,
-            display_name_ko: result.standard_items.display_name_ko,
-            category: result.standard_items.category
+        if (!itemMap.has(result.standard_items_master.name)) {
+          itemMap.set(result.standard_items_master.name, {
+            name: result.standard_items_master.name,
+            display_name_ko: result.standard_items_master.display_name_ko,
+            category: result.standard_items_master.category
           })
         }
       })
@@ -128,7 +128,7 @@ function DashboardContent() {
     return records.map(record => ({
       ...record,
       test_results: record.test_results.filter(result =>
-        selectedItems.has(result.standard_items.name)
+        selectedItems.has(result.standard_items_master.name)
       )
     })).filter(record => record.test_results.length > 0)
   }, [records, selectedItems])
