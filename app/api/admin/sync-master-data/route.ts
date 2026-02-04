@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
     if (migrateOldMappings) {
       const { data: oldMappings } = await supabase
         .from('item_mappings_master')
-        .select('raw_name, standard_item_id, standard_items(name)');
+        .select('raw_name, standard_item_id, standard_items_master(name)');
 
       for (const mapping of oldMappings || []) {
         try {
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
             continue; // 이미 존재하면 건너뜀
           }
 
-          const standardItem = mapping.standard_items as { name?: string } | null;
+          const standardItem = mapping.standard_items_master as { name?: string } | null;
           const canonicalName = standardItem?.name || '';
 
           const { error } = await supabase

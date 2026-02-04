@@ -169,7 +169,7 @@ export async function GET(request: NextRequest) {
             ref_text,
             status,
             unit,
-            standard_items (
+            standard_items_master (
               id,
               name,
               display_name_ko,
@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
           ref_text,
           status,
           unit,
-          standard_items (
+          standard_items_master (
             name,
             display_name_ko,
             category,
