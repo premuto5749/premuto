@@ -16,7 +16,10 @@ COMMENT ON COLUMN user_standard_items.description_common IS '검사 항목에 �
 COMMENT ON COLUMN user_standard_items.description_high IS '수치가 높을 때의 의미와 원인 (사용자 오버라이드)';
 COMMENT ON COLUMN user_standard_items.description_low IS '수치가 낮을 때의 의미와 원인 (사용자 오버라이드)';
 
--- 2. get_user_standard_items 함수 업데이트 (3개 description 필드 반환)
+-- 2. 기존 함수 삭제 (반환 타입 변경을 위해 필요)
+DROP FUNCTION IF EXISTS get_user_standard_items(UUID);
+
+-- 3. get_user_standard_items 함수 재생성 (3개 description 필드 반환)
 CREATE OR REPLACE FUNCTION get_user_standard_items(p_user_id UUID)
 RETURNS TABLE (
   id UUID,
