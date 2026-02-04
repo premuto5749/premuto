@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight } from 'lucide-react'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
@@ -31,6 +31,7 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [presets, setPresets] = useState<MedicinePreset[]>([])
+  const { pets } = usePet()
 
   // 데이터 로드
   const loadData = useCallback(async () => {
@@ -78,18 +79,37 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
       <div className="container max-w-4xl mx-auto py-6 px-4">
         {/* 온보딩 환영 메시지 */}
         {isOnboarding && (
-          <Card className="mb-6 border-primary bg-primary/5">
+          <Card className={`mb-6 border-primary ${pets.length > 0 ? 'bg-green-50 border-green-500' : 'bg-primary/5'}`}>
             <CardContent className="pt-6">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                  <PawPrint className="w-6 h-6 text-primary" />
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${pets.length > 0 ? 'bg-green-100' : 'bg-primary/20'}`}>
+                  {pets.length > 0 ? (
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  ) : (
+                    <PawPrint className="w-6 h-6 text-primary" />
+                  )}
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold mb-1">환영합니다!</h2>
-                  <p className="text-sm text-muted-foreground">
-                    서비스를 시작하려면 먼저 반려동물을 등록해주세요.
-                    등록 후 일일 건강 기록을 시작할 수 있습니다.
-                  </p>
+                <div className="flex-1">
+                  {pets.length > 0 ? (
+                    <>
+                      <h2 className="text-lg font-semibold mb-1 text-green-700">등록 완료!</h2>
+                      <p className="text-sm text-green-600 mb-3">
+                        반려동물 등록이 완료되었습니다. 이제 서비스를 시작할 수 있습니다.
+                      </p>
+                      <Button onClick={() => window.location.href = '/'} className="bg-green-600 hover:bg-green-700">
+                        시작하기
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-lg font-semibold mb-1">환영합니다!</h2>
+                      <p className="text-sm text-muted-foreground">
+                        서비스를 시작하려면 먼저 반려동물을 등록해주세요.
+                        등록 후 일일 건강 기록을 시작할 수 있습니다.
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
