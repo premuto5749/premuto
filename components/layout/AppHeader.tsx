@@ -70,11 +70,11 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                   <Menu className="w-5 h-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left">
+              <SheetContent side="left" className="flex flex-col">
                 <SheetHeader>
                   <SheetTitle>Mimo Health Log</SheetTitle>
                 </SheetHeader>
-                <nav className="mt-6 space-y-2">
+                <nav className="mt-6 space-y-2 flex-1 overflow-y-auto">
                   {navItems.map((item) => (
                     <Link
                       key={item.href}
@@ -88,7 +88,8 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                       {item.icon} {item.label}
                     </Link>
                   ))}
-                  <hr className="my-4" />
+                </nav>
+                <div className="border-t pt-4 space-y-2">
                   <button
                     onClick={() => setIsDonateOpen(true)}
                     className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
@@ -108,18 +109,15 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                     </span>
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </a>
-                  <p className="px-4 py-2 text-xs text-muted-foreground">
-                    버그나 개선 요청, 응원의 글을 보내주세요.
-                  </p>
                   <form action="/auth/signout" method="post">
                     <button
                       type="submit"
-                      className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
+                      className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left text-red-600"
                     >
                       🚪 로그아웃
                     </button>
                   </form>
-                </nav>
+                </div>
               </SheetContent>
             </Sheet>
           )}
