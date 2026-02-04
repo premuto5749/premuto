@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
+import type { OcrResult } from '@/types'
 import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
 import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 import { createClient } from '@/lib/supabase/server'
@@ -8,7 +8,6 @@ import {
   matchItemV3,
   type MatchResultV3,
   registerNewAlias,
-  registerNewStandardItem,
   correctTruncatedUnit,
 } from '@/lib/ocr/item-matcher-v3'
 
