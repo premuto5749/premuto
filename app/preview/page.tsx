@@ -461,8 +461,8 @@ function PreviewContent() {
       )}
 
       {/* 날짜별 탭 */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="mb-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+        <TabsList className="w-full flex flex-wrap gap-1 h-auto mb-4">
           {dateGroups.map((group) => {
             // 탭 ID는 원래 날짜와 병원명 기반 (변경해도 안정적)
             const tabId = `${group.originalDate}-${group.originalHospital}-${group.sequence}`
@@ -489,8 +489,8 @@ function PreviewContent() {
           const isHospitalUnknown = group.hospital === 'Unknown'
 
           return (
-            <TabsContent key={tabId} value={tabId}>
-              <Card>
+            <TabsContent key={tabId} value={tabId} className="w-full">
+              <Card className="w-full">
                 <CardHeader>
                   <CardTitle>추출된 검사 항목 ({group.items.length}개)</CardTitle>
                   <CardDescription>
