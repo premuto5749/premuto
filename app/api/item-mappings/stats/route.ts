@@ -18,17 +18,35 @@ export async function GET() {
       )
     }
 
-    // 통계 계산
-    const stats: Record<string, number> = {}
+    // 각 standard_item_id별로 test_results 개수 집계
+    const { data: results, error: resultsError } = await supabase
+      .from('test_results')
+      .select('standard_item_id')
+
+    if (resultsError) {
+      console.error('Failed to fetch test results:', resultsError)
+    }
+
+    // 매핑 통계 계산
+    const mappingStats: Record<string, number> = {}
     mappings?.forEach(mapping => {
       if (mapping.standard_item_id) {
-        stats[mapping.standard_item_id] = (stats[mapping.standard_item_id] || 0) + 1
+        mappingStats[mapping.standard_item_id] = (mappingStats[mapping.standard_item_id] || 0) + 1
+      }
+    })
+
+    // 검사 결과 통계 계산
+    const resultStats: Record<string, number> = {}
+    results?.forEach(result => {
+      if (result.standard_item_id) {
+        resultStats[result.standard_item_id] = (resultStats[result.standard_item_id] || 0) + 1
       }
     })
 
     return NextResponse.json({
       success: true,
-      data: stats
+      data: mappingStats,
+      resultStats: resultStats
     })
 
   } catch (error) {

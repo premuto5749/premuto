@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const body = await request.json()
 
-    const { old_standard_item_id, new_standard_item_id } = body
+    const { old_standard_item_id, new_standard_item_id, delete_after_remap = true } = body
 
     if (!old_standard_item_id || !new_standard_item_id) {
       return NextResponse.json(
@@ -44,12 +44,38 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. 옵션: old standard_item 삭제 (Unmapped 카테고리인 경우)
-    // 이것은 사용자가 원할 경우에만 수행
-    // 지금은 삭제하지 않고 그대로 둡니다 (나중에 수동 정리 가능)
+    let deleted = false
+    if (delete_after_remap) {
+      // 먼저 Unmapped 항목인지 확인
+      const { data: oldItem } = await supabase
+        .from('standard_items_master')
+        .select('category')
+        .eq('id', old_standard_item_id)
+        .single()
+
+      if (oldItem?.category === 'Unmapped') {
+        // 연관된 별칭 삭제
+        await supabase
+          .from('item_aliases_master')
+          .delete()
+          .eq('standard_item_id', old_standard_item_id)
+
+        // Unmapped 항목 삭제
+        const { error: deleteError } = await supabase
+          .from('standard_items_master')
+          .delete()
+          .eq('id', old_standard_item_id)
+
+        if (!deleteError) {
+          deleted = true
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Successfully remapped from ${old_standard_item_id} to ${new_standard_item_id}`
+      message: `Successfully remapped from ${old_standard_item_id} to ${new_standard_item_id}`,
+      deleted
     })
 
   } catch (error) {
