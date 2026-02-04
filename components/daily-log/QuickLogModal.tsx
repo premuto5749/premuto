@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { Camera, X, Loader2, Image as ImageIcon } from 'lucide-react'
-import type { LogCategory, DailyLogInput } from '@/types'
+import type { LogCategory, DailyLogInput, MedicinePreset } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const MAX_PHOTOS = 5
 
@@ -46,6 +47,9 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const [medicineName, setMedicineName] = useState('')
   const [medicineDosage, setMedicineDosage] = useState('')
   const [medicineDosageUnit, setMedicineDosageUnit] = useState('정')
+  const [medicineInputMode, setMedicineInputMode] = useState<'preset' | 'manual'>('preset')
+  const [medicinePresets, setMedicinePresets] = useState<MedicinePreset[]>([])
+  const [selectedPreset, setSelectedPreset] = useState<MedicinePreset | null>(null)
   const [logTime, setLogTime] = useState(getCurrentTime())
   const [logDate, setLogDate] = useState(getCurrentDate())
   const [photos, setPhotos] = useState<File[]>([])
@@ -71,6 +75,22 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     }
   }, [photoPreviews])
 
+  // 약 프리셋 로드
+  useEffect(() => {
+    const fetchPresets = async () => {
+      try {
+        const res = await fetch('/api/medicine-presets')
+        if (res.ok) {
+          const data = await res.json()
+          setMedicinePresets(data.data || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch medicine presets:', err)
+      }
+    }
+    fetchPresets()
+  }, [])
+
   const categories: LogCategory[] = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing']
 
   const resetForm = () => {
@@ -81,6 +101,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setMedicineName('')
     setMedicineDosage('')
     setMedicineDosageUnit('정')
+    setMedicineInputMode('preset')
+    setSelectedPreset(null)
     setLogTime(getCurrentTime())
     setLogDate(defaultDate || getCurrentDate())
     // 사진 미리보기 URL 정리
@@ -222,12 +244,21 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
 
       const config = LOG_CATEGORY_CONFIG[selectedCategory]
 
-      // 약 이름 조합: "약이름 복용량단위" 형식
+      // 약 이름 조합
       let fullMedicineName = null
-      if (selectedCategory === 'medicine' && medicineName) {
-        fullMedicineName = medicineDosage
-          ? `${medicineName} ${medicineDosage}${medicineDosageUnit}`
-          : medicineName
+      if (selectedCategory === 'medicine') {
+        if (medicineInputMode === 'preset' && selectedPreset) {
+          // 프리셋 선택: "프리셋명 (약1, 약2, ...)" 형식
+          const medicineList = selectedPreset.medicines.map(m =>
+            `${m.name} ${m.dosage}${m.dosage_unit === 'tablet' ? '정' : m.dosage_unit}`
+          ).join(', ')
+          fullMedicineName = `${selectedPreset.preset_name} (${medicineList})`
+        } else if (medicineInputMode === 'manual' && medicineName) {
+          // 직접 입력: "약이름 복용량단위" 형식
+          fullMedicineName = medicineDosage
+            ? `${medicineName} ${medicineDosage}${medicineDosageUnit}`
+            : medicineName
+        }
       }
 
       const logData: DailyLogInput = {
@@ -412,40 +443,90 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </div>
             )}
 
-            {/* 약 이름 및 복용량 (약일 때만) */}
+            {/* 약 선택 (약일 때만) */}
             {selectedCategory === 'medicine' && (
               <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block">약 이름</label>
-                  <Input
-                    placeholder="예: 타이레놀, 소화제"
-                    value={medicineName}
-                    onChange={(e) => setMedicineName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block">복용량 (선택)</label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="복용량"
-                      value={medicineDosage}
-                      onChange={(e) => setMedicineDosage(e.target.value)}
-                      className="flex-1"
-                    />
-                    <select
-                      value={medicineDosageUnit}
-                      onChange={(e) => setMedicineDosageUnit(e.target.value)}
-                      className="px-3 py-2 border rounded-md bg-background text-sm"
-                    >
-                      <option value="정">정</option>
-                      <option value="mg">mg</option>
-                      <option value="ml">ml</option>
-                      <option value="포">포</option>
-                      <option value="캡슐">캡슐</option>
-                    </select>
+                {/* 프리셋/직접입력 탭 */}
+                <Tabs value={medicineInputMode} onValueChange={(v) => {
+                  setMedicineInputMode(v as 'preset' | 'manual')
+                  setSelectedPreset(null)
+                  setMedicineName('')
+                  setMedicineDosage('')
+                }}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="preset">프리셋 선택</TabsTrigger>
+                    <TabsTrigger value="manual">직접 입력</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                {/* 프리셋 선택 모드 */}
+                {medicineInputMode === 'preset' && (
+                  <div>
+                    {medicinePresets.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {medicinePresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => setSelectedPreset(selectedPreset?.id === preset.id ? null : preset)}
+                            className={`p-3 rounded-lg border-2 text-left transition-all ${
+                              selectedPreset?.id === preset.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-muted hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="font-medium text-sm">{preset.preset_name}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {preset.medicines.map(m => m.name).join(', ')}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground text-sm">
+                        등록된 프리셋이 없습니다.<br />
+                        설정에서 약 프리셋을 추가하세요.
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
+
+                {/* 직접 입력 모드 */}
+                {medicineInputMode === 'manual' && (
+                  <>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">약 이름</label>
+                      <Input
+                        placeholder="예: 타이레놀, 소화제"
+                        value={medicineName}
+                        onChange={(e) => setMedicineName(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">복용량 (선택)</label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          placeholder="복용량"
+                          value={medicineDosage}
+                          onChange={(e) => setMedicineDosage(e.target.value)}
+                          className="flex-1"
+                        />
+                        <select
+                          value={medicineDosageUnit}
+                          onChange={(e) => setMedicineDosageUnit(e.target.value)}
+                          className="px-3 py-2 border rounded-md bg-background text-sm"
+                        >
+                          <option value="정">정</option>
+                          <option value="mg">mg</option>
+                          <option value="ml">ml</option>
+                          <option value="포">포</option>
+                          <option value="캡슐">캡슐</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
