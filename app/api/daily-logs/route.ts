@@ -22,14 +22,21 @@ async function convertPathsToSignedUrls(
     }
 
     // 파일 경로면 Signed URL 생성
+    console.log('Creating signed URL for path:', pathOrUrl)
     const { data: signedUrl, error } = await supabase.storage
       .from(BUCKET_NAME)
       .createSignedUrl(pathOrUrl, SIGNED_URL_EXPIRY)
 
     if (error || !signedUrl) {
-      console.error('Signed URL generation error:', error)
-      results.push(pathOrUrl) // 실패 시 경로 그대로 반환
+      console.error('Signed URL generation error:', {
+        path: pathOrUrl,
+        error: error?.message,
+        bucket: BUCKET_NAME
+      })
+      // 실패 시 경로 그대로 반환 (디버깅용)
+      results.push(pathOrUrl)
     } else {
+      console.log('Signed URL created:', signedUrl.signedUrl.substring(0, 100) + '...')
       results.push(signedUrl.signedUrl)
     }
   }
