@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3 } from 'lucide-react'
+import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
 interface AdminStats {
@@ -169,6 +169,26 @@ export default function AdminPage() {
                 <div className="flex gap-2">
                   <span className="text-xs bg-muted px-2 py-1 rounded">표준항목 {stats?.masterData.standardItems || 0}개</span>
                   <span className="text-xs bg-muted px-2 py-1 rounded">별칭 {stats?.masterData.aliases || 0}개</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/admin/mapping-management">
+            <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <AlertTriangle className="w-5 h-5" />
+                  미분류 항목 정리
+                </CardTitle>
+                <CardDescription>
+                  OCR에서 생성된 미분류(Unmapped) 항목을 표준 항목과 병합하거나 삭제합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">마스터 정리</span>
+                  <span className="text-xs bg-muted px-2 py-1 rounded">AI 자동 매핑</span>
                 </div>
               </CardContent>
             </Card>

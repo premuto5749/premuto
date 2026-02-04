@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -25,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Loader2, Save, AlertTriangle, Sparkles, AlertCircle, Trash2 } from 'lucide-react'
+import { Loader2, Save, AlertTriangle, Sparkles, AlertCircle, Trash2, ShieldCheck } from 'lucide-react'
 import type { StandardItem } from '@/types'
 
 interface MappingData {
@@ -36,9 +37,12 @@ interface MappingData {
 }
 
 function MappingManagementContent() {
+  const router = useRouter()
   const [items, setItems] = useState<MappingData[]>([])
   const [allStandardItems, setAllStandardItems] = useState<StandardItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [authorized, setAuthorized] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [aiCleaning, setAiCleaning] = useState(false)
   const [filter, setFilter] = useState<'all' | 'unmapped'>('unmapped')
@@ -47,8 +51,32 @@ function MappingManagementContent() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchData()
+    checkAuthAndFetchData()
   }, [])
+
+  const checkAuthAndFetchData = async () => {
+    try {
+      // 권한 체크
+      const authRes = await fetch('/api/admin/stats')
+      if (authRes.status === 403) {
+        setAuthError('관리자 권한이 필요합니다')
+        setAuthorized(false)
+        setLoading(false)
+        return
+      }
+      if (!authRes.ok) {
+        setAuthError('권한 확인 실패')
+        setAuthorized(false)
+        setLoading(false)
+        return
+      }
+      setAuthorized(true)
+      await fetchData()
+    } catch {
+      setAuthError('서버 오류가 발생했습니다')
+      setLoading(false)
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -206,7 +234,7 @@ function MappingManagementContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-muted">
-        <AppHeader title="미분류 항목 정리" />
+        <AppHeader title="[관리자] 미분류 항목 정리" />
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
@@ -214,11 +242,45 @@ function MappingManagementContent() {
     )
   }
 
+  if (!authorized) {
+    return (
+      <div className="min-h-screen bg-muted">
+        <AppHeader title="[관리자] 미분류 항목 정리" />
+        <div className="container max-w-4xl mx-auto py-10 px-4">
+          <Card className="border-destructive">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <ShieldCheck className="w-5 h-5" />
+                접근 권한 없음
+              </CardTitle>
+              <CardDescription>
+                {authError || '이 페이지에 접근할 권한이 없습니다.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => router.push('/')}>
+                메인으로 돌아가기
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-muted">
-      <AppHeader title="미분류 항목 정리" />
+      <AppHeader title="[관리자] 미분류 항목 정리" />
 
       <div className="container max-w-7xl mx-auto py-10 px-4">
+        {/* 관리자 배지 */}
+        <div className="mb-6 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-3">
+          <ShieldCheck className="w-6 h-6 text-primary" />
+          <div>
+            <p className="font-medium text-primary">관리자 전용</p>
+            <p className="text-sm text-muted-foreground">마스터 데이터의 미분류 항목을 정리합니다. 모든 사용자에게 영향을 줍니다.</p>
+          </div>
+        </div>
 
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
