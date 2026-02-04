@@ -46,7 +46,7 @@ END $$;
 -- 기존 정책 삭제 후 authenticated 역할 명시하여 재생성
 -- ============================================
 
--- 2-1. 기존 정책 삭제 (이름이 다를 수 있으므로 모두 시도)
+-- 2-1. 기존 정책 삭제 (모든 가능한 이름)
 DROP POLICY IF EXISTS "Users can upload to own folder" ON storage.objects;
 DROP POLICY IF EXISTS "Users can view own photos" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete own photos" ON storage.objects;
@@ -55,6 +55,13 @@ DROP POLICY IF EXISTS "Users can delete own photos" ON storage.objects;
 DROP POLICY IF EXISTS "daily_log_photos_insert" ON storage.objects;
 DROP POLICY IF EXISTS "daily_log_photos_select" ON storage.objects;
 DROP POLICY IF EXISTS "daily_log_photos_delete" ON storage.objects;
+DROP POLICY IF EXISTS "daily_log_photos_update" ON storage.objects;
+
+-- 새로 생성할 정책명도 미리 삭제 (재실행 대비)
+DROP POLICY IF EXISTS "daily_log_photos_authenticated_insert" ON storage.objects;
+DROP POLICY IF EXISTS "daily_log_photos_authenticated_select" ON storage.objects;
+DROP POLICY IF EXISTS "daily_log_photos_authenticated_update" ON storage.objects;
+DROP POLICY IF EXISTS "daily_log_photos_authenticated_delete" ON storage.objects;
 
 -- 2-2. 새 정책 생성 (TO authenticated 명시)
 
