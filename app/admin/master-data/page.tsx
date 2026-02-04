@@ -533,9 +533,14 @@ export default function AdminMasterDataPage() {
                     </span>
                   </div>
                   {syncStatus.comparison.missingCount > 0 && (
-                    <div className="flex items-center gap-1 text-amber-600 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      <span>누락: {syncStatus.comparison.missingCount}개</span>
+                    <div className="mt-1">
+                      <div className="flex items-center gap-1 text-amber-600">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>누락: {syncStatus.comparison.missingCount}개</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1 max-h-20 overflow-y-auto">
+                        {syncStatus.comparison.missingInDb.join(', ')}
+                      </div>
                     </div>
                   )}
                 </div>
