@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -14,7 +15,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, Save, AlertTriangle, Sparkles, AlertCircle } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Loader2, Save, AlertTriangle, Sparkles, AlertCircle, Trash2, ShieldCheck } from 'lucide-react'
 import type { StandardItem } from '@/types'
 
 interface MappingData {
@@ -25,18 +37,46 @@ interface MappingData {
 }
 
 function MappingManagementContent() {
+  const router = useRouter()
   const [items, setItems] = useState<MappingData[]>([])
   const [allStandardItems, setAllStandardItems] = useState<StandardItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [authorized, setAuthorized] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [aiCleaning, setAiCleaning] = useState(false)
   const [filter, setFilter] = useState<'all' | 'unmapped'>('unmapped')
   const [selectedRemappings, setSelectedRemappings] = useState<Record<string, string>>({})
   const [rateLimitError, setRateLimitError] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchData()
+    checkAuthAndFetchData()
   }, [])
+
+  const checkAuthAndFetchData = async () => {
+    try {
+      // 권한 체크
+      const authRes = await fetch('/api/admin/stats')
+      if (authRes.status === 403) {
+        setAuthError('관리자 권한이 필요합니다')
+        setAuthorized(false)
+        setLoading(false)
+        return
+      }
+      if (!authRes.ok) {
+        setAuthError('권한 확인 실패')
+        setAuthorized(false)
+        setLoading(false)
+        return
+      }
+      setAuthorized(true)
+      await fetchData()
+    } catch {
+      setAuthError('서버 오류가 발생했습니다')
+      setLoading(false)
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -48,17 +88,18 @@ function MappingManagementContent() {
       const standardItems: StandardItem[] = standardItemsData.data || []
       setAllStandardItems(standardItems)
 
-      // item_mappings 통계 가져오기
+      // item_mappings 통계 가져오기 (test_results 참조 개수 포함)
       const mappingsResponse = await fetch('/api/item-mappings/stats')
       const mappingsData = await mappingsResponse.json()
       const mappingStats: Record<string, number> = mappingsData.data || {}
+      const resultStats: Record<string, number> = mappingsData.resultStats || {}
 
       // 모든 항목 조합 (병합 가능하도록)
       const mappingDataList: MappingData[] = standardItems.map(item => ({
         standard_item: item,
         is_unmapped: item.category === 'Unmapped',
         mapping_count: mappingStats[item.id] || 0,
-        result_count: 0 // TODO: 실제 검사 결과 개수 추가
+        result_count: resultStats[item.id] || 0
       }))
 
       setItems(mappingDataList)
@@ -108,6 +149,33 @@ function MappingManagementContent() {
       alert(error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteItem = async (itemId: string, itemName: string) => {
+    setDeletingId(itemId)
+    try {
+      const response = await fetch(`/api/admin/standard-items/${itemId}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          alert(`"${itemName}" 항목에 ${result.resultCount}개의 검사 결과가 연결되어 있어 삭제할 수 없습니다.\n먼저 다른 항목으로 병합해주세요.`)
+        } else {
+          throw new Error(result.error || '삭제에 실패했습니다.')
+        }
+        return
+      }
+
+      fetchData()
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert(error instanceof Error ? error.message : '삭제 중 오류가 발생했습니다.')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -166,7 +234,7 @@ function MappingManagementContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-muted">
-        <AppHeader title="미분류 항목 정리" />
+        <AppHeader title="[관리자] 미분류 항목 정리" />
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
@@ -174,11 +242,45 @@ function MappingManagementContent() {
     )
   }
 
+  if (!authorized) {
+    return (
+      <div className="min-h-screen bg-muted">
+        <AppHeader title="[관리자] 미분류 항목 정리" />
+        <div className="container max-w-4xl mx-auto py-10 px-4">
+          <Card className="border-destructive">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <ShieldCheck className="w-5 h-5" />
+                접근 권한 없음
+              </CardTitle>
+              <CardDescription>
+                {authError || '이 페이지에 접근할 권한이 없습니다.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => router.push('/')}>
+                메인으로 돌아가기
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-muted">
-      <AppHeader title="미분류 항목 정리" />
+      <AppHeader title="[관리자] 미분류 항목 정리" />
 
       <div className="container max-w-7xl mx-auto py-10 px-4">
+        {/* 관리자 배지 */}
+        <div className="mb-6 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-3">
+          <ShieldCheck className="w-6 h-6 text-primary" />
+          <div>
+            <p className="font-medium text-primary">관리자 전용</p>
+            <p className="text-sm text-muted-foreground">마스터 데이터의 미분류 항목을 정리합니다. 모든 사용자에게 영향을 줍니다.</p>
+          </div>
+        </div>
 
       {/* 통계 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -262,8 +364,10 @@ function MappingManagementContent() {
                   <TableHead className="w-[150px]">한글명</TableHead>
                   <TableHead className="w-[100px]">카테고리</TableHead>
                   <TableHead className="w-[80px]">단위</TableHead>
-                  <TableHead className="w-[100px]">매핑 개수</TableHead>
-                  <TableHead className="w-[300px]">병합할 항목 선택</TableHead>
+                  <TableHead className="w-[80px]">매핑</TableHead>
+                  <TableHead className="w-[80px]">검사결과</TableHead>
+                  <TableHead className="w-[250px]">병합할 항목 선택</TableHead>
+                  <TableHead className="w-[60px]">삭제</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -290,6 +394,11 @@ function MappingManagementContent() {
                         <Badge variant="secondary">{item.mapping_count}</Badge>
                       </TableCell>
                       <TableCell>
+                        <Badge variant={item.result_count > 0 ? "default" : "outline"}>
+                          {item.result_count}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         <Select
                           value={hasRemapping || ''}
                           onValueChange={(value) => handleRemapItem(item.standard_item.id, value)}
@@ -299,7 +408,7 @@ function MappingManagementContent() {
                           </SelectTrigger>
                           <SelectContent>
                             {allStandardItems
-                              .filter(si => si.id !== item.standard_item.id)
+                              .filter(si => si.id !== item.standard_item.id && si.category !== 'Unmapped')
                               .map(stdItem => (
                                 <SelectItem key={stdItem.id} value={stdItem.id}>
                                   {stdItem.name} ({stdItem.display_name_ko}) - {stdItem.category}
@@ -307,6 +416,49 @@ function MappingManagementContent() {
                               ))}
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell>
+                        {isUnmapped && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={deletingId === item.standard_item.id}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                {deletingId === item.standard_item.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>항목 삭제</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  &quot;{item.standard_item.name}&quot; 항목을 삭제하시겠습니까?
+                                  {item.result_count > 0 && (
+                                    <span className="block mt-2 text-orange-600 font-medium">
+                                      ⚠️ 이 항목에 {item.result_count}개의 검사 결과가 연결되어 있습니다.
+                                      먼저 다른 항목으로 병합해주세요.
+                                    </span>
+                                  )}
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>취소</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteItem(item.standard_item.id, item.standard_item.name)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  삭제
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </TableCell>
                     </TableRow>
                   )

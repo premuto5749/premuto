@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -39,8 +39,23 @@ interface AppHeaderProps {
 export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: AppHeaderProps) {
   const pathname = usePathname()
   const [isDonateOpen, setIsDonateOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const { toast } = useToast()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
+
+  // 관리자 권한 확인
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const res = await fetch('/api/auth/check-admin')
+        const data = await res.json()
+        setIsAdmin(data.isAdmin === true)
+      } catch {
+        setIsAdmin(false)
+      }
+    }
+    checkAdmin()
+  }, [])
 
   const navItems = [
     { href: '/daily-log', label: '일일 기록', icon: '📝' },
@@ -49,8 +64,11 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
     { href: '/hospital-contacts', label: '병원 연락처', icon: '🏥' },
     { href: '/records-management', label: '검사 기록 관리', icon: '🗑️' },
     { href: '/standard-items', label: '내 검사항목', icon: '📋' },
-    { href: '/mapping-management', label: '미분류 항목 정리', icon: '🔀' },
     { href: '/settings', label: '설정', icon: '🔧' },
+  ]
+
+  // 관리자 전용 메뉴
+  const adminNavItems = [
     { href: '/admin', label: '관리자', icon: '🔐' },
   ]
 
@@ -89,6 +107,26 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                       {item.icon} {item.label}
                     </Link>
                   ))}
+                  {/* 관리자 전용 메뉴 */}
+                  {isAdmin && (
+                    <>
+                      <hr className="my-4" />
+                      <div className="px-4 py-1 text-xs text-muted-foreground font-medium">관리자</div>
+                      {adminNavItems.map((item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
+                            pathname.startsWith(item.href)
+                              ? 'bg-primary/10 text-primary font-medium'
+                              : 'hover:bg-muted'
+                          }`}
+                        >
+                          {item.icon} {item.label}
+                        </Link>
+                      ))}
+                    </>
+                  )}
                   <hr className="my-4" />
                   <button
                     onClick={() => setIsDonateOpen(true)}
