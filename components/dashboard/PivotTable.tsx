@@ -14,7 +14,7 @@ interface TestResult {
   ref_text: string | null
   status: string
   unit: string | null
-  standard_items: {
+  standard_items_master: {
     name: string
     display_name_ko: string | null
     category: string | null
@@ -108,14 +108,14 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
 
     sortedRecords.forEach(record => {
       record.test_results.forEach(result => {
-        const itemName = result.standard_items.name
+        const itemName = result.standard_items_master.name
         allItems.add(itemName)
 
         if (!itemDetails.has(itemName)) {
           itemDetails.set(itemName, {
             name: itemName,
-            ko: result.standard_items.display_name_ko || itemName,
-            category: result.standard_items.category || 'Other',
+            ko: result.standard_items_master.display_name_ko || itemName,
+            category: result.standard_items_master.category || 'Other',
             refRangeDisplay: null
           })
         }
@@ -232,7 +232,7 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
     sortedRecords.forEach(record => {
       const resultMap = new Map<string, TestResult>()
       record.test_results.forEach(result => {
-        resultMap.set(result.standard_items.name, result)
+        resultMap.set(result.standard_items_master.name, result)
       })
       dateMap.set(record.test_date, resultMap)
     })
@@ -271,12 +271,12 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
     const currentIndex = sortedRecords.findIndex(r => r.id === currentRecord.id)
     if (currentIndex <= 0) return { changed: false, previousRef: null }
 
-    const currentResult = currentRecord.test_results.find(r => r.standard_items.name === itemName)
+    const currentResult = currentRecord.test_results.find(r => r.standard_items_master.name === itemName)
     if (!currentResult) return { changed: false, previousRef: null }
 
     // 이전 검사 결과 찾기
     for (let i = currentIndex - 1; i >= 0; i--) {
-      const previousResult = sortedRecords[i].test_results.find(r => r.standard_items.name === itemName)
+      const previousResult = sortedRecords[i].test_results.find(r => r.standard_items_master.name === itemName)
       if (previousResult) {
         // ref_min과 ref_max 값을 직접 비교 (문자열 비교는 공백 차이로 인해 부정확함)
         const minChanged = currentResult.ref_min !== previousResult.ref_min
