@@ -225,6 +225,16 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient()
+
+    // 인증된 사용자 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -239,6 +249,7 @@ export async function DELETE(request: NextRequest) {
       .from('daily_logs')
       .delete()
       .eq('id', id)
+      .eq('user_id', user.id)  // 본인 데이터만 삭제 가능
 
     if (error) {
       console.error('Daily log delete error:', error)
@@ -260,6 +271,16 @@ export async function DELETE(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
+
+    // 인증된 사용자 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const { id, ...updates } = body
 
@@ -275,6 +296,7 @@ export async function PATCH(request: NextRequest) {
       .from('daily_logs')
       .update(updates)
       .eq('id', id)
+      .eq('user_id', user.id)  // 본인 데이터만 수정 가능
       .select()
       .single()
 
@@ -285,6 +307,7 @@ export async function PATCH(request: NextRequest) {
         .from('daily_logs')
         .update(updates)
         .eq('id', id)
+        .eq('user_id', user.id)  // 본인 데이터만 수정 가능
         .select()
         .single()
 

@@ -6,13 +6,14 @@ interface SaveTestResultRequest {
   test_date: string
   hospital_name?: string
   machine_type?: string
+  pet_id?: string
   items: StagingItem[]
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: SaveTestResultRequest = await request.json()
-    const { test_date, hospital_name, machine_type, items } = body
+    const { test_date, hospital_name, machine_type, pet_id, items } = body
 
     // 입력 검증
     if (!test_date) {
@@ -40,13 +41,35 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
+    // 사용자 인증 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    }
+
+    // pet_id가 없으면 기본 펫 조회
+    let finalPetId = pet_id
+    if (!finalPetId) {
+      const { data: defaultPet } = await supabase
+        .from('pets')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('is_default', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+      finalPetId = defaultPet?.id
+    }
+
     // 1. test_records 테이블에 헤더 정보 삽입
     const { data: recordData, error: recordError } = await supabase
       .from('test_records')
       .insert({
         test_date,
         hospital_name: hospital_name || null,
-        machine_type: machine_type || null
+        machine_type: machine_type || null,
+        user_id: user.id,
+        pet_id: finalPetId || null
       })
       .select('id')
       .single()
@@ -118,6 +141,13 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const recordId = searchParams.get('recordId')
+    const petId = searchParams.get('petId')
+
+    // 사용자 인증 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    }
 
     // 단일 레코드 조회 (수정 페이지용)
     if (recordId) {
@@ -128,6 +158,7 @@ export async function GET(request: NextRequest) {
           test_date,
           hospital_name,
           machine_type,
+          pet_id,
           created_at,
           test_results (
             id,
@@ -147,6 +178,7 @@ export async function GET(request: NextRequest) {
           )
         `)
         .eq('id', recordId)
+        .eq('user_id', user.id)
         .single()
 
       if (error) {
@@ -164,13 +196,14 @@ export async function GET(request: NextRequest) {
     }
 
     // 전체 레코드 목록 조회
-    const { data: records, error } = await supabase
+    let query = supabase
       .from('test_records')
       .select(`
         id,
         test_date,
         hospital_name,
         machine_type,
+        pet_id,
         created_at,
         test_results (
           id,
@@ -189,7 +222,15 @@ export async function GET(request: NextRequest) {
           )
         )
       `)
+      .eq('user_id', user.id)
       .order('test_date', { ascending: false })
+
+    // pet_id 필터가 있으면 적용
+    if (petId) {
+      query = query.eq('pet_id', petId)
+    }
+
+    const { data: records, error } = await query
 
     if (error) {
       console.error('Failed to fetch test records:', error)
@@ -216,11 +257,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PATCH: 검사 기록 수정 (날짜, 병원명)
+// PATCH: 검사 기록 수정 (날짜, 병원명, 펫)
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, test_date, hospital_name } = body
+    const { id, test_date, hospital_name, pet_id } = body
 
     if (!id) {
       return NextResponse.json(
@@ -231,14 +272,22 @@ export async function PATCH(request: NextRequest) {
 
     const supabase = await createClient()
 
+    // 사용자 인증 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    }
+
     const updateData: Record<string, string | null> = {}
     if (test_date !== undefined) updateData.test_date = test_date
     if (hospital_name !== undefined) updateData.hospital_name = hospital_name || null
+    if (pet_id !== undefined) updateData.pet_id = pet_id || null
 
     const { data, error } = await supabase
       .from('test_records')
       .update(updateData)
       .eq('id', id)
+      .eq('user_id', user.id)
       .select()
       .single()
 
@@ -282,12 +331,19 @@ export async function DELETE(request: NextRequest) {
 
     const supabase = await createClient()
 
+    // 사용자 인증 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    }
+
     // test_results가 CASCADE DELETE로 설정되어 있으므로
     // test_records만 삭제하면 관련 결과도 자동 삭제됨
     const { error } = await supabase
       .from('test_records')
       .delete()
       .eq('id', recordId)
+      .eq('user_id', user.id)
 
     if (error) {
       console.error('Failed to delete test record:', error)

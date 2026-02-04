@@ -8,13 +8,14 @@ export const maxDuration = 30
 
 export async function POST(request: NextRequest) {
   try {
-    const body: BatchSaveRequest = await request.json()
+    const body: BatchSaveRequest & { pet_id?: string } = await request.json()
     const {
       batch_id,
       test_date,
       hospital_name,
       uploaded_files,
-      results
+      results,
+      pet_id
     } = body
 
     // 입력 검증
@@ -28,6 +29,26 @@ export async function POST(request: NextRequest) {
     console.log(`💾 Batch save started for ${results.length} items (batch: ${batch_id})`)
 
     const supabase = await createClient()
+
+    // 사용자 인증 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    }
+
+    // pet_id가 없으면 기본 펫 조회
+    let finalPetId = pet_id
+    if (!finalPetId) {
+      const { data: defaultPet } = await supabase
+        .from('pets')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('is_default', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+      finalPetId = defaultPet?.id
+    }
 
     // 트랜잭션 시작: RPC 함수를 사용하거나 순차적 저장
     // Supabase는 명시적 트랜잭션을 지원하지 않으므로, 오류 발생 시 롤백 처리를 직접 구현
@@ -44,7 +65,9 @@ export async function POST(request: NextRequest) {
           machine_type: null, // v2에서는 각 결과마다 다를 수 있으므로 null
           uploaded_files: uploaded_files || [],
           file_count: uploaded_files?.length || results.length,
-          batch_upload_id: batch_id
+          batch_upload_id: batch_id,
+          user_id: user.id,
+          pet_id: finalPetId || null
         })
         .select('id')
         .single()
@@ -189,7 +212,13 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 해당 배치로 저장된 test_record 조회
+    // 사용자 인증 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    }
+
+    // 해당 배치로 저장된 test_record 조회 (본인 것만)
     const { data: records, error } = await supabase
       .from('test_records')
       .select(`
@@ -215,6 +244,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .eq('batch_upload_id', batchId)
+      .eq('user_id', user.id)
 
     if (error) {
       console.error('❌ Failed to fetch batch results:', error)
