@@ -393,10 +393,12 @@ export async function POST(request: NextRequest) {
     // 원래 순서대로 정렬
     mappingResults.sort((a, b) => a.index - b.index)
 
-    // index 필드 제거
-    const finalResults = mappingResults.map(({ ocr_item, suggested_mapping }) => ({
+    // index 필드 제거, 가비지 정보 유지
+    const finalResults = mappingResults.map(({ ocr_item, suggested_mapping, isGarbage, garbageReason }) => ({
       ocr_item,
-      suggested_mapping
+      suggested_mapping,
+      isGarbage: isGarbage || false,
+      garbageReason: garbageReason || null,
     }))
 
     console.log(`✅ AI Mapping completed for batch ${batch_id}`)
