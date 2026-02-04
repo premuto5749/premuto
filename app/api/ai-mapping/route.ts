@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
-import { matchItem } from '@/lib/ocr/item-matcher'
 import {
   matchItemV3,
   type MatchResultV3,
@@ -70,69 +69,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 2. 기존 매핑 사전 가져오기
-    const { data: existingMappings, error: mappingsError } = await supabase
-      .from('item_mappings_master')
-      .select('raw_name, standard_item_id, confidence_score, mapping_source')
-
-    if (mappingsError) {
-      console.error('❌ Failed to fetch item mappings:', mappingsError)
-      return NextResponse.json(
-        { error: 'Failed to fetch item mappings from database' },
-        { status: 500 }
-      )
-    }
-
-    // 매핑 사전을 Map으로 변환 (빠른 조회)
-    const mappingsMap = new Map(
-      existingMappings?.map(m => [m.raw_name.toLowerCase(), m]) || []
-    )
-
-    // 표준 항목을 이름으로 빠르게 조회하기 위한 Map
-    const standardItemsByName = new Map(
-      standardItems?.map(si => [si.name.toLowerCase(), si]) || []
-    )
-
-    // 유연한 DB 항목 검색 함수
-    const findStandardItemFlexible = (searchName: string): StandardItem | null => {
-      if (!standardItems) return null
-
-      const normalized = searchName.toLowerCase().trim()
-
-      // 1. 정확한 매칭
-      const exact = standardItemsByName.get(normalized)
-      if (exact) return exact
-
-      // 2. 공백/특수문자 제거 후 매칭
-      const cleanSearch = normalized.replace(/[\s\-_()]/g, '')
-      for (const item of standardItems) {
-        const cleanItem = item.name.toLowerCase().replace(/[\s\-_()]/g, '')
-        if (cleanItem === cleanSearch) return item
-      }
-
-      // 3. 부분 매칭 (검색어가 DB 항목에 포함되거나 그 반대)
-      for (const item of standardItems) {
-        const itemLower = item.name.toLowerCase()
-        if (itemLower.includes(normalized) || normalized.includes(itemLower)) {
-          return item
-        }
-      }
-
-      // 4. 한글명으로 매칭
-      for (const item of standardItems) {
-        if (item.display_name_ko && item.display_name_ko === searchName) {
-          return item
-        }
-      }
-
-      return null
-    }
-
-    console.log(`📊 Loaded ${standardItems?.length || 0} standard items and ${existingMappings?.length || 0} existing mappings`)
+    console.log(`📊 Loaded ${standardItems?.length || 0} standard items`)
 
     // 통계 추적
-    let localMatchCount = 0
-    let dbMatchCount = 0
+    let exactMatchCount = 0
+    let aliasMatchCount = 0
     let aiMatchCount = 0
     let failedCount = 0
 
@@ -183,9 +124,9 @@ export async function POST(request: NextRequest) {
       if (v3Match.confidence >= 70 && v3Match.standardItemId) {
         // V3 매칭 성공 (exact 또는 alias)
         if (v3Match.method === 'exact') {
-          localMatchCount++ // exact match는 로컬 카운트로
+          exactMatchCount++
         } else {
-          dbMatchCount++ // alias는 DB 카운트로
+          aliasMatchCount++
         }
 
         const methodLabel = v3Match.method === 'exact' ? '정규항목' :
@@ -208,64 +149,12 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // 3-2. V3 실패 시 기존 로컬 매칭 fallback (JSON 설정 기반)
-      const localMatch = matchItem(itemName)
-
-      if (localMatch.confidence >= 70 && localMatch.standardItemName) {
-        const standardItem = findStandardItemFlexible(localMatch.standardItemName)
-
-        if (standardItem) {
-          localMatchCount++
-          console.log(`📍 Local fallback: "${itemName}" → ${standardItem.name} (${localMatch.confidence}%, ${localMatch.method})`)
-
-          mappingResults.push({
-            ocr_item: ocrItem,
-            suggested_mapping: {
-              standard_item_id: standardItem.id,
-              standard_item_name: standardItem.name,
-              display_name_ko: standardItem.display_name_ko || localMatch.displayNameKo || '',
-              confidence: localMatch.confidence,
-              reasoning: `로컬 매칭 (${localMatch.method}): ${localMatch.matchedAgainst || itemName}`
-            } as AiMappingSuggestion,
-            index: i
-          })
-          continue
-        }
-      }
-
-      // 3-3. DB 매핑 사전에서 조회 (기존 item_mappings 테이블 - 하위 호환)
-      const existingMapping = mappingsMap.get(itemName.toLowerCase())
-
-      if (existingMapping) {
-        // 기존 매핑이 있으면 해당 표준 항목 정보 반환
-        const standardItem = standardItems?.find(
-          si => si.id === existingMapping.standard_item_id
-        )
-
-        if (standardItem) {
-          dbMatchCount++
-          console.log(`✅ DB mapping: ${itemName} → ${standardItem.name}`)
-          mappingResults.push({
-            ocr_item: ocrItem,
-            suggested_mapping: {
-              standard_item_id: standardItem.id,
-              standard_item_name: standardItem.name,
-              display_name_ko: standardItem.display_name_ko || '',
-              confidence: 100, // 기존 매핑은 100% 신뢰도
-              reasoning: `기존 매핑 사전에서 발견됨 (출처: ${existingMapping.mapping_source || 'manual'})`
-            } as AiMappingSuggestion,
-            index: i
-          })
-          continue
-        }
-      }
-
-      // 3-3. 로컬/DB 매핑 모두 실패 시 AI 매핑 필요 목록에 추가
+      // 3-2. V3 매핑 실패 시 AI 매핑 필요 목록에 추가
       console.log(`🔍 No match for "${itemName}", will request AI suggestion...`)
       itemsNeedingAi.push({ ocrItem, index: i })
     }
 
-    console.log(`📊 Phase 1 complete: Local/DB matches=${mappingResults.length}, Need AI=${itemsNeedingAi.length}`)
+    console.log(`📊 Phase 1 complete: Exact=${exactMatchCount}, Alias=${aliasMatchCount}, Need AI=${itemsNeedingAi.length}`)
 
     // 2단계: AI가 필요한 항목들을 배치로 처리
     if (itemsNeedingAi.length > 0) {
@@ -408,15 +297,15 @@ export async function POST(request: NextRequest) {
     }))
 
     console.log(`✅ AI Mapping completed for batch ${batch_id}`)
-    console.log(`📊 Stats: Local=${localMatchCount}, DB=${dbMatchCount}, AI=${aiMatchCount}, Garbage=${garbageCount}, Failed=${failedCount}`)
+    console.log(`📊 Stats: Exact=${exactMatchCount}, Alias=${aliasMatchCount}, AI=${aiMatchCount}, Garbage=${garbageCount}, Failed=${failedCount}`)
 
     return NextResponse.json({
       success: true,
       data: finalResults,
       stats: {
         total: ocr_results.length,
-        localMatch: localMatchCount,
-        dbMatch: dbMatchCount,
+        exactMatch: exactMatchCount,
+        aliasMatch: aliasMatchCount,
         aiMatch: aiMatchCount,
         garbage: garbageCount,
         failed: failedCount
