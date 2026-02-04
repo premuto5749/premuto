@@ -295,7 +295,8 @@ export async function POST(request: NextRequest) {
           const batchResults = await getAiMappingSuggestionBatch(
             batch.map(b => b.ocrItem),
             standardItems || [],
-            supabase
+            supabase,
+            userId
           )
 
           // 결과 매핑
@@ -339,7 +340,8 @@ export async function POST(request: NextRequest) {
                 const batchResults = await getAiMappingSuggestionBatch(
                   batch.map(b => b.ocrItem),
                   standardItems || [],
-                  supabase
+                  supabase,
+                  userId
                 )
 
                 for (let i = 0; i < batch.length; i++) {
@@ -480,7 +482,8 @@ interface AiBatchResult {
 async function getAiMappingSuggestionBatch(
   ocrItems: OcrResult[],
   standardItems: StandardItem[],
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId?: string
 ): Promise<(AiMappingSuggestion | null)[]> {
 
   if (ocrItems.length === 0) {
