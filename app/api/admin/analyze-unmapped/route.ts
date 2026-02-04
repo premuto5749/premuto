@@ -104,12 +104,8 @@ export async function GET() {
       }
     })
 
-    // 3. 마스터 데이터 이름 목록 (소문자, 정규화)
+    // 3. 마스터 데이터 이름 목록 (소문자)
     const masterNames = new Set(masterData.test_items.map(i => i.name.toLowerCase()))
-    const masterNamesNormalized = new Set(masterData.test_items.map(i => normalizeName(i.name)))
-
-    // 별칭 목록도 포함
-    const aliasNames = new Set(masterData.aliases.map(a => a.alias.toLowerCase()))
 
     // 4. extraInDb 항목 분석
     const unmappedItems: UnmappedItem[] = []
