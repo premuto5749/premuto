@@ -92,7 +92,10 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const body = await request.json()
 
-    const { name, display_name_ko, category, default_unit, description, exam_type, organ_tags } = body
+    const {
+      name, display_name_ko, category, default_unit, exam_type, organ_tags,
+      description_common, description_high, description_low
+    } = body
 
     if (!name) {
       return NextResponse.json(
@@ -153,7 +156,9 @@ export async function POST(request: NextRequest) {
         display_name_ko: display_name_ko || name,
         category: category || exam_type || 'Unmapped',
         default_unit,
-        description,
+        description_common,
+        description_high,
+        description_low,
         exam_type: exam_type || category || 'Unmapped',
         organ_tags: organ_tags || []
       })

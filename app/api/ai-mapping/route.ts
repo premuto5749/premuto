@@ -53,6 +53,10 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
+    // 현재 사용자 ID 가져오기
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id
+
     // 1. DB에서 모든 표준 항목 가져오기
     const { data: standardItems, error: standardItemsError } = await supabase
       .from('standard_items_master')
@@ -291,7 +295,8 @@ export async function POST(request: NextRequest) {
           const batchResults = await getAiMappingSuggestionBatch(
             batch.map(b => b.ocrItem),
             standardItems || [],
-            supabase
+            supabase,
+            userId
           )
 
           // 결과 매핑
@@ -335,7 +340,8 @@ export async function POST(request: NextRequest) {
                 const batchResults = await getAiMappingSuggestionBatch(
                   batch.map(b => b.ocrItem),
                   standardItems || [],
-                  supabase
+                  supabase,
+                  userId
                 )
 
                 for (let i = 0; i < batch.length; i++) {
@@ -476,7 +482,8 @@ interface AiBatchResult {
 async function getAiMappingSuggestionBatch(
   ocrItems: OcrResult[],
   standardItems: StandardItem[],
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId?: string
 ): Promise<(AiMappingSuggestion | null)[]> {
 
   if (ocrItems.length === 0) {
@@ -625,12 +632,13 @@ ${canonicalListWithUnits}
           continue
         }
 
-        // aliases에 새 alias 자동 등록
+        // aliases에 새 alias 자동 등록 (사용자별 테이블에 저장)
         const aliasRegistered = await registerNewAlias(
           inputName,
           matchDecision.canonical_name,
           matchDecision.source_hint || null,
-          supabase
+          supabase,
+          userId
         )
 
         if (aliasRegistered) {
@@ -654,7 +662,7 @@ ${canonicalListWithUnits}
       if (decision.decision === 'new') {
         const newDecision = decision as AiDecisionNew
 
-        // standard_items에 신규 항목 생성
+        // standard_items에 신규 항목 생성 (사용자별 테이블에 저장)
         const newItemResult = await registerNewStandardItem({
           name: newDecision.recommended_name,
           displayNameKo: newDecision.display_name_ko,
@@ -664,18 +672,19 @@ ${canonicalListWithUnits}
           descriptionCommon: newDecision.description_common,
           descriptionHigh: newDecision.description_high,
           descriptionLow: newDecision.description_low,
-        }, supabase)
+        }, supabase, userId)
 
         if (newItemResult.success && newItemResult.id) {
           console.log(`✅ AI new item created: "${newDecision.recommended_name}" (${newDecision.display_name_ko})`)
 
-          // 원본 입력명 ≠ recommended_name이면 alias도 등록
+          // 원본 입력명 ≠ recommended_name이면 alias도 등록 (사용자별 테이블에 저장)
           if (inputName.toLowerCase() !== newDecision.recommended_name.toLowerCase()) {
             await registerNewAlias(
               inputName,
               newDecision.recommended_name,
               null,
-              supabase
+              supabase,
+              userId
             )
           }
 

@@ -89,32 +89,31 @@ function MappingManagementContent() {
   const [bulkCleaning, setBulkCleaning] = useState(false)
 
   useEffect(() => {
-    checkAuthAndFetchData()
-  }, [])
-
-  const checkAuthAndFetchData = async () => {
-    try {
-      // 권한 체크
-      const authRes = await fetch('/api/admin/stats')
-      if (authRes.status === 403) {
-        setAuthError('관리자 권한이 필요합니다')
-        setAuthorized(false)
+    const init = async () => {
+      try {
+        // 권한 체크
+        const authRes = await fetch('/api/admin/stats')
+        if (authRes.status === 403) {
+          setAuthError('관리자 권한이 필요합니다')
+          setAuthorized(false)
+          setLoading(false)
+          return
+        }
+        if (!authRes.ok) {
+          setAuthError('권한 확인 실패')
+          setAuthorized(false)
+          setLoading(false)
+          return
+        }
+        setAuthorized(true)
+        await fetchData()
+      } catch {
+        setAuthError('서버 오류가 발생했습니다')
         setLoading(false)
-        return
       }
-      if (!authRes.ok) {
-        setAuthError('권한 확인 실패')
-        setAuthorized(false)
-        setLoading(false)
-        return
-      }
-      setAuthorized(true)
-      await fetchData()
-    } catch {
-      setAuthError('서버 오류가 발생했습니다')
-      setLoading(false)
     }
-  }
+    init()
+  }, [])
 
   const fetchData = async () => {
     try {
