@@ -236,7 +236,7 @@ export async function GET(request: NextRequest) {
           ocr_raw_name,
           mapping_confidence,
           user_verified,
-          standard_items (
+          standard_items_master (
             name,
             display_name_ko,
             category

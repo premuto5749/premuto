@@ -70,7 +70,7 @@ export async function POST(
       })
       .select(`
         *,
-        standard_items (
+        standard_items_master (
           id,
           name,
           display_name_ko,

@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
           test_date,
           hospital_name
         ),
-        standard_items!inner (
+        standard_items_master!inner (
           id,
           name,
           display_name_ko,
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (categories && categories.length > 0) {
-      query = query.in('standard_items.category', categories)
+      query = query.in('standard_items_master.category', categories)
     }
 
     const { data, error } = await query
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         test_date: string
         hospital_name: string | null
       }
-      const standardItem = row.standard_items as unknown as {
+      const standardItem = row.standard_items_master as unknown as {
         id: string
         name: string
         display_name_ko: string | null

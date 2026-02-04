@@ -29,11 +29,11 @@ export async function POST(request: NextRequest) {
     const [sourceResults, targetResults] = await Promise.all([
       supabase
         .from('test_results')
-        .select('*, standard_items(id, name)')
+        .select('*, standard_items_master(id, name)')
         .eq('record_id', sourceRecordId),
       supabase
         .from('test_results')
-        .select('*, standard_items(id, name)')
+        .select('*, standard_items_master(id, name)')
         .eq('record_id', targetRecordId)
     ])
 
@@ -148,11 +148,11 @@ export async function GET(request: NextRequest) {
     const [sourceResults, targetResults] = await Promise.all([
       supabase
         .from('test_results')
-        .select('*, standard_items(id, name, display_name_ko)')
+        .select('*, standard_items_master(id, name, display_name_ko)')
         .eq('record_id', sourceId),
       supabase
         .from('test_results')
-        .select('*, standard_items(id, name, display_name_ko)')
+        .select('*, standard_items_master(id, name, display_name_ko)')
         .eq('record_id', targetId)
     ])
 
@@ -171,8 +171,8 @@ export async function GET(request: NextRequest) {
         const tr = targetItemMap.get(sr.standard_item_id)!
         return {
           standardItemId: sr.standard_item_id,
-          itemName: sr.standard_items?.name || 'Unknown',
-          itemNameKo: sr.standard_items?.display_name_ko || sr.standard_items?.name || 'Unknown',
+          itemName: sr.standard_items_master?.name || 'Unknown',
+          itemNameKo: sr.standard_items_master?.display_name_ko || sr.standard_items_master?.name || 'Unknown',
           sourceValue: sr.value,
           sourceUnit: sr.unit,
           targetValue: tr.value,
