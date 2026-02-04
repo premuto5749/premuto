@@ -24,8 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **v3.1 추가**: 검사 기록 병합 기능 (중복 기록 통합)
 
 **v3.2 핵심 개선사항**:
-- 검사항목 마스터 데이터 v3 (106개 표준항목, 60개 별칭)
-- 하이브리드 5단계 매핑 로직 (exact → alias → fuzzy → AI → 신규등록)
+- 검사항목 마스터 데이터 v4 (120개 표준항목, 76개 별칭, description 완비)
+- 매핑 로직 개선: Step 0 가비지 필터 추가, fuzzy 제거 → Step 0~3 (가비지필터 → exact → alias → AI)
 - 대시보드 View 옵션 (검사유형별/장기별/임상우선순위별/패널별 정렬)
 - 표준항목 관리 페이지 (/standard-items)
 - item_aliases 테이블 (장비별 source_hint 지원)
@@ -58,6 +58,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **PRD.md**: 제품 요구사항 명세서 - 사용자 워크플로우와 UI 요구사항
 - **SCHEMA.md**: 데이터베이스 스키마 - 7개 핵심 테이블
 - **README.md**: 프로젝트 개요 및 Claude Code 설정 가이드
+
+### 검사항목 데이터 (docs/)
+- **docs/standard_items_master.json**: 마스터 데이터 — 정규항목 120개 + alias 76개 + 정렬체계 4종
+- **docs/mapping_logic.md**: 매핑 로직 — Step 0~3 플로우, AI 프롬프트, Unmapped 처리, 기록 저장 구조
 
 ### 재사용 가능한 Skills (.claude/skills/)
 범용적으로 활용 가능한 설계 패턴들:
@@ -108,10 +112,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 날짜+병원 기준 자동 그룹화
 - OCR 결과 미리보기 (Preview Before Mapping)
 
-#### Phase 3-4: AI 매핑 및 검수
-- 하이브리드 5단계 매핑 (exact → alias → fuzzy → AI → 신규등록)
+#### Phase 3-4: 매핑 및 검수
+- Step 0: 가비지 필터링 (OCR 쓰레기 자동 제거)
+- Step 1~2: 정규항목/Alias exact match (자동)
+- Step 3: AI 판단 → match(alias 자동 등록) 또는 new(신규 항목)
 - 신뢰도 기반 검수 UI (🟢≥90% 🟡70-89% 🔴<70%)
-- 학습 피드백 루프 (승인/수정 → item_mappings 저장)
+- 학습 피드백 루프 (승인/수정 → item_aliases 저장)
 
 #### Phase 5-6: 저장 및 시각화
 - 날짜 그룹별 독립 트랜잭션
@@ -121,14 +127,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### A. 데이터 매핑 및 표준화
 
-> 📘 **패턴 참조**: [hybrid-mapping-logic.md](.claude/skills/hybrid-mapping-logic.md)
+> 📘 **상세 문서**: `docs/mapping_logic.md` — 전체 매핑 플로우, AI 프롬프트, Unmapped 처리
+> 📘 **마스터 데이터**: `docs/standard_items_master.json` — 정규항목 120개 + alias 76개 + 정렬체계 4종
 
-**Premuto 5단계 매핑**:
-1. **정규 항목 Exact Match** (100%) - `standard_items.name`
-2. **Alias Exact Match** (95%) - `item_aliases.alias` + `source_hint`
-3. **퍼지 매칭** (70-89%) - Levenshtein 유사도
-4. **AI 판단** (AI 반환값) - Claude API
-5. **신규 등록** (사용자 확인) - 모달로 신규 항목 추가
+**검사항목 마스터 v4 (120개 정규항목, 76개 alias = 196개 이름 인식)**
+
+병원/장비마다 같은 검사를 다르게 표기하는 문제를 해결:
+- 장비명 부착 (HCT vs Hct(ABL80F)), 약어 차이 (ALKP vs ALP), 이온 표기 (K+ vs Potassium)
+- 판단 기준: ①측정 대상 동일? ②단위 호환? ③같은 트렌드? → 3개 모두 Yes면 합침
+
+**매핑 Step 0~3**:
+0. **가비지 필터** — OCR 쓰레기 버림 ("< 0.25", "기타", 단위 잘림 보정)
+1. **정규 항목 Exact Match** (100%) — `standard_items.name` case-insensitive
+2. **Alias Exact Match** (95%) — `item_aliases.alias` + `source_hint` 기록
+3. **AI 판단** — Claude API. match → alias 자동 등록 / new → 신규 항목 생성
+   - confidence < 0.7 → Unmapped로 저장, 사용자가 매핑 메뉴에서 처리
+
+**사용 컨텍스트**:
+- OCR 직후: Step 0→1→2→3 자동 실행, 사용자 개입 없음
+- Unmapped 정리: 매핑 메뉴에서 수동 매핑/신규등록/삭제
 
 **신뢰도 기반 UX**: [confidence-based-ux.md](.claude/skills/confidence-based-ux.md) 참조
 
