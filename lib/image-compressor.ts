@@ -4,10 +4,11 @@
  * 클라이언트에서 이미지를 압축합니다.
  */
 
-const MAX_WIDTH = 1920
-const MAX_HEIGHT = 1920
-const JPEG_QUALITY = 0.8
-const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB 목표
+// Vercel Serverless 4.5MB 제한을 피하기 위해 강하게 압축
+const MAX_WIDTH = 1280
+const MAX_HEIGHT = 1280
+const JPEG_QUALITY = 0.7
+const MAX_FILE_SIZE = 800 * 1024 // 800KB 목표 (여러 장 업로드 시에도 안전)
 
 /**
  * 이미지 파일을 압축합니다.
