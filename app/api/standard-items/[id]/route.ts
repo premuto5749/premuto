@@ -7,13 +7,24 @@ interface RouteParams {
 
 /**
  * PATCH /api/standard-items/[id]
- * 표준 항목 업데이트
+ * 표준 항목 업데이트 (사용자별 오버라이드)
+ * - 마스터 항목 수정 시: user_standard_items에 오버라이드 생성
+ * - 커스텀 항목 수정 시: user_standard_items에서 직접 업데이트
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
     const supabase = await createClient()
     const body = await request.json()
+
+    // 현재 사용자 확인
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
 
     const {
       name, display_name_ko, default_unit, exam_type, organ_tags, category,
@@ -45,25 +56,108 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { data, error } = await supabase
+    // 1. 먼저 이 ID가 마스터 항목인지 사용자 커스텀 항목인지 확인
+    const { data: masterItem } = await supabase
       .from('standard_items_master')
-      .update(updateData)
+      .select('id')
       .eq('id', id)
-      .select()
       .single()
 
-    if (error) {
-      console.error('Failed to update standard item:', error)
-      return NextResponse.json(
-        { error: 'Failed to update standard item' },
-        { status: 500 }
-      )
-    }
+    if (masterItem) {
+      // 마스터 항목 → user_standard_items에 오버라이드 생성/업데이트
+      const { data: existingOverride } = await supabase
+        .from('user_standard_items')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('master_item_id', id)
+        .single()
 
-    return NextResponse.json({
-      success: true,
-      data
-    })
+      if (existingOverride) {
+        // 기존 오버라이드 업데이트
+        const { data, error } = await supabase
+          .from('user_standard_items')
+          .update(updateData)
+          .eq('id', existingOverride.id)
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Failed to update user override:', error)
+          return NextResponse.json(
+            { error: 'Failed to update item' },
+            { status: 500 }
+          )
+        }
+
+        return NextResponse.json({
+          success: true,
+          data,
+          type: 'override_updated'
+        })
+      } else {
+        // 새 오버라이드 생성
+        const { data, error } = await supabase
+          .from('user_standard_items')
+          .insert({
+            user_id: user.id,
+            master_item_id: id,
+            ...updateData
+          })
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Failed to create user override:', error)
+          return NextResponse.json(
+            { error: 'Failed to create override' },
+            { status: 500 }
+          )
+        }
+
+        return NextResponse.json({
+          success: true,
+          data,
+          type: 'override_created'
+        })
+      }
+    } else {
+      // 사용자 커스텀 항목인지 확인
+      const { data: customItem, error: customError } = await supabase
+        .from('user_standard_items')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (customError || !customItem) {
+        return NextResponse.json(
+          { error: 'Item not found' },
+          { status: 404 }
+        )
+      }
+
+      // 커스텀 항목 직접 업데이트
+      const { data, error } = await supabase
+        .from('user_standard_items')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Failed to update custom item:', error)
+        return NextResponse.json(
+          { error: 'Failed to update item' },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        data,
+        type: 'custom_updated'
+      })
+    }
 
   } catch (error) {
     console.error('Standard Items PATCH error:', error)
@@ -79,31 +173,83 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 /**
  * GET /api/standard-items/[id]
- * 특정 표준 항목 조회
+ * 특정 표준 항목 조회 (사용자 오버라이드 병합)
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
     const supabase = await createClient()
 
-    const { data, error } = await supabase
+    // 현재 사용자 확인
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // 먼저 마스터 항목 조회
+    const { data: masterItem } = await supabase
       .from('standard_items_master')
       .select('*')
       .eq('id', id)
       .single()
 
-    if (error) {
-      console.error('Failed to fetch standard item:', error)
-      return NextResponse.json(
-        { error: 'Standard item not found' },
-        { status: 404 }
-      )
+    if (masterItem) {
+      // 사용자 오버라이드가 있으면 병합
+      if (user) {
+        const { data: override } = await supabase
+          .from('user_standard_items')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('master_item_id', id)
+          .single()
+
+        if (override) {
+          // 오버라이드 필드 병합
+          const mergedData = {
+            ...masterItem,
+            name: override.name ?? masterItem.name,
+            display_name_ko: override.display_name_ko ?? masterItem.display_name_ko,
+            default_unit: override.default_unit ?? masterItem.default_unit,
+            exam_type: override.exam_type ?? masterItem.exam_type,
+            category: override.category ?? masterItem.category,
+            organ_tags: override.organ_tags ?? masterItem.organ_tags,
+            description_common: override.description_common ?? masterItem.description_common,
+            description_high: override.description_high ?? masterItem.description_high,
+            description_low: override.description_low ?? masterItem.description_low,
+            is_modified: true
+          }
+
+          return NextResponse.json({
+            success: true,
+            data: mergedData
+          })
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: { ...masterItem, is_modified: false }
+      })
     }
 
-    return NextResponse.json({
-      success: true,
-      data
-    })
+    // 마스터에 없으면 사용자 커스텀 항목 조회
+    if (user) {
+      const { data: customItem, error } = await supabase
+        .from('user_standard_items')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (!error && customItem) {
+        return NextResponse.json({
+          success: true,
+          data: { ...customItem, is_custom: true }
+        })
+      }
+    }
+
+    return NextResponse.json(
+      { error: 'Standard item not found' },
+      { status: 404 }
+    )
 
   } catch (error) {
     console.error('Standard Items GET error:', error)
@@ -119,13 +265,52 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/standard-items/[id]
- * 표준 항목 삭제
+ * 표준 항목 삭제 (사용자 오버라이드/커스텀만 삭제 가능)
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
     const supabase = await createClient()
 
+    // 현재 사용자 확인
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // 마스터 항목인지 확인
+    const { data: masterItem } = await supabase
+      .from('standard_items_master')
+      .select('id')
+      .eq('id', id)
+      .single()
+
+    if (masterItem) {
+      // 마스터 항목은 삭제 불가, 오버라이드만 삭제
+      const { error } = await supabase
+        .from('user_standard_items')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('master_item_id', id)
+
+      if (error) {
+        console.error('Failed to delete user override:', error)
+        return NextResponse.json(
+          { error: 'Failed to delete override' },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Override deleted, item reset to master defaults'
+      })
+    }
+
+    // 사용자 커스텀 항목 삭제
     // 해당 항목을 참조하는 test_results가 있는지 확인
     const { count } = await supabase
       .from('test_results')
@@ -140,14 +325,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     const { error } = await supabase
-      .from('standard_items_master')
+      .from('user_standard_items')
       .delete()
       .eq('id', id)
+      .eq('user_id', user.id)
 
     if (error) {
-      console.error('Failed to delete standard item:', error)
+      console.error('Failed to delete custom item:', error)
       return NextResponse.json(
-        { error: 'Failed to delete standard item' },
+        { error: 'Failed to delete item' },
         { status: 500 }
       )
     }
