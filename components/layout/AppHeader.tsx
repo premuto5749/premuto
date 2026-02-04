@@ -70,11 +70,11 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                   <Menu className="w-5 h-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="flex flex-col">
+              <SheetContent side="left" className="overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle>Mimo Health Log</SheetTitle>
                 </SheetHeader>
-                <nav className="mt-6 space-y-2 flex-1 overflow-y-auto">
+                <nav className="mt-6 space-y-2">
                   {navItems.map((item) => (
                     <Link
                       key={item.href}
@@ -88,8 +88,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                       {item.icon} {item.label}
                     </Link>
                   ))}
-                </nav>
-                <div className="border-t pt-4 space-y-2">
+                  <hr className="my-4" />
                   <button
                     onClick={() => setIsDonateOpen(true)}
                     className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
@@ -117,7 +116,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                       🚪 로그아웃
                     </button>
                   </form>
-                </div>
+                </nav>
               </SheetContent>
             </Sheet>
           )}
