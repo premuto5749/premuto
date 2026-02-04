@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Upload, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, FileSpreadsheet } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info } from 'lucide-react'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
@@ -974,25 +974,6 @@ function ThemeSection({
   )
 }
 
-// 마스터 데이터 상태 인터페이스
-interface SyncStatus {
-  current: {
-    standardItems: number
-    itemAliases: number
-    itemMappings: number
-  }
-  masterData: {
-    testItems: number
-    aliases: number
-  }
-  comparison: {
-    missingInDb: string[]
-    extraInDb: string[]
-    missingCount: number
-    extraCount: number
-  }
-}
-
 // 사용자 커스텀 데이터 상태 인터페이스
 interface UserCustomDataStats {
   customItems: number
@@ -1007,49 +988,12 @@ function DataManagementSection() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  // 마스터 데이터 초기화 관련 상태
-  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
-  const [loadingStatus, setLoadingStatus] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-  const [syncResult, setSyncResult] = useState<{
-    success: boolean
-    mode: string
-    items: { inserted: number; updated: number; skipped: number }
-    aliases: { inserted: number; skipped: number }
-  } | null>(null)
-  const [fullResetDialogOpen, setFullResetDialogOpen] = useState(false)
-
   // 사용자 커스텀 데이터 초기화 관련 상태
   const [userCustomStats, setUserCustomStats] = useState<UserCustomDataStats | null>(null)
   const [loadingUserStats, setLoadingUserStats] = useState(false)
   const [resettingUserData, setResettingUserData] = useState(false)
   const [userResetDialogOpen, setUserResetDialogOpen] = useState(false)
   const [userResetSuccess, setUserResetSuccess] = useState<boolean | null>(null)
-
-  // Excel import/export 관련 상태
-  const [excelExporting, setExcelExporting] = useState(false)
-  const [excelImporting, setExcelImporting] = useState(false)
-  const [importResult, setImportResult] = useState<{
-    success: boolean
-    items: { total: number; inserted: number; updated: number; failed: number }
-    aliases: { total: number; inserted: number; skipped: number; failed: number }
-    errors: string[]
-  } | null>(null)
-  const excelFileInputRef = useRef<HTMLInputElement>(null)
-
-  // 마스터 데이터 상태 조회
-  const loadSyncStatus = async () => {
-    setLoadingStatus(true)
-    try {
-      const res = await fetch('/api/admin/sync-master-data')
-      const data = await res.json()
-      setSyncStatus(data)
-    } catch (error) {
-      console.error('Failed to load sync status:', error)
-    } finally {
-      setLoadingStatus(false)
-    }
-  }
 
   // 사용자 커스텀 데이터 상태 조회
   const loadUserCustomStats = async () => {
@@ -1086,118 +1030,6 @@ function DataManagementSection() {
       setUserResetSuccess(false)
     } finally {
       setResettingUserData(false)
-    }
-  }
-
-  // 마스터 데이터 초기화 (safe 모드: 신규만 추가)
-  const handleSafeSync = async () => {
-    setSyncing(true)
-    setSyncResult(null)
-    try {
-      const res = await fetch('/api/admin/sync-master-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'safe' })
-      })
-      const data = await res.json()
-      setSyncResult({
-        success: data.success,
-        mode: 'safe',
-        items: { inserted: data.items.inserted, updated: data.items.updated, skipped: data.items.skipped },
-        aliases: { inserted: data.aliases.inserted, skipped: data.aliases.skipped }
-      })
-      loadSyncStatus()
-    } catch (error) {
-      console.error('Sync failed:', error)
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  // 마스터 데이터 전체 초기화 (full 모드: 덮어쓰기)
-  const handleFullSync = async () => {
-    setSyncing(true)
-    setSyncResult(null)
-    setFullResetDialogOpen(false)
-    try {
-      const res = await fetch('/api/admin/sync-master-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'full' })
-      })
-      const data = await res.json()
-      setSyncResult({
-        success: data.success,
-        mode: 'full',
-        items: { inserted: data.items.inserted, updated: data.items.updated, skipped: data.items.skipped },
-        aliases: { inserted: data.aliases.inserted, skipped: data.aliases.skipped }
-      })
-      loadSyncStatus()
-    } catch (error) {
-      console.error('Sync failed:', error)
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  // 표준항목 Excel 내보내기
-  const handleExcelExport = async () => {
-    setExcelExporting(true)
-    try {
-      const response = await fetch('/api/standard-items/export-excel')
-      if (!response.ok) throw new Error('Export failed')
-
-      const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `standard-items-${new Date().toISOString().split('T')[0]}.xlsx`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Excel export failed:', error)
-      alert('Excel 내보내기에 실패했습니다.')
-    } finally {
-      setExcelExporting(false)
-    }
-  }
-
-  // 표준항목 Excel 가져오기
-  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setExcelImporting(true)
-    setImportResult(null)
-
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const response = await fetch('/api/standard-items/import-excel', {
-        method: 'POST',
-        body: formData
-      })
-
-      const data = await response.json()
-      setImportResult(data)
-      loadSyncStatus() // 상태 새로고침
-    } catch (error) {
-      console.error('Excel import failed:', error)
-      setImportResult({
-        success: false,
-        items: { total: 0, inserted: 0, updated: 0, failed: 0 },
-        aliases: { total: 0, inserted: 0, skipped: 0, failed: 0 },
-        errors: ['Excel 가져오기에 실패했습니다.']
-      })
-    } finally {
-      setExcelImporting(false)
-      // 파일 입력 초기화
-      if (excelFileInputRef.current) {
-        excelFileInputRef.current.value = ''
-      }
     }
   }
 
@@ -1268,127 +1100,6 @@ function DataManagementSection() {
 
   return (
     <div className="space-y-6">
-      {/* 마스터 데이터 초기화 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RefreshCw className="w-5 h-5" />
-            마스터 데이터 초기화
-          </CardTitle>
-          <CardDescription>
-            106개 표준 검사항목과 60개 별칭을 설정합니다. 기존 검사 기록은 영향받지 않습니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* 현재 상태 표시 */}
-          {syncStatus ? (
-            <div className="p-4 bg-muted rounded-lg space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>현재 표준항목</span>
-                <span className="font-medium">{syncStatus.current.standardItems}개</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>현재 별칭</span>
-                <span className="font-medium">{syncStatus.current.itemAliases}개</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span>마스터 데이터</span>
-                <span className="font-medium text-blue-600">
-                  {syncStatus.masterData.testItems}개 항목 / {syncStatus.masterData.aliases}개 별칭
-                </span>
-              </div>
-              {syncStatus.comparison.missingCount > 0 && (
-                <div className="flex items-center gap-2 text-sm text-amber-600 mt-2">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>누락된 항목: {syncStatus.comparison.missingCount}개</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <Button variant="outline" size="sm" onClick={loadSyncStatus} disabled={loadingStatus}>
-              {loadingStatus ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Info className="w-4 h-4 mr-2" />
-              )}
-              현재 상태 확인
-            </Button>
-          )}
-
-          {/* 초기화 결과 표시 */}
-          {syncResult && (
-            <div className={`p-4 rounded-lg ${syncResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                {syncResult.success ? (
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-red-600" />
-                )}
-                <span className="font-medium">
-                  {syncResult.success ? '초기화 완료' : '초기화 실패'}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  ({syncResult.mode === 'safe' ? '신규만 추가' : '전체 초기화'})
-                </span>
-              </div>
-              <div className="text-sm space-y-1">
-                <p>표준항목: 추가 {syncResult.items.inserted}개, 업데이트 {syncResult.items.updated}개, 건너뜀 {syncResult.items.skipped}개</p>
-                <p>별칭: 추가 {syncResult.aliases.inserted}개, 건너뜀 {syncResult.aliases.skipped}개</p>
-              </div>
-            </div>
-          )}
-
-          {/* 초기화 버튼들 */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              onClick={handleSafeSync}
-              disabled={syncing}
-              className="flex-1"
-            >
-              {syncing ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4 mr-2" />
-              )}
-              신규 항목만 추가
-            </Button>
-
-            <AlertDialog open={fullResetDialogOpen} onOpenChange={setFullResetDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" disabled={syncing} className="flex-1">
-                  전체 초기화
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-amber-500" />
-                    전체 초기화
-                  </AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-2">
-                    <p>기존 표준항목이 마스터 데이터로 덮어씌워집니다.</p>
-                    <p className="text-amber-600">
-                      직접 수정한 항목명, 한글명, 단위 등이 초기값으로 되돌아갑니다.
-                    </p>
-                    <p>검사 기록(결과값)은 영향받지 않습니다.</p>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>취소</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleFullSync}>
-                    전체 초기화 실행
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            * 신규 항목만 추가: 기존에 없는 항목만 추가합니다. 사용자가 수정한 내용은 유지됩니다.
-          </p>
-        </CardContent>
-      </Card>
-
       {/* 내 커스텀 데이터 초기화 */}
       <Card>
         <CardHeader>
@@ -1492,98 +1203,6 @@ function DataManagementSection() {
           <p className="text-xs text-muted-foreground">
             * 이 기능은 내가 직접 추가/수정한 데이터만 삭제합니다. 전역 마스터 데이터에는 영향을 주지 않습니다.
           </p>
-        </CardContent>
-      </Card>
-
-      {/* 표준항목 Excel 관리 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5" />
-            표준항목 Excel 관리
-          </CardTitle>
-          <CardDescription>
-            표준항목과 별칭을 Excel로 내보내거나 가져옵니다. 항목 설명을 한번에 편집할 때 유용합니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* 가져오기 결과 표시 */}
-          {importResult && (
-            <div className={`p-4 rounded-lg ${importResult.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                {importResult.success && importResult.items.failed === 0 ? (
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-amber-600" />
-                )}
-                <span className="font-medium">
-                  {importResult.success ? '가져오기 완료' : '가져오기 실패'}
-                </span>
-              </div>
-              <div className="text-sm space-y-1">
-                <p>표준항목: 총 {importResult.items.total}개 중 추가 {importResult.items.inserted}개, 업데이트 {importResult.items.updated}개, 실패 {importResult.items.failed}개</p>
-                {importResult.aliases.total > 0 && (
-                  <p>별칭: 총 {importResult.aliases.total}개 중 추가 {importResult.aliases.inserted}개, 건너뜀 {importResult.aliases.skipped}개</p>
-                )}
-                {importResult.errors.length > 0 && (
-                  <div className="mt-2 p-2 bg-white rounded text-xs text-red-600 max-h-24 overflow-y-auto">
-                    {importResult.errors.map((err, i) => (
-                      <p key={i}>{err}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 버튼들 */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button
-              variant="outline"
-              onClick={handleExcelExport}
-              disabled={excelExporting || excelImporting}
-              className="flex-1"
-            >
-              {excelExporting ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4 mr-2" />
-              )}
-              Excel 내보내기
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => excelFileInputRef.current?.click()}
-              disabled={excelExporting || excelImporting}
-              className="flex-1"
-            >
-              {excelImporting ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4 mr-2" />
-              )}
-              Excel 가져오기
-            </Button>
-
-            <input
-              ref={excelFileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleExcelImport}
-            />
-          </div>
-
-          <div className="p-3 bg-muted rounded-lg">
-            <p className="text-xs text-muted-foreground">
-              <strong>사용법:</strong> Excel 내보내기로 현재 표준항목을 다운로드 →
-              Excel에서 설명 추가/수정 → Excel 가져오기로 업데이트
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              * 항목명(name)이 동일하면 기존 항목을 업데이트하고, 새로운 항목명은 추가됩니다.
-            </p>
-          </div>
         </CardContent>
       </Card>
 

@@ -40,7 +40,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Loader2, Plus, Pencil, Search, RefreshCw, ChevronDown, ChevronRight, Trash2, Tag, FileText } from 'lucide-react'
+import { Loader2, Plus, Pencil, Search, RefreshCw, ChevronDown, ChevronRight, Trash2, Tag, FileText, Info } from 'lucide-react'
 
 interface StandardItem {
   id: string
@@ -328,7 +328,7 @@ function StandardItemsContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-muted">
-        <AppHeader title="표준항목 관리" />
+        <AppHeader title="내 검사항목" />
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
@@ -338,9 +338,21 @@ function StandardItemsContent() {
 
   return (
     <div className="min-h-screen bg-muted">
-      <AppHeader title="표준항목 관리" />
+      <AppHeader title="내 검사항목" />
 
       <div className="container max-w-7xl mx-auto py-10 px-4">
+        {/* 안내 배너 */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-medium text-blue-800">나만의 검사항목 관리</p>
+            <p className="text-blue-700 mt-1">
+              기본 마스터 데이터에 내가 추가하거나 수정한 항목을 관리합니다.
+              여기서 변경한 내용은 나에게만 적용됩니다.
+            </p>
+          </div>
+        </div>
+
         {/* 통계 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card>
@@ -373,12 +385,12 @@ function StandardItemsContent() {
           <CardHeader>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <CardTitle>표준 검사 항목</CardTitle>
-                <CardDescription>혈액검사 표준 항목과 별칭을 관리합니다</CardDescription>
+                <CardTitle>내 검사항목 목록</CardTitle>
+                <CardDescription>마스터 데이터 + 내가 추가/수정한 항목이 표시됩니다</CardDescription>
               </div>
               <Button onClick={() => setIsAddModalOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                새 항목 추가
+                내 항목 추가
               </Button>
             </div>
           </CardHeader>
@@ -583,7 +595,7 @@ function StandardItemsContent() {
         <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>표준 항목 편집</DialogTitle>
+              <DialogTitle>항목 편집</DialogTitle>
               <DialogDescription>
                 항목 정보와 설명을 수정합니다
               </DialogDescription>
@@ -718,9 +730,9 @@ function StandardItemsContent() {
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>새 표준 항목 추가</DialogTitle>
+              <DialogTitle>내 항목 추가</DialogTitle>
               <DialogDescription>
-                새로운 표준 검사 항목을 등록합니다
+                나만 사용할 검사 항목을 추가합니다
               </DialogDescription>
             </DialogHeader>
 
