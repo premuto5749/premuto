@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, CalendarIcon } from 'lucide-react'
+import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, CalendarIcon, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
@@ -86,6 +86,15 @@ function PreviewContent() {
   const [groupHospitalOverrides, setGroupHospitalOverrides] = useState<Map<string, string>>(new Map())
   const [groupDateOverrides, setGroupDateOverrides] = useState<Map<string, string>>(new Map())
   const [rateLimitError, setRateLimitError] = useState(false)
+  const [isMapped, setIsMapped] = useState(false)
+  const [isMappingInProgress, setIsMappingInProgress] = useState(false)
+  const [mappingStats, setMappingStats] = useState<{
+    exactMatch: number
+    aliasMatch: number
+    aiMatch: number
+    garbage: number
+    unmapped: number
+  } | null>(null)
 
   useEffect(() => {
     // 세션 스토리지에서 OCR 배치 결과 로드
@@ -231,6 +240,82 @@ function PreviewContent() {
 
   const handleHospitalCreated = (hospital: Hospital) => {
     setHospitals(prev => [...prev, hospital])
+  }
+
+  // AI 정리 (매핑) 실행
+  const handleAiMapping = async () => {
+    if (!batchData || allItems.length === 0) return
+
+    setIsMappingInProgress(true)
+
+    try {
+      // OCR 결과를 ai-mapping API 형식으로 변환
+      const ocrItems = allItems.map(item => ({
+        name: item.name,
+        raw_name: item.raw_name || item.name,
+        value: item.value,
+        unit: item.unit,
+        ref_min: item.ref_min,
+        ref_max: item.ref_max,
+        ref_text: item.ref_text,
+        reference: item.reference,
+        is_abnormal: item.is_abnormal,
+        abnormal_direction: item.abnormal_direction
+      }))
+
+      const response = await fetch('/api/ai-mapping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: ocrItems })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        if (errorData.error === 'AI_RATE_LIMIT') {
+          setRateLimitError(true)
+          return
+        }
+        throw new Error(errorData.message || 'AI 매핑 실패')
+      }
+
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        // 매핑 결과를 allItems에 적용
+        setAllItems(prev => {
+          const updated = [...prev]
+          result.data.items.forEach((mappedItem: {
+            name: string
+            raw_name?: string
+            mapping?: MappingInfo | null
+            isGarbage?: boolean
+            garbageReason?: string
+          }, index: number) => {
+            if (index < updated.length) {
+              updated[index] = {
+                ...updated[index],
+                mapping: mappedItem.mapping || null,
+                isGarbage: mappedItem.isGarbage || false,
+                garbageReason: mappedItem.garbageReason || undefined
+              }
+            }
+          })
+          return updated
+        })
+
+        // 매핑 통계 저장
+        if (result.data.stats) {
+          setMappingStats(result.data.stats)
+        }
+
+        setIsMapped(true)
+      }
+    } catch (error) {
+      console.error('AI Mapping error:', error)
+      alert(error instanceof Error ? error.message : 'AI 매핑 중 오류가 발생했습니다')
+    } finally {
+      setIsMappingInProgress(false)
+    }
   }
 
   const handleSaveAll = async () => {
@@ -421,6 +506,57 @@ function PreviewContent() {
         </Card>
       )}
 
+      {/* AI 정리 버튼 */}
+      <Card className={`mb-6 ${isMapped ? 'border-green-500' : 'border-primary'}`}>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex-1">
+              <h3 className="font-medium flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                AI 정리
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isMapped
+                  ? '매핑 완료! 결과를 확인하고 저장하세요.'
+                  : 'OCR 결과를 표준 검사항목으로 매핑합니다. (가비지 필터링 → 정규/별칭 매칭 → AI 판단)'}
+              </p>
+              {mappingStats && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Badge variant="default" className="bg-green-500">정규 {mappingStats.exactMatch}</Badge>
+                  <Badge variant="default" className="bg-blue-500">별칭 {mappingStats.aliasMatch}</Badge>
+                  <Badge variant="default" className="bg-purple-500">AI {mappingStats.aiMatch}</Badge>
+                  <Badge variant="outline" className="text-gray-500">가비지 {mappingStats.garbage}</Badge>
+                  <Badge variant="outline" className="text-orange-500 border-orange-300">미매핑 {mappingStats.unmapped}</Badge>
+                </div>
+              )}
+            </div>
+            <Button
+              onClick={handleAiMapping}
+              disabled={isMappingInProgress || isMapped}
+              size="lg"
+              className={isMapped ? 'bg-green-600 hover:bg-green-600' : ''}
+            >
+              {isMappingInProgress ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  AI 정리 중...
+                </>
+              ) : isMapped ? (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  정리 완료
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI 정리 시작
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 날짜별 탭 */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
         <TabsList className="w-full flex flex-wrap gap-1 h-auto mb-4">
@@ -540,7 +676,11 @@ function PreviewContent() {
                               </TableCell>
                               {/* 매핑 결과 */}
                               <TableCell>
-                                {item.isGarbage ? (
+                                {!isMapped ? (
+                                  <Badge variant="outline" className="text-xs text-gray-400">
+                                    매핑 전
+                                  </Badge>
+                                ) : item.isGarbage ? (
                                   <Badge variant="outline" className="text-xs text-gray-400">
                                     🗑️ {item.garbageReason || '가비지'}
                                   </Badge>
@@ -677,17 +817,19 @@ function PreviewContent() {
       </Tabs>
 
       {/* 저장 버튼 */}
-      <Card>
+      <Card className={!isMapped ? 'opacity-60' : ''}>
         <CardHeader>
           <CardTitle>검사 결과 저장</CardTitle>
           <CardDescription>
-            OCR 결과를 확인했다면 저장하세요. 매핑된 결과가 DB에 저장됩니다.
+            {isMapped
+              ? '매핑 결과를 확인했다면 저장하세요. 매핑된 결과가 DB에 저장됩니다.'
+              : '먼저 위의 "AI 정리" 버튼을 눌러 매핑을 진행하세요.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button
             onClick={handleSaveAll}
-            disabled={isProcessing || allItems.length === 0}
+            disabled={isProcessing || allItems.length === 0 || !isMapped}
             className="w-full"
             size="lg"
           >
@@ -695,6 +837,10 @@ function PreviewContent() {
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 저장 중... ({dateGroups.length}개 날짜 그룹)
+              </>
+            ) : !isMapped ? (
+              <>
+                먼저 AI 정리를 실행하세요
               </>
             ) : (
               <>
@@ -707,7 +853,7 @@ function PreviewContent() {
           {isProcessing && (
             <div className="mt-4 p-4 bg-muted rounded-lg">
               <p className="text-sm text-center text-muted-foreground">
-                AI 매칭 및 저장 중... ({dateGroups.length}개 날짜 그룹)
+                저장 중... ({dateGroups.length}개 날짜 그룹)
               </p>
               <p className="text-xs text-center text-muted-foreground mt-2">
                 매칭되지 않은 항목은 자동으로 생성됩니다
@@ -718,14 +864,13 @@ function PreviewContent() {
       </Card>
 
       <div className="mt-8 p-4 bg-muted rounded-lg">
-        <h3 className="font-medium mb-2">💡 팁</h3>
+        <h3 className="font-medium mb-2">💡 진행 순서</h3>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-          <li>날짜별 탭을 클릭하여 각 검사의 OCR 결과를 확인하세요</li>
-          <li>같은 날짜에 여러 병원에서 검사한 경우 순번(1, 2, ...)이 표시됩니다</li>
-          <li>숫자가 잘못 인식된 경우 지금 수정하세요 (수정 버튼 클릭)</li>
-          <li>[저장] 버튼을 누르면 AI가 자동으로 매칭하고 DB에 저장합니다</li>
-          <li>매칭되지 않은 항목은 &apos;Unmapped&apos; 카테고리로 자동 생성됩니다</li>
-          <li>각 날짜 그룹은 독립적으로 저장됩니다</li>
+          <li><strong>1단계:</strong> OCR 결과를 확인하고 잘못된 값은 수정하세요</li>
+          <li><strong>2단계:</strong> [AI 정리] 버튼을 눌러 표준 검사항목으로 매핑하세요</li>
+          <li><strong>3단계:</strong> 매핑 결과를 확인하고 [저장] 버튼을 누르세요</li>
+          <li>날짜/병원이 인식되지 않았다면 직접 선택해주세요</li>
+          <li>매핑되지 않은 항목은 &apos;Unmapped&apos; 카테고리로 자동 생성됩니다</li>
         </ul>
       </div>
       </div>
