@@ -13,7 +13,7 @@ interface SaveTestResultRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: SaveTestResultRequest = await request.json()
-    const { test_date, hospital_name, machine_type, /* pet_id, */ items } = body
+    const { test_date, hospital_name, machine_type, pet_id, items } = body
 
     // 입력 검증
     if (!test_date) {
@@ -47,19 +47,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
-    // TODO: pet_id 컬럼 마이그레이션 후 활성화
-    // let finalPetId = pet_id
-    // if (!finalPetId) {
-    //   const { data: defaultPet } = await supabase
-    //     .from('pets')
-    //     .select('id')
-    //     .eq('user_id', user.id)
-    //     .order('is_default', { ascending: false, nullsFirst: false })
-    //     .order('created_at', { ascending: true })
-    //     .limit(1)
-    //     .single()
-    //   finalPetId = defaultPet?.id
-    // }
+    // pet_id가 없으면 기본 펫 조회
+    let finalPetId = pet_id
+    if (!finalPetId) {
+      const { data: defaultPet } = await supabase
+        .from('pets')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('is_default', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+      finalPetId = defaultPet?.id
+    }
 
     // 1. test_records 테이블에 헤더 정보 삽입
     const { data: recordData, error: recordError } = await supabase
@@ -68,8 +68,8 @@ export async function POST(request: NextRequest) {
         test_date,
         hospital_name: hospital_name || null,
         machine_type: machine_type || null,
-        user_id: user.id
-        // pet_id: finalPetId || null  // TODO: 마이그레이션 후 활성화
+        user_id: user.id,
+        pet_id: finalPetId || null
       })
       .select('id')
       .single()
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const recordId = searchParams.get('recordId')
-    // const petId = searchParams.get('petId')  // TODO: pet_id 컬럼 마이그레이션 후 활성화
+    const petId = searchParams.get('petId')
 
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -158,6 +158,7 @@ export async function GET(request: NextRequest) {
           test_date,
           hospital_name,
           machine_type,
+          pet_id,
           created_at,
           test_results (
             id,
@@ -195,13 +196,14 @@ export async function GET(request: NextRequest) {
     }
 
     // 전체 레코드 목록 조회
-    const { data: records, error } = await supabase
+    let query = supabase
       .from('test_records')
       .select(`
         id,
         test_date,
         hospital_name,
         machine_type,
+        pet_id,
         created_at,
         test_results (
           id,
@@ -222,6 +224,13 @@ export async function GET(request: NextRequest) {
       `)
       .eq('user_id', user.id)
       .order('test_date', { ascending: false })
+
+    // pet_id 필터가 있으면 적용
+    if (petId) {
+      query = query.eq('pet_id', petId)
+    }
+
+    const { data: records, error } = await query
 
     if (error) {
       console.error('Failed to fetch test records:', error)
@@ -252,7 +261,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, test_date, hospital_name /* , pet_id */ } = body
+    const { id, test_date, hospital_name, pet_id } = body
 
     if (!id) {
       return NextResponse.json(
@@ -272,8 +281,7 @@ export async function PATCH(request: NextRequest) {
     const updateData: Record<string, string | null> = {}
     if (test_date !== undefined) updateData.test_date = test_date
     if (hospital_name !== undefined) updateData.hospital_name = hospital_name || null
-    // TODO: pet_id 컬럼 마이그레이션 후 활성화
-    // if (pet_id !== undefined) updateData.pet_id = pet_id || null
+    if (pet_id !== undefined) updateData.pet_id = pet_id || null
 
     const { data, error } = await supabase
       .from('test_records')

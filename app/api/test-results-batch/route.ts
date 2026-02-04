@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
       test_date,
       hospital_name,
       uploaded_files,
-      results
-      // pet_id  // TODO: 마이그레이션 후 활성화
+      results,
+      pet_id
     } = body
 
     // 입력 검증
@@ -36,19 +36,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
-    // TODO: pet_id 컬럼 마이그레이션 후 활성화
-    // let finalPetId = pet_id
-    // if (!finalPetId) {
-    //   const { data: defaultPet } = await supabase
-    //     .from('pets')
-    //     .select('id')
-    //     .eq('user_id', user.id)
-    //     .order('is_default', { ascending: false, nullsFirst: false })
-    //     .order('created_at', { ascending: true })
-    //     .limit(1)
-    //     .single()
-    //   finalPetId = defaultPet?.id
-    // }
+    // pet_id가 없으면 기본 펫 조회
+    let finalPetId = pet_id
+    if (!finalPetId) {
+      const { data: defaultPet } = await supabase
+        .from('pets')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('is_default', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single()
+      finalPetId = defaultPet?.id
+    }
 
     // 트랜잭션 시작: RPC 함수를 사용하거나 순차적 저장
     // Supabase는 명시적 트랜잭션을 지원하지 않으므로, 오류 발생 시 롤백 처리를 직접 구현
@@ -66,8 +66,8 @@ export async function POST(request: NextRequest) {
           uploaded_files: uploaded_files || [],
           file_count: uploaded_files?.length || results.length,
           batch_upload_id: batch_id,
-          user_id: user.id
-          // pet_id: finalPetId || null  // TODO: 마이그레이션 후 활성화
+          user_id: user.id,
+          pet_id: finalPetId || null
         })
         .select('id')
         .single()
