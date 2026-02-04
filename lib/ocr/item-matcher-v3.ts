@@ -180,18 +180,21 @@ export function correctTruncatedUnit(unit: string): string {
 async function initializeCache(supabase: SupabaseClientType, userId?: string) {
   const now = Date.now();
 
+  // undefined를 null로 정규화 (비교 일관성)
+  const normalizedUserId = userId ?? null;
+
   // 캐시가 유효하고 같은 사용자면 재사용
   if (cachedStandardItems && cachedAliases &&
       (now - cacheTimestamp) < CACHE_TTL &&
-      cachedUserId === userId) {
+      cachedUserId === normalizedUserId) {
     return;
   }
 
   // 사용자가 있으면 오버라이드 병합 데이터 사용
-  if (userId) {
+  if (normalizedUserId) {
     // get_user_standard_items 함수 호출
     const { data: items, error: itemsError } = await supabase
-      .rpc('get_user_standard_items', { p_user_id: userId });
+      .rpc('get_user_standard_items', { p_user_id: normalizedUserId });
 
     if (!itemsError && items) {
       cachedStandardItems = new Map();
@@ -202,7 +205,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
 
     // get_user_item_aliases 함수 호출
     const { data: aliases, error: aliasesError } = await supabase
-      .rpc('get_user_item_aliases', { p_user_id: userId });
+      .rpc('get_user_item_aliases', { p_user_id: normalizedUserId });
 
     if (!aliasesError && aliases) {
       cachedAliases = new Map();
@@ -211,7 +214,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
       }
     }
 
-    cachedUserId = userId;
+    cachedUserId = normalizedUserId;
     cacheTimestamp = now;
     return;
   }
