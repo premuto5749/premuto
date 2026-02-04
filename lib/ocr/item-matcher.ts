@@ -52,14 +52,14 @@ function initializeMappings() {
   // 1. 표준 항목 맵 생성
   cachedMappings = new Map()
   for (const [standardName, item] of Object.entries(config.mappings)) {
-    cachedMappings.set(standardName.toUpperCase(), { standardName, item })
+    cachedMappings.set(standardName.toLowerCase(), { standardName, item })
   }
 
   // 2. 별칭 인덱스 생성 (별칭 → 표준 항목명)
   cachedAliasIndex = new Map()
   for (const [standardName, item] of Object.entries(config.mappings)) {
     for (const alias of item.aliases) {
-      cachedAliasIndex.set(alias.toUpperCase(), standardName)
+      cachedAliasIndex.set(alias.toLowerCase(), standardName)
     }
   }
 
@@ -95,7 +95,7 @@ export function matchItem(rawName: string): MatchResult {
     }
   }
 
-  const normalizedRaw = rawName.toUpperCase().trim()
+  const normalizedRaw = rawName.toLowerCase().trim()
 
   // 1단계: 완전 일치 (표준 항목명 직접 매칭)
   const exactMatch = cachedMappings.get(normalizedRaw)
@@ -113,7 +113,7 @@ export function matchItem(rawName: string): MatchResult {
   // 2단계: 별칭 매칭
   const aliasMatch = cachedAliasIndex.get(normalizedRaw)
   if (aliasMatch) {
-    const item = cachedMappings.get(aliasMatch.toUpperCase())
+    const item = cachedMappings.get(aliasMatch.toLowerCase())
     if (item) {
       return {
         standardItemName: aliasMatch,
@@ -129,7 +129,7 @@ export function matchItem(rawName: string): MatchResult {
   // 3단계: 패턴 매칭
   for (const { regex, standardName } of cachedPatterns) {
     if (regex.test(rawName)) {
-      const item = cachedMappings.get(standardName.toUpperCase())
+      const item = cachedMappings.get(standardName.toLowerCase())
       if (item) {
         return {
           standardItemName: standardName,
@@ -159,7 +159,7 @@ export function matchItem(rawName: string): MatchResult {
   if (fuzzyResult.match) {
     const standardName = aliasToStandard.get(fuzzyResult.match)
     if (standardName) {
-      const item = cachedMappings.get(standardName.toUpperCase())
+      const item = cachedMappings.get(standardName.toLowerCase())
       if (item) {
         // 유사도를 신뢰도로 변환 (70-100% → 70-89%)
         const confidence = Math.round(70 + (fuzzyResult.similarity - 0.7) * 63.33)
@@ -201,7 +201,7 @@ export function getStandardItem(standardName: string): MappingItem | null {
 
   if (!cachedMappings) return null
 
-  const item = cachedMappings.get(standardName.toUpperCase())
+  const item = cachedMappings.get(standardName.toLowerCase())
   return item?.item || null
 }
 

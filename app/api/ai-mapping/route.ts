@@ -81,19 +81,19 @@ export async function POST(request: NextRequest) {
 
     // 매핑 사전을 Map으로 변환 (빠른 조회)
     const mappingsMap = new Map(
-      existingMappings?.map(m => [m.raw_name.toUpperCase(), m]) || []
+      existingMappings?.map(m => [m.raw_name.toLowerCase(), m]) || []
     )
 
     // 표준 항목을 이름으로 빠르게 조회하기 위한 Map
     const standardItemsByName = new Map(
-      standardItems?.map(si => [si.name.toUpperCase(), si]) || []
+      standardItems?.map(si => [si.name.toLowerCase(), si]) || []
     )
 
     // 유연한 DB 항목 검색 함수
     const findStandardItemFlexible = (searchName: string): StandardItem | null => {
       if (!standardItems) return null
 
-      const normalized = searchName.toUpperCase().trim()
+      const normalized = searchName.toLowerCase().trim()
 
       // 1. 정확한 매칭
       const exact = standardItemsByName.get(normalized)
@@ -102,14 +102,14 @@ export async function POST(request: NextRequest) {
       // 2. 공백/특수문자 제거 후 매칭
       const cleanSearch = normalized.replace(/[\s\-_()]/g, '')
       for (const item of standardItems) {
-        const cleanItem = item.name.toUpperCase().replace(/[\s\-_()]/g, '')
+        const cleanItem = item.name.toLowerCase().replace(/[\s\-_()]/g, '')
         if (cleanItem === cleanSearch) return item
       }
 
       // 3. 부분 매칭 (검색어가 DB 항목에 포함되거나 그 반대)
       for (const item of standardItems) {
-        const itemUpper = item.name.toUpperCase()
-        if (itemUpper.includes(normalized) || normalized.includes(itemUpper)) {
+        const itemLower = item.name.toLowerCase()
+        if (itemLower.includes(normalized) || normalized.includes(itemLower)) {
           return item
         }
       }
@@ -230,7 +230,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 3-3. DB 매핑 사전에서 조회 (기존 item_mappings 테이블 - 하위 호환)
-      const existingMapping = mappingsMap.get(itemName.toUpperCase())
+      const existingMapping = mappingsMap.get(itemName.toLowerCase())
 
       if (existingMapping) {
         // 기존 매핑이 있으면 해당 표준 항목 정보 반환
@@ -616,7 +616,7 @@ ${canonicalListWithUnits}
 
         // 이름으로 표준 항목 찾기 (case-insensitive)
         const matchedItem = standardItems.find(
-          si => si.name.toUpperCase() === matchDecision.canonical_name.toUpperCase()
+          si => si.name.toLowerCase() === matchDecision.canonical_name.toLowerCase()
         )
 
         if (!matchedItem) {
@@ -670,7 +670,7 @@ ${canonicalListWithUnits}
           console.log(`✅ AI new item created: "${newDecision.recommended_name}" (${newDecision.display_name_ko})`)
 
           // 원본 입력명 ≠ recommended_name이면 alias도 등록
-          if (inputName.toUpperCase() !== newDecision.recommended_name.toUpperCase()) {
+          if (inputName.toLowerCase() !== newDecision.recommended_name.toLowerCase()) {
             await registerNewAlias(
               inputName,
               newDecision.recommended_name,

@@ -278,7 +278,7 @@ FROM (VALUES
   ('CBASE(B,ST)(ABL80F)', 'cBASE(B)', 'ABL80F standard temp'),
   ('CBASE(ECF,ST)(ABL80', 'cBASE(Ecf)', 'ABL80F standard temp (OCR잘림)')
 ) AS v(alias, canonical_name, source_hint)
-LEFT JOIN standard_items_master s ON s.name = v.canonical_name;
+LEFT JOIN standard_items_master s ON LOWER(s.name) = LOWER(v.canonical_name);
 
 -- =====================================================
 -- 5단계: 검증 쿼리

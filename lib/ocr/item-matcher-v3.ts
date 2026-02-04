@@ -204,7 +204,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
     if (!itemsError && items) {
       cachedStandardItems = new Map();
       for (const item of items) {
-        cachedStandardItems.set(item.name.toUpperCase(), item as StandardItem);
+        cachedStandardItems.set(item.name.toLowerCase(), item as StandardItem);
       }
     }
 
@@ -215,7 +215,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
     if (!aliasesError && aliases) {
       cachedAliases = new Map();
       for (const alias of aliases) {
-        cachedAliases.set(alias.alias.toUpperCase(), alias as ItemAlias);
+        cachedAliases.set(alias.alias.toLowerCase(), alias as ItemAlias);
       }
     }
 
@@ -231,7 +231,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
 
   cachedStandardItems = new Map();
   for (const item of items || []) {
-    cachedStandardItems.set(item.name.toUpperCase(), item as StandardItem);
+    cachedStandardItems.set(item.name.toLowerCase(), item as StandardItem);
   }
 
   const { data: aliases } = await supabase
@@ -240,7 +240,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
 
   cachedAliases = new Map();
   for (const alias of aliases || []) {
-    cachedAliases.set(alias.alias.toUpperCase(), alias as ItemAlias);
+    cachedAliases.set(alias.alias.toLowerCase(), alias as ItemAlias);
   }
 
   cachedUserId = null;
@@ -279,7 +279,7 @@ export async function matchItemV3(
     return createEmptyResult();
   }
 
-  const normalizedRaw = rawName.toUpperCase().trim();
+  const normalizedRaw = rawName.toLowerCase().trim();
 
   // ============================================
   // Step 1: 정규 항목 exact match (case-insensitive)
@@ -303,7 +303,7 @@ export async function matchItemV3(
   // ============================================
   const aliasMatch = cachedAliases.get(normalizedRaw);
   if (aliasMatch) {
-    const standardItem = cachedStandardItems.get(aliasMatch.canonical_name.toUpperCase());
+    const standardItem = cachedStandardItems.get(aliasMatch.canonical_name.toLowerCase());
     if (standardItem) {
       return {
         standardItemId: standardItem.id,
