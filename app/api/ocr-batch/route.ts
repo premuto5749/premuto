@@ -3,6 +3,13 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { OcrResult } from '@/types'
 import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
 import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
+import { createClient } from '@/lib/supabase/server'
+import {
+  matchItemV3,
+  type MatchResultV3,
+  registerNewAlias,
+  correctTruncatedUnit,
+} from '@/lib/ocr/item-matcher-v3'
 
 // 최대 실행 시간 설정 (120초 - OCR은 시간이 오래 걸림)
 export const maxDuration = 120
@@ -145,10 +152,24 @@ function cleanAndParseJson(content: string): Record<string, unknown> | null {
   }
 }
 
+// 매핑된 항목 타입
+interface MappedItem extends OcrResult {
+  mapping?: {
+    standard_item_id: string
+    standard_item_name: string
+    display_name_ko: string
+    confidence: number
+    method: string
+    source_hint?: string
+  } | null
+  isGarbage?: boolean
+  garbageReason?: string
+}
+
 // 파일 결과 타입
 interface FileResult {
   filename: string
-  items: OcrResult[]
+  items: MappedItem[]
   metadata: {
     test_date?: string
     hospital_name?: string
@@ -583,6 +604,246 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // ========================================
+    // 매핑 단계: Step 0-2 (가비지, exact, alias)
+    // ========================================
+    console.log('🔄 Starting mapping phase...')
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id
+
+    // 표준 항목 로드 (AI 매핑용)
+    const { data: standardItems } = await supabase
+      .from('standard_items_master')
+      .select('*')
+
+    // 통계
+    let exactMatchCount = 0
+    let aliasMatchCount = 0
+    let aiMatchCount = 0
+    let garbageCount = 0
+    let unmappedCount = 0
+
+    // AI 매핑이 필요한 항목 수집
+    interface ItemNeedingAi {
+      resultIndex: number
+      itemIndex: number
+      item: MappedItem
+    }
+    const itemsNeedingAi: ItemNeedingAi[] = []
+
+    // 각 결과의 각 항목에 대해 매핑 수행
+    for (let ri = 0; ri < results.length; ri++) {
+      const result = results[ri]
+      if (result.error) continue
+
+      for (let ii = 0; ii < result.items.length; ii++) {
+        const item = result.items[ii]
+        const itemName = item.raw_name || item.name
+
+        // 단위 잘림 보정
+        if (item.unit) {
+          item.unit = correctTruncatedUnit(item.unit)
+        }
+
+        // Step 0-2: matchItemV3
+        const v3Match: MatchResultV3 = await matchItemV3(itemName, { supabase, userId })
+
+        // Step 0: 가비지 필터링
+        if (v3Match.isGarbage) {
+          garbageCount++
+          item.isGarbage = true
+          item.garbageReason = v3Match.garbageReason
+          item.mapping = null
+          continue
+        }
+
+        // Step 1-2: exact 또는 alias 매칭 성공
+        if (v3Match.confidence >= 70 && v3Match.standardItemId) {
+          if (v3Match.method === 'exact') {
+            exactMatchCount++
+          } else {
+            aliasMatchCount++
+          }
+
+          item.mapping = {
+            standard_item_id: v3Match.standardItemId,
+            standard_item_name: v3Match.standardItemName || '',
+            display_name_ko: v3Match.displayNameKo || '',
+            confidence: v3Match.confidence,
+            method: v3Match.method,
+            source_hint: v3Match.sourceHint || undefined,
+          }
+          continue
+        }
+
+        // Step 3 필요: AI 매핑 목록에 추가
+        itemsNeedingAi.push({ resultIndex: ri, itemIndex: ii, item })
+      }
+    }
+
+    console.log(`📊 Phase 1 complete: Exact=${exactMatchCount}, Alias=${aliasMatchCount}, Need AI=${itemsNeedingAi.length}, Garbage=${garbageCount}`)
+
+    // ========================================
+    // Step 3: AI 매핑 (필요한 항목만)
+    // ========================================
+    if (itemsNeedingAi.length > 0 && standardItems && standardItems.length > 0) {
+      console.log(`🤖 Starting AI mapping for ${itemsNeedingAi.length} items...`)
+
+      const AI_BATCH_SIZE = 10
+      const batches: ItemNeedingAi[][] = []
+      for (let i = 0; i < itemsNeedingAi.length; i += AI_BATCH_SIZE) {
+        batches.push(itemsNeedingAi.slice(i, i + AI_BATCH_SIZE))
+      }
+
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex]
+
+        // 배치 간 대기 (rate limit 방지)
+        if (batchIndex > 0) {
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+
+        try {
+          // AI 프롬프트 생성
+          const canonicalListWithUnits = standardItems
+            .map(si => `${si.name} | ${si.display_name_ko || '-'} | ${si.default_unit || '-'}`)
+            .join('\n')
+
+          const ocrItemsList = batch
+            .map((b, idx) => `${idx + 1}. 항목명: "${b.item.raw_name || b.item.name}", 단위: "${b.item.unit || '-'}"`)
+            .join('\n')
+
+          const prompt = `당신은 수의학 검사 항목 전문가입니다.
+다음 검사 항목명들이 기존 정규 항목 중 하나와 같은 검사인지,
+아니면 신규 항목인지 판단해주세요.
+
+## 입력 항목들
+${ocrItemsList}
+
+## 판단 기준
+1. 측정 대상이 같은가?
+2. 단위가 호환 가능한가?
+3. 임상적으로 같은 트렌드로 볼 수 있는가?
+
+## 기존 정규 항목 목록 (영문명 | 한글명 | 단위)
+${canonicalListWithUnits}
+
+## 응답 형식 (JSON 배열만, 다른 텍스트 없이)
+각 항목에 대해:
+
+기존 항목 변형인 경우:
+{
+  "idx": 항목번호,
+  "decision": {
+    "decision": "match",
+    "canonical_name": "매칭되는 정규 항목명 (영문)",
+    "confidence": 0.95,
+    "reason": "판단 근거",
+    "source_hint": "장비/방법 힌트 (있다면)"
+  }
+}
+
+신규 항목인 경우:
+{
+  "idx": 항목번호,
+  "decision": {
+    "decision": "new",
+    "recommended_name": "추천 정규명 (영문)",
+    "display_name_ko": "한글 표시명",
+    "unit": "단위",
+    "exam_type": "Chemistry",
+    "confidence": 0.9,
+    "reason": "판단 근거"
+  }
+}
+
+판단 불가능한 경우:
+{
+  "idx": 항목번호,
+  "decision": null
+}
+
+응답: [...]`
+
+          const message = await getAnthropicClient().messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 4000,
+            messages: [{ role: 'user', content: prompt }],
+          })
+
+          const textContent = message.content.find(block => block.type === 'text')
+          const content = textContent?.type === 'text' ? textContent.text : null
+
+          if (content) {
+            const jsonMatch = content.match(/\[[\s\S]*\]/)
+            if (jsonMatch) {
+              const aiResults = JSON.parse(jsonMatch[0])
+
+              for (const result of aiResults) {
+                const itemIndex = result.idx - 1
+                if (itemIndex < 0 || itemIndex >= batch.length) continue
+
+                const { resultIndex, itemIndex: ii } = batch[itemIndex]
+                const item = results[resultIndex].items[ii]
+                const decision = result.decision
+
+                if (!decision || decision.confidence < 0.7) {
+                  unmappedCount++
+                  item.mapping = null
+                  continue
+                }
+
+                if (decision.decision === 'match') {
+                  const matchedItem = standardItems.find(
+                    si => si.name.toLowerCase() === decision.canonical_name.toLowerCase()
+                  )
+
+                  if (matchedItem) {
+                    aiMatchCount++
+                    item.mapping = {
+                      standard_item_id: matchedItem.id,
+                      standard_item_name: matchedItem.name,
+                      display_name_ko: matchedItem.display_name_ko || '',
+                      confidence: Math.round(decision.confidence * 100),
+                      method: 'ai_match',
+                      source_hint: decision.source_hint,
+                    }
+
+                    // alias 자동 등록
+                    const inputName = item.raw_name || item.name
+                    await registerNewAlias(inputName, decision.canonical_name, decision.source_hint || null, supabase, userId)
+                  } else {
+                    unmappedCount++
+                    item.mapping = null
+                  }
+                } else if (decision.decision === 'new') {
+                  // 신규 항목은 일단 unmapped로 처리 (사용자가 Preview에서 확인 후 저장 시 생성)
+                  unmappedCount++
+                  item.mapping = null
+                }
+              }
+            }
+          }
+        } catch (aiError) {
+          console.error(`❌ AI mapping batch ${batchIndex + 1} failed:`, aiError)
+          // AI 실패 시 해당 배치 항목들은 unmapped로 처리
+          for (const { resultIndex, itemIndex: ii } of batch) {
+            unmappedCount++
+            results[resultIndex].items[ii].mapping = null
+          }
+        }
+      }
+    } else {
+      // AI 매핑 불가 (표준 항목 없음)
+      unmappedCount += itemsNeedingAi.length
+      for (const { resultIndex, itemIndex: ii } of itemsNeedingAi) {
+        results[resultIndex].items[ii].mapping = null
+      }
+    }
+
+    console.log(`✅ Mapping complete: Exact=${exactMatchCount}, Alias=${aliasMatchCount}, AI=${aiMatchCount}, Garbage=${garbageCount}, Unmapped=${unmappedCount}`)
+
     // 배치 ID 생성 (타임스탬프 기반)
     const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(7)}`
 
@@ -606,7 +867,14 @@ export async function POST(request: NextRequest) {
             hospital_name: r.metadata.hospital_name
           }
         })),
-        warnings
+        warnings,
+        mappingStats: {
+          exactMatch: exactMatchCount,
+          aliasMatch: aliasMatchCount,
+          aiMatch: aiMatchCount,
+          garbage: garbageCount,
+          unmapped: unmappedCount
+        }
       }
     })
 

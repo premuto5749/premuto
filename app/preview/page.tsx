@@ -47,11 +47,23 @@ function AbnormalBadge({ isAbnormal, direction }: {
   )
 }
 
+interface MappingInfo {
+  standard_item_id: string
+  standard_item_name: string
+  display_name_ko: string
+  confidence: number
+  method: string
+  source_hint?: string
+}
+
 interface EditableItem extends OcrResult {
   source_filename: string
   test_date: string
   hospital_name: string
   isEditing?: boolean
+  mapping?: MappingInfo | null
+  isGarbage?: boolean
+  garbageReason?: string
 }
 
 interface DateGroup {
@@ -243,71 +255,20 @@ function PreviewContent() {
     setIsProcessing(true)
 
     try {
-      // 1단계: 날짜별로 AI 매핑 실행
-      const mappingPromises = dateGroups.map(async (group) => {
-        const response = await fetch('/api/ai-mapping', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            batch_id: `${batchData.batch_id}_${group.date}_${group.sequence}`,
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            ocr_results: group.items.map(({ source_filename, test_date, hospital_name, ...item }) => item)
-          }),
-        })
+      // OCR에서 이미 매핑이 완료되었으므로 바로 저장
+      const savePromises = dateGroups.map(async (group) => {
+        // 가비지 항목 제외, 매핑된 것과 매핑되지 않은 것 분리
+        const mappedItems: EditableItem[] = []
+        const unmappedItems: EditableItem[] = []
 
-        const result = await response.json()
+        group.items.forEach(item => {
+          // 가비지는 건너뜀
+          if (item.isGarbage) return
 
-        if (!response.ok) {
-          // AI 사용량 제한 에러 처리
-          if (response.status === 429 || result.error === 'AI_RATE_LIMIT') {
-            throw new Error('AI_RATE_LIMIT')
-          }
-          throw new Error(result.error || 'AI 매핑 중 오류가 발생했습니다')
-        }
-
-        return {
-          group,
-          mappingResult: result.data
-        }
-      })
-
-      const mappingResults = await Promise.all(mappingPromises)
-
-      // 2단계: 각 날짜 그룹별로 자동 저장
-      const savePromises = mappingResults.map(async ({ group, mappingResult }) => {
-        // 매칭된 항목과 미매칭 항목 분리
-        const mappedItems: Array<{
-          ocr_item: OcrResult
-          suggested_mapping: { standard_item_id: string; confidence: number }
-          source_filename: string
-        }> = []
-
-        const unmappedItems: Array<{
-          ocr_item: OcrResult
-          source_filename: string
-        }> = []
-
-        mappingResult.forEach((result: {
-          ocr_item: OcrResult
-          suggested_mapping: { standard_item_id: string; confidence: number } | null
-        }) => {
-          const originalItem = group.items.find(
-            item => item.name === result.ocr_item.name && item.value === result.ocr_item.value
-          )
-
-          if (result.suggested_mapping) {
-            mappedItems.push({
-              ocr_item: result.ocr_item,
-              suggested_mapping: result.suggested_mapping,
-              source_filename: originalItem?.source_filename || 'unknown'
-            })
+          if (item.mapping) {
+            mappedItems.push(item)
           } else {
-            unmappedItems.push({
-              ocr_item: result.ocr_item,
-              source_filename: originalItem?.source_filename || 'unknown'
-            })
+            unmappedItems.push(item)
           }
         })
 
@@ -317,22 +278,22 @@ function PreviewContent() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              name: item.ocr_item.name,
-              display_name_ko: item.ocr_item.name,
+              name: item.name,
+              display_name_ko: item.name,
               category: 'Unmapped',
-              default_unit: item.ocr_item.unit,
+              default_unit: item.unit,
               description: 'OCR에서 자동 생성됨'
             })
           })
 
           if (!createResponse.ok) {
-            console.error(`Failed to create standard item for ${item.ocr_item.name}`)
+            console.error(`Failed to create standard item for ${item.name}`)
             return null
           }
 
           const newItem = await createResponse.json()
           return {
-            ...item,
+            item,
             standard_item_id: newItem.data.id
           }
         })
@@ -342,26 +303,26 @@ function PreviewContent() {
         // 모든 항목 통합 (매핑된 것 + 새로 생성된 것)
         const allResults = [
           ...mappedItems.map(item => ({
-            standard_item_id: item.suggested_mapping.standard_item_id,
-            value: item.ocr_item.value,
-            unit: item.ocr_item.unit,
-            ref_min: item.ocr_item.ref_min,
-            ref_max: item.ocr_item.ref_max,
-            ref_text: item.ocr_item.ref_text,
+            standard_item_id: item.mapping!.standard_item_id,
+            value: item.value,
+            unit: item.unit,
+            ref_min: item.ref_min,
+            ref_max: item.ref_max,
+            ref_text: item.ref_text,
             source_filename: item.source_filename,
-            ocr_raw_name: item.ocr_item.name,
-            mapping_confidence: item.suggested_mapping.confidence,
+            ocr_raw_name: item.raw_name || item.name,
+            mapping_confidence: item.mapping!.confidence,
             user_verified: false
           })),
-          ...newStandardItems.map(item => ({
-            standard_item_id: item!.standard_item_id,
-            value: item!.ocr_item.value,
-            unit: item!.ocr_item.unit,
-            ref_min: item!.ocr_item.ref_min,
-            ref_max: item!.ocr_item.ref_max,
-            ref_text: item!.ocr_item.ref_text,
-            source_filename: item!.source_filename,
-            ocr_raw_name: item!.ocr_item.name,
+          ...newStandardItems.map(ns => ({
+            standard_item_id: ns!.standard_item_id,
+            value: ns!.item.value,
+            unit: ns!.item.unit,
+            ref_min: ns!.item.ref_min,
+            ref_max: ns!.item.ref_max,
+            ref_text: ns!.item.ref_text,
+            source_filename: ns!.item.source_filename,
+            ocr_raw_name: ns!.item.raw_name || ns!.item.name,
             mapping_confidence: 0,
             user_verified: false
           }))
@@ -544,6 +505,7 @@ function PreviewContent() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-[200px]">항목명 (OCR)</TableHead>
+                          <TableHead className="w-[180px]">매핑 결과</TableHead>
                           <TableHead className="w-[120px]">결과값</TableHead>
                           <TableHead className="w-[80px]">상태</TableHead>
                           <TableHead className="w-[80px]">단위</TableHead>
@@ -570,13 +532,44 @@ function PreviewContent() {
                                   />
                                 ) : (
                                   <div>
-                                    <span className="font-medium">{item.raw_name || item.name}</span>
-                                    {item.raw_name && item.raw_name !== item.name && (
-                                      <span className="text-xs text-muted-foreground ml-1">
-                                        → {item.name}
-                                      </span>
-                                    )}
+                                    <span className={`font-medium ${item.isGarbage ? 'line-through text-muted-foreground' : ''}`}>
+                                      {item.raw_name || item.name}
+                                    </span>
                                   </div>
+                                )}
+                              </TableCell>
+                              {/* 매핑 결과 */}
+                              <TableCell>
+                                {item.isGarbage ? (
+                                  <Badge variant="outline" className="text-xs text-gray-400">
+                                    🗑️ {item.garbageReason || '가비지'}
+                                  </Badge>
+                                ) : item.mapping ? (
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-sm font-medium">
+                                      {item.mapping.display_name_ko || item.mapping.standard_item_name}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <Badge
+                                        variant={item.mapping.confidence >= 90 ? 'default' : item.mapping.confidence >= 70 ? 'secondary' : 'outline'}
+                                        className={`text-xs ${
+                                          item.mapping.confidence >= 90 ? 'bg-green-500' :
+                                          item.mapping.confidence >= 70 ? 'bg-yellow-500 text-black' : ''
+                                        }`}
+                                      >
+                                        {item.mapping.confidence}%
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {item.mapping.method === 'exact' ? '정규' :
+                                         item.mapping.method === 'alias' ? '별칭' :
+                                         item.mapping.method === 'ai_match' ? '🤖AI' : item.mapping.method}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs text-orange-500 border-orange-300">
+                                    ⚠️ 미매핑
+                                  </Badge>
                                 )}
                               </TableCell>
                               {/* 결과값 */}
@@ -688,7 +681,7 @@ function PreviewContent() {
         <CardHeader>
           <CardTitle>검사 결과 저장</CardTitle>
           <CardDescription>
-            OCR 결과를 확인했다면 저장하세요. AI가 자동으로 매칭하고 DB에 저장합니다.
+            OCR 결과를 확인했다면 저장하세요. 매핑된 결과가 DB에 저장됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
