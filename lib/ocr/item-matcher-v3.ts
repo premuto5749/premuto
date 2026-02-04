@@ -1,27 +1,26 @@
 /**
  * 항목 매칭 유틸리티 v3
- * 하이브리드 5단계 매칭 전략 (DB 기반):
+ * 하이브리드 4단계 매칭 전략 (DB 기반):
  *
- * 1. 정규 항목 exact match (DB standard_items) → 신뢰도 100%
- * 2. Alias 테이블 exact match (DB item_aliases) → 신뢰도 95% + source_hint
- * 3. 퍼지 매칭 (Levenshtein 70%+) → 신뢰도 70-89%
- * 4. AI 판단 (Claude API) → AI가 반환한 신뢰도
- * 5. 신규 항목 등록 요청 → 신뢰도 0 (사용자 확인 필요)
+ * Step 0: 가비지 필터링 → 항목이 아닌 것 버림
+ * Step 1: 정규 항목 exact match (DB standard_items) → 신뢰도 100%
+ * Step 2: Alias 테이블 exact match (DB item_aliases) → 신뢰도 95% + source_hint
+ * Step 3: AI 판단 (Claude API) → match(기존 변형) 또는 new(신규)
+ *         → confidence < 0.7이면 Unmapped로 저장
  */
 
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import { findBestMatch } from './fuzzy-matcher';
 
 // Supabase client type (awaited)
 type SupabaseClientType = Awaited<ReturnType<typeof createServerClient>>;
 
 export type MatchMethodV3 =
+  | 'garbage'        // Step 0: 가비지로 필터링됨
   | 'exact'          // Step 1: 정규 항목 직접 매칭
   | 'alias'          // Step 2: Alias 테이블 매칭
-  | 'fuzzy'          // Step 3: 퍼지 매칭
-  | 'ai_match'       // Step 4: AI가 기존 항목 변형으로 판단
-  | 'ai_new'         // Step 5: AI가 신규 항목으로 판단
-  | 'none';          // 매칭 실패
+  | 'ai_match'       // Step 3: AI가 기존 항목 변형으로 판단
+  | 'ai_new'         // Step 3: AI가 신규 항목으로 판단
+  | 'none';          // 매칭 실패 (Unmapped)
 
 export interface MatchResultV3 {
   standardItemId: string | null;
@@ -33,12 +32,19 @@ export interface MatchResultV3 {
   method: MatchMethodV3;
   matchedAgainst?: string;
   sourceHint?: string | null;  // 장비/병원 힌트
+  isGarbage?: boolean;         // Step 0에서 가비지로 판정됨
+  garbageReason?: string;      // 가비지 판정 이유
+  hasTruncatedBracket?: boolean; // 닫히지 않은 괄호 감지
   // 신규 항목 추천 (method === 'ai_new'일 때)
   suggestedNewItem?: {
     name: string;
     displayNameKo: string;
+    unit: string;
     examType: string;
     organTags: string[];
+    descriptionCommon: string;
+    descriptionHigh: string;
+    descriptionLow: string;
     reasoning: string;
   };
 }
@@ -68,6 +74,105 @@ let cachedAliases: Map<string, ItemAlias> | null = null;
 let cacheTimestamp: number = 0;
 let cachedUserId: string | null = null;
 const CACHE_TTL = 5 * 60 * 1000; // 5분
+
+// ============================================
+// Step 0: 가비지 필터링 유틸리티
+// ============================================
+
+// 가비지로 판정되는 카테고리 라벨들
+const GARBAGE_LABELS = ['기타', '결과', '항목', '단위', '참고치', '검사항목', '검사결과', '정상범위'];
+
+// 숫자/범위 패턴 (항목이 아닌 값)
+const GARBAGE_NUMERIC_PATTERNS = [
+  /^[<>≤≥]\s*\d/,           // < 0.25, > 2.0
+  /^\d+\.?\d*\s*[-~]\s*\d/, // 0.26 - 0.5, 1~10
+  /^\d+\.?\d*$/,            // 순수 숫자만
+];
+
+// 단위 잘림 보정 맵
+const UNIT_CORRECTIONS: Record<string, string> = {
+  'mmH': 'mmHg',
+  'mg/d': 'mg/dL',
+  'g/d': 'g/dL',
+  'U/': 'U/L',
+  'K/u': 'K/μL',
+  'K/μ': 'K/μL',
+  '10x9/': '10x9/L',
+  '10x12/': '10x12/L',
+  'mmol/': 'mmol/L',
+  'ug/d': 'ug/dL',
+  'ng/m': 'ng/ml',
+  'pmol/': 'pmol/L',
+};
+
+export interface GarbageFilterResult {
+  isGarbage: boolean;
+  reason?: string;
+  hasTruncatedBracket: boolean;
+}
+
+/**
+ * Step 0: 가비지 필터링
+ * OCR에서 항목이 아닌 값이 잘못 인식되는 패턴을 걸러냄
+ */
+export function filterGarbage(rawName: string): GarbageFilterResult {
+  const trimmed = rawName.trim();
+
+  // 빈 문자열
+  if (!trimmed) {
+    return { isGarbage: true, reason: '빈 문자열', hasTruncatedBracket: false };
+  }
+
+  // 1. 숫자/범위 패턴 체크
+  for (const pattern of GARBAGE_NUMERIC_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return { isGarbage: true, reason: '숫자/범위 패턴', hasTruncatedBracket: false };
+    }
+  }
+
+  // 2. 카테고리 라벨 체크
+  const upperTrimmed = trimmed.toUpperCase();
+  for (const label of GARBAGE_LABELS) {
+    if (upperTrimmed === label.toUpperCase()) {
+      return { isGarbage: true, reason: '카테고리 라벨', hasTruncatedBracket: false };
+    }
+  }
+
+  // 3. 너무 짧은 문자열 (1글자)
+  if (trimmed.length === 1 && !/[A-Za-z]/.test(trimmed)) {
+    return { isGarbage: true, reason: '단일 문자', hasTruncatedBracket: false };
+  }
+
+  // 4. 닫히지 않은 괄호 감지
+  const openParens = (trimmed.match(/\(/g) || []).length;
+  const closeParens = (trimmed.match(/\)/g) || []).length;
+  const hasTruncatedBracket = openParens > closeParens;
+
+  return { isGarbage: false, hasTruncatedBracket };
+}
+
+/**
+ * 단위 잘림 보정
+ */
+export function correctTruncatedUnit(unit: string): string {
+  if (!unit) return unit;
+
+  const trimmed = unit.trim();
+
+  // 정확히 일치하는 잘린 단위 보정
+  if (UNIT_CORRECTIONS[trimmed]) {
+    return UNIT_CORRECTIONS[trimmed];
+  }
+
+  // 부분 일치 보정
+  for (const [truncated, corrected] of Object.entries(UNIT_CORRECTIONS)) {
+    if (trimmed.endsWith(truncated) && trimmed.length <= truncated.length + 2) {
+      return trimmed.replace(truncated, corrected);
+    }
+  }
+
+  return trimmed;
+}
 
 /**
  * 캐시 초기화 (DB에서 로드, 사용자 오버라이드 병합)
@@ -135,18 +240,30 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
 }
 
 /**
- * 하이브리드 5단계 매칭 (Step 1-3: DB 기반)
- * AI 판단(Step 4-5)은 별도 함수로 분리
+ * 하이브리드 4단계 매칭 (Step 0-2: 로컬/DB 기반)
+ * AI 판단(Step 3)은 별도 API에서 처리
  */
 export async function matchItemV3(
   rawName: string,
   options: {
     supabase?: SupabaseClientType;
-    skipFuzzy?: boolean;
     userId?: string;
   } = {}
 ): Promise<MatchResultV3> {
   const supabase = options.supabase || (await createServerClient());
+
+  // ============================================
+  // Step 0: 가비지 필터링
+  // ============================================
+  const garbageResult = filterGarbage(rawName);
+  if (garbageResult.isGarbage) {
+    return {
+      ...createEmptyResult(),
+      method: 'garbage',
+      isGarbage: true,
+      garbageReason: garbageResult.reason,
+    };
+  }
 
   await initializeCache(supabase, options.userId);
 
@@ -157,7 +274,7 @@ export async function matchItemV3(
   const normalizedRaw = rawName.toUpperCase().trim();
 
   // ============================================
-  // Step 1: 정규 항목 exact match
+  // Step 1: 정규 항목 exact match (case-insensitive)
   // ============================================
   const exactMatch = cachedStandardItems.get(normalizedRaw);
   if (exactMatch) {
@@ -174,7 +291,7 @@ export async function matchItemV3(
   }
 
   // ============================================
-  // Step 2: Alias 테이블 exact match
+  // Step 2: Alias 테이블 exact match (case-insensitive)
   // ============================================
   const aliasMatch = cachedAliases.get(normalizedRaw);
   if (aliasMatch) {
@@ -194,52 +311,16 @@ export async function matchItemV3(
     }
   }
 
-  // ============================================
-  // Step 3: 퍼지 매칭
-  // ============================================
-  if (!options.skipFuzzy) {
-    // 모든 항목명과 별칭을 후보로
-    const candidates: Array<{ name: string; standardName: string }> = [];
-
-    for (const [, item] of cachedStandardItems) {
-      candidates.push({ name: item.name, standardName: item.name });
-    }
-    for (const [, alias] of cachedAliases) {
-      candidates.push({ name: alias.alias, standardName: alias.canonical_name });
-    }
-
-    const candidateNames = candidates.map(c => c.name);
-    const fuzzyResult = findBestMatch(rawName, candidateNames, 0.7);
-
-    if (fuzzyResult.match) {
-      const matched = candidates.find(c => c.name === fuzzyResult.match);
-      if (matched) {
-        const standardItem = cachedStandardItems.get(matched.standardName.toUpperCase());
-        if (standardItem) {
-          // 유사도를 신뢰도로 변환 (70-100% → 70-89%)
-          const confidence = Math.round(70 + (fuzzyResult.similarity - 0.7) * 63.33);
-
-          return {
-            standardItemId: standardItem.id,
-            standardItemName: standardItem.name,
-            displayNameKo: standardItem.display_name_ko,
-            examType: standardItem.exam_type || standardItem.category,
-            organTags: standardItem.organ_tags,
-            confidence: Math.min(confidence, 89),
-            method: 'fuzzy',
-            matchedAgainst: fuzzyResult.match,
-          };
-        }
-      }
-    }
-  }
-
-  // 매칭 실패 (Step 4-5는 AI 호출 필요)
-  return createEmptyResult();
+  // Step 1, 2 모두 실패 → Step 3 (AI 판단) 필요
+  // 닫히지 않은 괄호 정보 포함하여 반환
+  return {
+    ...createEmptyResult(),
+    hasTruncatedBracket: garbageResult.hasTruncatedBracket,
+  };
 }
 
 /**
- * 여러 항목 일괄 매칭 (Step 1-3만)
+ * 여러 항목 일괄 매칭 (Step 0-2만)
  */
 export async function matchItemsV3(
   rawNames: string[],
@@ -254,7 +335,7 @@ export async function matchItemsV3(
   await initializeCache(supabase, options.userId);
 
   return Promise.all(
-    rawNames.map(name => matchItemV3(name, { supabase, skipFuzzy: false, userId: options.userId }))
+    rawNames.map(name => matchItemV3(name, { supabase, userId: options.userId }))
   );
 }
 
@@ -335,6 +416,9 @@ export async function registerNewStandardItem(
     unit: string;
     examType: string;
     organTags: string[];
+    descriptionCommon?: string;
+    descriptionHigh?: string;
+    descriptionLow?: string;
   },
   supabase?: SupabaseClientType,
   userId?: string
@@ -354,6 +438,9 @@ export async function registerNewStandardItem(
         category: item.examType,
         exam_type: item.examType,
         organ_tags: item.organTags,
+        description_common: item.descriptionCommon,
+        description_high: item.descriptionHigh,
+        description_low: item.descriptionLow,
       })
       .select('id')
       .single();
@@ -376,6 +463,9 @@ export async function registerNewStandardItem(
       category: item.examType,
       exam_type: item.examType,
       organ_tags: item.organTags,
+      description_common: item.descriptionCommon,
+      description_high: item.descriptionHigh,
+      description_low: item.descriptionLow,
     })
     .select('id')
     .single();

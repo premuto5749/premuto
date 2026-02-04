@@ -3,7 +3,13 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
 import { matchItem } from '@/lib/ocr/item-matcher'
-import { matchItemV3, type MatchResultV3 } from '@/lib/ocr/item-matcher-v3'
+import {
+  matchItemV3,
+  type MatchResultV3,
+  registerNewAlias,
+  registerNewStandardItem,
+  correctTruncatedUnit,
+} from '@/lib/ocr/item-matcher-v3'
 
 // 최대 실행 시간 설정 (60초)
 export const maxDuration = 60
@@ -132,30 +138,54 @@ export async function POST(request: NextRequest) {
       suggested_mapping: AiMappingSuggestion | null
       needsAi?: boolean
       index: number
+      isGarbage?: boolean
+      garbageReason?: string
     }
 
     const mappingResults: MappingResult[] = []
     const itemsNeedingAi: { ocrItem: OcrResult; index: number }[] = []
+
+    // 가비지 필터링된 항목 카운트
+    let garbageCount = 0
 
     // 1단계: 하이브리드 v3 매칭으로 빠르게 처리할 수 있는 항목 먼저 처리
     for (let i = 0; i < ocr_results.length; i++) {
       const ocrItem = ocr_results[i]
       const itemName = ocrItem.raw_name || ocrItem.name
 
-      // 3-1. V3 하이브리드 매칭 (DB 기반: Step 1-3)
+      // 단위 잘림 보정
+      if (ocrItem.unit) {
+        ocrItem.unit = correctTruncatedUnit(ocrItem.unit)
+      }
+
+      // 3-1. V3 하이브리드 매칭 (DB 기반: Step 0-2)
       const v3Match: MatchResultV3 = await matchItemV3(itemName, { supabase })
 
+      // Step 0: 가비지로 필터링된 경우
+      if (v3Match.isGarbage) {
+        garbageCount++
+        console.log(`🗑️ Garbage filtered: "${itemName}" (${v3Match.garbageReason})`)
+        // 가비지는 결과에서 제외
+        mappingResults.push({
+          ocr_item: ocrItem,
+          suggested_mapping: null,
+          isGarbage: true,
+          garbageReason: v3Match.garbageReason,
+          index: i
+        })
+        continue
+      }
+
       if (v3Match.confidence >= 70 && v3Match.standardItemId) {
-        // V3 매칭 성공 (exact, alias, 또는 fuzzy)
+        // V3 매칭 성공 (exact 또는 alias)
         if (v3Match.method === 'exact') {
           localMatchCount++ // exact match는 로컬 카운트로
         } else {
-          dbMatchCount++ // alias, fuzzy는 DB 카운트로
+          dbMatchCount++ // alias는 DB 카운트로
         }
 
         const methodLabel = v3Match.method === 'exact' ? '정규항목' :
-                           v3Match.method === 'alias' ? '별칭' :
-                           v3Match.method === 'fuzzy' ? '퍼지' : v3Match.method
+                           v3Match.method === 'alias' ? '별칭' : v3Match.method
 
         console.log(`📍 V3 match (${methodLabel}): "${itemName}" → ${v3Match.standardItemName} (${v3Match.confidence}%)${v3Match.sourceHint ? ` [${v3Match.sourceHint}]` : ''}`)
 
@@ -260,7 +290,8 @@ export async function POST(request: NextRequest) {
         try {
           const batchResults = await getAiMappingSuggestionBatch(
             batch.map(b => b.ocrItem),
-            standardItems || []
+            standardItems || [],
+            supabase
           )
 
           // 결과 매핑
@@ -303,7 +334,8 @@ export async function POST(request: NextRequest) {
               try {
                 const batchResults = await getAiMappingSuggestionBatch(
                   batch.map(b => b.ocrItem),
-                  standardItems || []
+                  standardItems || [],
+                  supabase
                 )
 
                 for (let i = 0; i < batch.length; i++) {
@@ -368,7 +400,7 @@ export async function POST(request: NextRequest) {
     }))
 
     console.log(`✅ AI Mapping completed for batch ${batch_id}`)
-    console.log(`📊 Stats: Local=${localMatchCount}, DB=${dbMatchCount}, AI=${aiMatchCount}, Failed=${failedCount}`)
+    console.log(`📊 Stats: Local=${localMatchCount}, DB=${dbMatchCount}, AI=${aiMatchCount}, Garbage=${garbageCount}, Failed=${failedCount}`)
 
     return NextResponse.json({
       success: true,
@@ -378,6 +410,7 @@ export async function POST(request: NextRequest) {
         localMatch: localMatchCount,
         dbMatch: dbMatchCount,
         aiMatch: aiMatchCount,
+        garbage: garbageCount,
         failed: failedCount
       }
     })
@@ -407,18 +440,49 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// AI를 통한 배치 매핑 제안 함수 (여러 항목을 한 번에 처리)
+// AI 판단 결과 타입 (mapping_logic.md 기반)
+interface AiDecisionMatch {
+  decision: 'match'
+  canonical_name: string
+  confidence: number
+  reason: string
+  source_hint?: string
+}
+
+interface AiDecisionNew {
+  decision: 'new'
+  recommended_name: string
+  display_name_ko: string
+  unit: string
+  exam_type: string
+  organ_tags: string[]
+  description_common: string
+  description_high: string
+  description_low: string
+  confidence: number
+  reason: string
+}
+
+type AiDecision = AiDecisionMatch | AiDecisionNew
+
+interface AiBatchResult {
+  idx: number
+  decision: AiDecision | null
+}
+
+// AI를 통한 배치 매핑 제안 함수 (mapping_logic.md 프롬프트 템플릿 사용)
 async function getAiMappingSuggestionBatch(
   ocrItems: OcrResult[],
-  standardItems: StandardItem[]
+  standardItems: StandardItem[],
+  supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<(AiMappingSuggestion | null)[]> {
 
   if (ocrItems.length === 0) {
     return []
   }
 
-  // 표준 항목 목록을 간결하게 포맷 (이름 기반 매칭)
-  const standardItemsList = standardItems
+  // 표준 항목 목록을 포맷 (영문명 | 한글명 | 단위)
+  const canonicalListWithUnits = standardItems
     .map(item =>
       `${item.name} | ${item.display_name_ko || '-'} | ${item.default_unit || '-'}`
     )
@@ -427,36 +491,70 @@ async function getAiMappingSuggestionBatch(
   // OCR 항목들을 번호 매겨서 포맷
   const ocrItemsList = ocrItems
     .map((item, idx) => {
-      const refInfo = item.ref_min !== null || item.ref_max !== null
-        ? ` | 참고치: ${item.ref_min ?? '?'} ~ ${item.ref_max ?? '?'}`
-        : ''
-      return `${idx + 1}. "${item.raw_name || item.name}" | 값: ${item.value} | 단위: ${item.unit || '-'}${refInfo}`
+      return `${idx + 1}. 항목명: "${item.raw_name || item.name}", 단위: "${item.unit || '-'}"`
     })
     .join('\n')
 
-  const prompt = `수의학 혈액검사 항목 매칭 전문가로서, OCR 추출된 여러 항목을 표준 항목과 매칭하세요.
+  // mapping_logic.md의 AI 프롬프트 템플릿
+  const prompt = `당신은 수의학 검사 항목 전문가입니다.
+다음 검사 항목명들이 기존 정규 항목 중 하나와 같은 검사인지,
+아니면 신규 항목인지 판단해주세요.
 
-## 표준 항목 목록 (영문명 | 한글명 | 단위)
-${standardItemsList}
-
-## OCR 추출 항목 (번호. 항목명 | 값 | 단위 | 참고치)
+## 입력 항목들
 ${ocrItemsList}
 
-## 매칭 규칙
-1. 항목명의 약어, 오타, 띄어쓰기 차이 고려 (예: ALT(GPT) = ALT, Creatine = Creatinine)
-2. 단위와 결과값 범위로 검증
-3. 매칭할 수 없으면 null 반환
+## 판단 기준
+1. 측정 대상이 같은가?
+2. 단위가 호환 가능한가?
+3. 임상적으로 같은 트렌드로 볼 수 있는가?
 
-## 응답 (JSON 배열만, 다른 텍스트 없이)
-[
-  {"idx": 1, "matched_name": "정확한 표준 항목 영문명", "confidence": 85, "reasoning": "근거"},
-  {"idx": 2, "matched_name": null, "confidence": 0, "reasoning": "매칭 실패 이유"},
-  ...
-]`
+## 기존 정규 항목 목록 (영문명 | 한글명 | 단위)
+${canonicalListWithUnits}
+
+## 응답 형식 (JSON 배열만, 다른 텍스트 없이)
+각 항목에 대해:
+
+기존 항목 변형인 경우:
+{
+  "idx": 항목번호,
+  "decision": {
+    "decision": "match",
+    "canonical_name": "매칭되는 정규 항목명 (영문)",
+    "confidence": 0.95,
+    "reason": "판단 근거",
+    "source_hint": "장비/방법 힌트 (있다면)"
+  }
+}
+
+신규 항목인 경우:
+{
+  "idx": 항목번호,
+  "decision": {
+    "decision": "new",
+    "recommended_name": "추천 정규명 (영문)",
+    "display_name_ko": "한글 표시명",
+    "unit": "단위",
+    "exam_type": "Vital|CBC|Chemistry|Special|Blood Gas|Coagulation|뇨검사|안과검사|Echo|기타",
+    "organ_tags": ["장기태그1", "장기태그2"],
+    "description_common": "항목 설명",
+    "description_high": "수치 높을 때 의미",
+    "description_low": "수치 낮을 때 의미",
+    "confidence": 0.9,
+    "reason": "판단 근거"
+  }
+}
+
+판단 불가능한 경우:
+{
+  "idx": 항목번호,
+  "decision": null
+}
+
+응답: [...]`
 
   const message = await getAnthropicClient().messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 2000, // 여러 항목이므로 토큰 늘림
+    max_tokens: 4000, // 신규 항목 생성 시 더 많은 토큰 필요
     messages: [
       {
         role: 'user',
@@ -479,7 +577,7 @@ ${ocrItemsList}
       throw new Error('No JSON array found in AI response')
     }
 
-    const results: { idx: number; matched_name: string | null; confidence: number; reasoning: string }[] = JSON.parse(jsonMatch[0])
+    const results: AiBatchResult[] = JSON.parse(jsonMatch[0])
 
     // 결과를 원래 순서대로 매핑
     const suggestions: (AiMappingSuggestion | null)[] = new Array(ocrItems.length).fill(null)
@@ -491,48 +589,106 @@ ${ocrItemsList}
         continue
       }
 
-      // 매칭 실패 케이스
-      if (!result.matched_name || result.confidence === 0) {
-        console.log(`🔴 AI could not match: "${ocrItems[itemIndex].raw_name || ocrItems[itemIndex].name}" - ${result.reasoning}`)
+      const ocrItem = ocrItems[itemIndex]
+      const inputName = ocrItem.raw_name || ocrItem.name
+
+      // 판단 불가능한 경우
+      if (!result.decision) {
+        console.log(`🔴 AI could not decide: "${inputName}"`)
         suggestions[itemIndex] = null
         continue
       }
 
-      // 이름으로 표준 항목 찾기 (대소문자 무시)
-      const matchedItem = standardItems.find(
-        si => si.name.toUpperCase() === result.matched_name!.toUpperCase()
-      )
+      const decision = result.decision
 
-      if (!matchedItem) {
-        // 유사도 기반 fallback 매칭
-        const fuzzyMatch = standardItems.find(si =>
-          si.name.toUpperCase().includes(result.matched_name!.toUpperCase()) ||
-          result.matched_name!.toUpperCase().includes(si.name.toUpperCase())
+      // confidence < 0.7 → Unmapped로 저장
+      if (decision.confidence < 0.7) {
+        console.log(`🟡 Low confidence (${decision.confidence}): "${inputName}" → Unmapped`)
+        suggestions[itemIndex] = null
+        continue
+      }
+
+      // decision: "match" → 기존 항목 변형
+      if (decision.decision === 'match') {
+        const matchDecision = decision as AiDecisionMatch
+
+        // 이름으로 표준 항목 찾기 (case-insensitive)
+        const matchedItem = standardItems.find(
+          si => si.name.toUpperCase() === matchDecision.canonical_name.toUpperCase()
         )
 
-        if (fuzzyMatch) {
-          console.log(`🟡 Fuzzy matched: "${result.matched_name}" → ${fuzzyMatch.name}`)
-          suggestions[itemIndex] = {
-            standard_item_id: fuzzyMatch.id,
-            standard_item_name: fuzzyMatch.name,
-            display_name_ko: fuzzyMatch.display_name_ko || '',
-            confidence: Math.min(result.confidence - 10, 85),
-            reasoning: result.reasoning || 'AI 자동 매칭 (유사 이름)'
-          }
+        if (!matchedItem) {
+          console.warn(`⚠️ AI returned unknown item name: "${matchDecision.canonical_name}"`)
+          suggestions[itemIndex] = null
           continue
         }
 
-        console.warn(`⚠️ AI returned unknown item name: "${result.matched_name}"`)
-        suggestions[itemIndex] = null
+        // aliases에 새 alias 자동 등록
+        const aliasRegistered = await registerNewAlias(
+          inputName,
+          matchDecision.canonical_name,
+          matchDecision.source_hint || null,
+          supabase
+        )
+
+        if (aliasRegistered) {
+          console.log(`✅ AI match + alias registered: "${inputName}" → ${matchDecision.canonical_name}`)
+        } else {
+          console.log(`🟡 AI match (alias registration failed): "${inputName}" → ${matchDecision.canonical_name}`)
+        }
+
+        suggestions[itemIndex] = {
+          standard_item_id: matchedItem.id,
+          standard_item_name: matchedItem.name,
+          display_name_ko: matchedItem.display_name_ko || '',
+          confidence: Math.round(matchDecision.confidence * 100),
+          reasoning: matchDecision.reason || 'AI 자동 매칭',
+          source_hint: matchDecision.source_hint,
+        }
         continue
       }
 
-      suggestions[itemIndex] = {
-        standard_item_id: matchedItem.id,
-        standard_item_name: matchedItem.name,
-        display_name_ko: matchedItem.display_name_ko || '',
-        confidence: Math.min(100, Math.max(0, result.confidence)),
-        reasoning: result.reasoning || 'AI 자동 매칭'
+      // decision: "new" → 신규 항목
+      if (decision.decision === 'new') {
+        const newDecision = decision as AiDecisionNew
+
+        // standard_items에 신규 항목 생성
+        const newItemResult = await registerNewStandardItem({
+          name: newDecision.recommended_name,
+          displayNameKo: newDecision.display_name_ko,
+          unit: newDecision.unit,
+          examType: newDecision.exam_type,
+          organTags: newDecision.organ_tags,
+          descriptionCommon: newDecision.description_common,
+          descriptionHigh: newDecision.description_high,
+          descriptionLow: newDecision.description_low,
+        }, supabase)
+
+        if (newItemResult.success && newItemResult.id) {
+          console.log(`✅ AI new item created: "${newDecision.recommended_name}" (${newDecision.display_name_ko})`)
+
+          // 원본 입력명 ≠ recommended_name이면 alias도 등록
+          if (inputName.toUpperCase() !== newDecision.recommended_name.toUpperCase()) {
+            await registerNewAlias(
+              inputName,
+              newDecision.recommended_name,
+              null,
+              supabase
+            )
+          }
+
+          suggestions[itemIndex] = {
+            standard_item_id: newItemResult.id,
+            standard_item_name: newDecision.recommended_name,
+            display_name_ko: newDecision.display_name_ko,
+            confidence: Math.round(newDecision.confidence * 100),
+            reasoning: `AI 신규 항목 생성: ${newDecision.reason}`,
+          }
+        } else {
+          console.error(`❌ Failed to create new item: ${newItemResult.error}`)
+          suggestions[itemIndex] = null
+        }
+        continue
       }
     }
 
