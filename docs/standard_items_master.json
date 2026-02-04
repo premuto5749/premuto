@@ -1,6 +1,6 @@
 {
-  "version": "v4",
-  "updated_at": "2026-02-04",
+  "version": "v4.1",
+  "updated_at": "2026-02-05",
   "stats": {
     "test_items": 120,
     "aliases": 76,
@@ -64,7 +64,7 @@
     },
     {
       "item_id": "ITEM_005",
-      "name": "%BASO",
+      "name": "%Baso",
       "display_name_ko": "호염기구%",
       "unit": "%",
       "exam_type": "CBC",
@@ -78,7 +78,7 @@
     },
     {
       "item_id": "ITEM_006",
-      "name": "%EOS",
+      "name": "%Eos",
       "display_name_ko": "호산구%",
       "unit": "%",
       "exam_type": "CBC",
@@ -93,7 +93,7 @@
     },
     {
       "item_id": "ITEM_007",
-      "name": "%LYM",
+      "name": "%Lym",
       "display_name_ko": "림프구%",
       "unit": "%",
       "exam_type": "CBC",
@@ -107,7 +107,7 @@
     },
     {
       "item_id": "ITEM_008",
-      "name": "%MONO",
+      "name": "%Mono",
       "display_name_ko": "단핵구%",
       "unit": "%",
       "exam_type": "CBC",
@@ -121,7 +121,7 @@
     },
     {
       "item_id": "ITEM_009",
-      "name": "%NEU",
+      "name": "%Neu",
       "display_name_ko": "호중구%",
       "unit": "%",
       "exam_type": "CBC",
@@ -135,7 +135,7 @@
     },
     {
       "item_id": "ITEM_010",
-      "name": "%RETIC",
+      "name": "%Retic",
       "display_name_ko": "망상적혈구%",
       "unit": "%",
       "exam_type": "CBC",
@@ -148,7 +148,7 @@
     },
     {
       "item_id": "ITEM_011",
-      "name": "BASO",
+      "name": "Baso",
       "display_name_ko": "호염기구",
       "unit": "K/μL",
       "exam_type": "CBC",
@@ -162,7 +162,7 @@
     },
     {
       "item_id": "ITEM_012",
-      "name": "BAND",
+      "name": "Band",
       "display_name_ko": "띠호중구",
       "unit": "K/μL",
       "exam_type": "CBC",
@@ -215,7 +215,7 @@
     },
     {
       "item_id": "ITEM_016",
-      "name": "EOS",
+      "name": "Eos",
       "display_name_ko": "호산구",
       "unit": "K/μL",
       "exam_type": "CBC",
@@ -297,7 +297,7 @@
     },
     {
       "item_id": "ITEM_022",
-      "name": "LYM",
+      "name": "Lym",
       "display_name_ko": "림프구",
       "unit": "K/μL",
       "exam_type": "CBC",
@@ -350,7 +350,7 @@
     },
     {
       "item_id": "ITEM_026",
-      "name": "MONO",
+      "name": "Mono",
       "display_name_ko": "단핵구",
       "unit": "K/μL",
       "exam_type": "CBC",
@@ -378,7 +378,7 @@
     },
     {
       "item_id": "ITEM_028",
-      "name": "NEU",
+      "name": "Neu",
       "display_name_ko": "호중구",
       "unit": "K/μL",
       "exam_type": "CBC",
@@ -460,7 +460,7 @@
     },
     {
       "item_id": "ITEM_034",
-      "name": "RETIC",
+      "name": "Retic",
       "display_name_ko": "망상적혈구",
       "unit": "K/μL",
       "exam_type": "CBC",
@@ -473,7 +473,7 @@
     },
     {
       "item_id": "ITEM_035",
-      "name": "RETIC-HGB",
+      "name": "Retic-HGB",
       "display_name_ko": "망상적혈구혈색소",
       "unit": "pg",
       "exam_type": "CBC",
@@ -791,7 +791,7 @@
     },
     {
       "item_id": "ITEM_058",
-      "name": "NA/K",
+      "name": "Na/K",
       "display_name_ko": "나트륨칼륨비",
       "unit": "-",
       "exam_type": "Chemistry",
@@ -1021,7 +1021,7 @@
     },
     {
       "item_id": "ITEM_075",
-      "name": "cBASE(B)",
+      "name": "cBase(B)",
       "display_name_ko": "혈액염기과잉",
       "unit": "mmol",
       "exam_type": "Blood Gas",
@@ -1034,7 +1034,7 @@
     },
     {
       "item_id": "ITEM_076",
-      "name": "cBASE(B,ox)",
+      "name": "cBase(B,ox)",
       "display_name_ko": "혈액염기과잉(산소보정)",
       "unit": "mmol",
       "exam_type": "Blood Gas",
@@ -1047,7 +1047,7 @@
     },
     {
       "item_id": "ITEM_077",
-      "name": "cBASE(Ecf)",
+      "name": "cBase(Ecf)",
       "display_name_ko": "세포외액염기과잉",
       "unit": "mmol",
       "exam_type": "Blood Gas",
@@ -1060,7 +1060,7 @@
     },
     {
       "item_id": "ITEM_078",
-      "name": "cBASE(Ecf,ox)",
+      "name": "cBase(Ecf,ox)",
       "display_name_ko": "세포외액염기과잉(산소보정)",
       "unit": "mmol",
       "exam_type": "Blood Gas",
@@ -1309,7 +1309,7 @@
     },
     {
       "item_id": "ITEM_097",
-      "name": "PO2(A-A)",
+      "name": "PO2(A-a)",
       "display_name_ko": "A-a gradient",
       "unit": "mmHg",
       "exam_type": "Blood Gas",
@@ -1322,7 +1322,7 @@
     },
     {
       "item_id": "ITEM_098",
-      "name": "PO2(A-A,T)",
+      "name": "PO2(A-a,T)",
       "display_name_ko": "A-a gradient(체온보정)",
       "unit": "mmHg",
       "exam_type": "Blood Gas",
@@ -1335,7 +1335,7 @@
     },
     {
       "item_id": "ITEM_099",
-      "name": "PO2(A/A)",
+      "name": "PO2(a/A)",
       "display_name_ko": "동맥/폐포산소분압비",
       "unit": "%",
       "exam_type": "Blood Gas",
@@ -1400,7 +1400,7 @@
     },
     {
       "item_id": "ITEM_104",
-      "name": "TEG_Angle",
+      "name": "TEG-Angle",
       "display_name_ko": "TEG각도",
       "unit": "deg",
       "exam_type": "Coagulation",
@@ -1413,7 +1413,7 @@
     },
     {
       "item_id": "ITEM_105",
-      "name": "TEG_K",
+      "name": "TEG-K",
       "display_name_ko": "TEG응고시간",
       "unit": "min",
       "exam_type": "Coagulation",
@@ -1426,7 +1426,7 @@
     },
     {
       "item_id": "ITEM_106",
-      "name": "TEG_MA",
+      "name": "TEG-MA",
       "display_name_ko": "TEG최대진폭",
       "unit": "mm",
       "exam_type": "Coagulation",
@@ -1439,7 +1439,7 @@
     },
     {
       "item_id": "ITEM_107",
-      "name": "TEG_R",
+      "name": "TEG-R",
       "display_name_ko": "TEG반응시간",
       "unit": "min",
       "exam_type": "Coagulation",
@@ -1944,17 +1944,17 @@
     },
     {
       "alias": "Retic",
-      "canonical": "RETIC",
+      "canonical": "Retic",
       "source_hint": ""
     },
     {
       "alias": "Reticulocyte",
-      "canonical": "RETIC",
+      "canonical": "Retic",
       "source_hint": ""
     },
     {
       "alias": "Band Neutrophil",
-      "canonical": "BAND",
+      "canonical": "Band",
       "source_hint": ""
     },
     {
@@ -1969,17 +1969,17 @@
     },
     {
       "alias": "PO2(A-A)(ABL80F)",
-      "canonical": "PO2(A-A)",
+      "canonical": "PO2(A-a)",
       "source_hint": "ABL80F"
     },
     {
       "alias": "PO2(A-A,T)(ABL80F)",
-      "canonical": "PO2(A-A,T)",
+      "canonical": "PO2(A-a,T)",
       "source_hint": "ABL80F"
     },
     {
       "alias": "PO2(A/A)(ABL80F)",
-      "canonical": "PO2(A/A)",
+      "canonical": "PO2(a/A)",
       "source_hint": "ABL80F"
     },
     {
@@ -1994,12 +1994,12 @@
     },
     {
       "alias": "CBASE(B,ST)(ABL80F)",
-      "canonical": "cBASE(B)",
+      "canonical": "cBase(B)",
       "source_hint": "ABL80F standard temp"
     },
     {
       "alias": "CBASE(ECF,ST)(ABL80",
-      "canonical": "cBASE(Ecf)",
+      "canonical": "cBase(Ecf)",
       "source_hint": "ABL80F standard temp (OCR잘림)"
     }
   ],
@@ -2071,9 +2071,9 @@
             "ctO2",
             "PO2(A)",
             "PO2(A,T)",
-            "PO2(A-A)",
-            "PO2(A-A,T)",
-            "PO2(A/A)",
+            "PO2(A-a)",
+            "PO2(A-a,T)",
+            "PO2(a/A)",
             "pO2(a/A,T)",
             "RI",
             "RI(T)"
@@ -2089,10 +2089,10 @@
             "BE",
             "Lactate",
             "Anion Gap",
-            "cBASE(B)",
-            "cBASE(B,ox)",
-            "cBASE(Ecf)",
-            "cBASE(Ecf,ox)",
+            "cBase(B)",
+            "cBase(B,ox)",
+            "cBase(Ecf)",
+            "cBase(Ecf,ox)",
             "Anion",
             "ctCO2(B)",
             "ctCO2(P)"
@@ -2107,7 +2107,7 @@
             "Calcium",
             "Phosphorus",
             "Mg",
-            "NA/K"
+            "Na/K"
           ]
         },
         {
@@ -2120,9 +2120,9 @@
             "MCH",
             "MCHC",
             "RDW",
-            "RETIC",
-            "%RETIC",
-            "RETIC-HGB",
+            "Retic",
+            "%Retic",
+            "Retic-HGB",
             "CH",
             "CHCM",
             "CHr",
@@ -2134,17 +2134,17 @@
           "label": "6. 백혈구",
           "items": [
             "WBC",
-            "NEU",
-            "%NEU",
-            "BAND",
-            "LYM",
-            "%LYM",
-            "MONO",
-            "%MONO",
-            "EOS",
-            "%EOS",
-            "BASO",
-            "%BASO",
+            "Neu",
+            "%Neu",
+            "Band",
+            "Lym",
+            "%Lym",
+            "Mono",
+            "%Mono",
+            "Eos",
+            "%Eos",
+            "Baso",
+            "%Baso",
             "LUC(#)",
             "LUC(%)"
           ]
@@ -2160,10 +2160,10 @@
             "APTT",
             "Fibrinogen",
             "D-dimer",
-            "TEG_R",
-            "TEG_K",
-            "TEG_Angle",
-            "TEG_MA"
+            "TEG-R",
+            "TEG-K",
+            "TEG-Angle",
+            "TEG-MA"
           ]
         },
         {
@@ -2338,10 +2338,10 @@
             "APTT",
             "Fibrinogen",
             "D-dimer",
-            "TEG_R",
-            "TEG_K",
-            "TEG_Angle",
-            "TEG_MA"
+            "TEG-R",
+            "TEG-K",
+            "TEG-Angle",
+            "TEG-MA"
           ]
         },
         {
