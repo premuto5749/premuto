@@ -69,27 +69,27 @@ export async function POST(request: NextRequest) {
   try {
 
     // ============================================
-    // 1. standard_items 동기화 (106개 항목)
+    // 1. standard_items 동기화 (122개 항목)
     // ============================================
     const testItems = masterData.test_items;
     result.items.total = testItems.length;
 
+    // 먼저 기존 항목을 모두 가져옴 (ilike 특수문자 문제 회피)
+    const { data: existingItems } = await supabase
+      .from('standard_items_master')
+      .select('id, name');
+
+    // 이름을 소문자로 매핑 (case-insensitive 비교용)
+    const existingNameMap = new Map<string, string>();
+    for (const item of existingItems || []) {
+      existingNameMap.set(item.name.toLowerCase(), item.id);
+    }
+
     for (const item of testItems) {
       try {
-        // 기존 항목 확인 (name으로 검색)
-        // 특수문자 escape: % _ 는 LIKE에서 와일드카드이므로 escape 필요
-        const escapedName = item.name
-          .replace(/\\/g, '\\\\')
-          .replace(/%/g, '\\%')
-          .replace(/_/g, '\\_');
+        const existingId = existingNameMap.get(item.name.toLowerCase());
 
-        const { data: existing } = await supabase
-          .from('standard_items_master')
-          .select('id')
-          .ilike('name', escapedName)
-          .single();
-
-        if (existing) {
+        if (existingId) {
           if (mode === 'safe') {
             // safe 모드: 기존 항목은 건너뜀
             result.items.skipped++;
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
                 exam_type: item.exam_type,
                 organ_tags: item.organ_tags,
               })
-              .eq('id', existing.id);
+              .eq('id', existingId);
 
             if (error) {
               result.items.failed++;
