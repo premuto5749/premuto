@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -38,7 +38,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   Loader2, Plus, Pencil, Search, RefreshCw, Trash2, Tag,
-  Database, ShieldCheck, ArrowLeft, Upload
+  Database, ShieldCheck, ArrowLeft, Upload, Download, FileSpreadsheet,
+  AlertTriangle, Info, CheckCircle, AlertCircle
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -66,6 +67,38 @@ interface ItemAlias {
     name: string
     display_name_ko: string | null
   }
+}
+
+interface SyncStatus {
+  current: {
+    standardItems: number
+    itemAliases: number
+    itemMappings: number
+  }
+  masterData: {
+    testItems: number
+    aliases: number
+  }
+  comparison: {
+    missingInDb: string[]
+    extraInDb: string[]
+    missingCount: number
+    extraCount: number
+  }
+}
+
+interface SyncResult {
+  success: boolean
+  mode: string
+  items: { inserted: number; updated: number; skipped: number }
+  aliases: { inserted: number; skipped: number }
+}
+
+interface ImportResult {
+  success: boolean
+  items: { total: number; inserted: number; updated: number; failed: number }
+  aliases: { total: number; inserted: number; skipped: number; failed: number }
+  errors: string[]
 }
 
 const EXAM_TYPE_OPTIONS = [
@@ -110,6 +143,19 @@ export default function AdminMasterDataPage() {
   const [newAlias, setNewAlias] = useState({ alias: '', canonical_name: '', source_hint: '' })
   const [savingAlias, setSavingAlias] = useState(false)
 
+  // 마스터 데이터 동기화 상태
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
+  const [loadingStatus, setLoadingStatus] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null)
+  const [fullResetDialogOpen, setFullResetDialogOpen] = useState(false)
+
+  // Excel import/export 상태
+  const [excelExporting, setExcelExporting] = useState(false)
+  const [excelImporting, setExcelImporting] = useState(false)
+  const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const excelFileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -140,6 +186,133 @@ export default function AdminMasterDataPage() {
       console.error('Failed to fetch data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 마스터 데이터 상태 조회
+  const loadSyncStatus = async () => {
+    setLoadingStatus(true)
+    try {
+      const res = await fetch('/api/admin/sync-master-data')
+      const data = await res.json()
+      setSyncStatus(data)
+    } catch (error) {
+      console.error('Failed to load sync status:', error)
+    } finally {
+      setLoadingStatus(false)
+    }
+  }
+
+  // 마스터 데이터 동기화 (safe 모드: 신규만 추가)
+  const handleSafeSync = async () => {
+    setSyncing(true)
+    setSyncResult(null)
+    try {
+      const res = await fetch('/api/admin/sync-master-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'safe' })
+      })
+      const data = await res.json()
+      setSyncResult({
+        success: data.success,
+        mode: 'safe',
+        items: { inserted: data.items.inserted, updated: data.items.updated, skipped: data.items.skipped },
+        aliases: { inserted: data.aliases.inserted, skipped: data.aliases.skipped }
+      })
+      loadSyncStatus()
+      fetchData()
+    } catch (error) {
+      console.error('Sync failed:', error)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  // 마스터 데이터 전체 동기화 (full 모드: 덮어쓰기)
+  const handleFullSync = async () => {
+    setSyncing(true)
+    setSyncResult(null)
+    setFullResetDialogOpen(false)
+    try {
+      const res = await fetch('/api/admin/sync-master-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'full' })
+      })
+      const data = await res.json()
+      setSyncResult({
+        success: data.success,
+        mode: 'full',
+        items: { inserted: data.items.inserted, updated: data.items.updated, skipped: data.items.skipped },
+        aliases: { inserted: data.aliases.inserted, skipped: data.aliases.skipped }
+      })
+      loadSyncStatus()
+      fetchData()
+    } catch (error) {
+      console.error('Sync failed:', error)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  // Excel 내보내기
+  const handleExcelExport = async () => {
+    setExcelExporting(true)
+    try {
+      const response = await fetch('/api/standard-items/export-excel')
+      if (!response.ok) throw new Error('Export failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `master-standard-items-${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Excel export failed:', error)
+      alert('Excel 내보내기에 실패했습니다.')
+    } finally {
+      setExcelExporting(false)
+    }
+  }
+
+  // Excel 가져오기
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setExcelImporting(true)
+    setImportResult(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/standard-items/import-excel', {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+      setImportResult(data)
+      fetchData()
+    } catch (error) {
+      console.error('Excel import failed:', error)
+      setImportResult({
+        success: false,
+        items: { total: 0, inserted: 0, updated: 0, failed: 0 },
+        aliases: { total: 0, inserted: 0, skipped: 0, failed: 0 },
+        errors: ['Excel 가져오기에 실패했습니다.']
+      })
+    } finally {
+      setExcelImporting(false)
+      if (excelFileInputRef.current) {
+        excelFileInputRef.current.value = ''
+      }
     }
   }
 
@@ -333,6 +506,136 @@ export default function AdminMasterDataPage() {
           </div>
         </div>
 
+        {/* 마스터 데이터 관리 도구 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          {/* 마스터 데이터 동기화 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <RefreshCw className="w-4 h-4" />
+                마스터 데이터 동기화
+              </CardTitle>
+              <CardDescription className="text-xs">
+                코드에 정의된 마스터 데이터를 DB에 동기화합니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {syncStatus ? (
+                <div className="p-3 bg-muted rounded-lg text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span>현재 표준항목</span>
+                    <span className="font-medium">{syncStatus.current.standardItems}개</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>마스터 데이터</span>
+                    <span className="font-medium text-blue-600">
+                      {syncStatus.masterData.testItems}개 항목 / {syncStatus.masterData.aliases}개 별칭
+                    </span>
+                  </div>
+                  {syncStatus.comparison.missingCount > 0 && (
+                    <div className="flex items-center gap-1 text-amber-600 mt-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>누락: {syncStatus.comparison.missingCount}개</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Button variant="outline" size="sm" onClick={loadSyncStatus} disabled={loadingStatus} className="w-full">
+                  {loadingStatus ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Info className="w-4 h-4 mr-2" />}
+                  현재 상태 확인
+                </Button>
+              )}
+
+              {syncResult && (
+                <div className={`p-3 rounded-lg text-sm ${syncResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {syncResult.success ? <CheckCircle className="w-4 h-4 text-green-600" /> : <AlertCircle className="w-4 h-4 text-red-600" />}
+                    <span className="font-medium">{syncResult.success ? '동기화 완료' : '동기화 실패'}</span>
+                    <span className="text-xs text-muted-foreground">({syncResult.mode === 'safe' ? '신규만' : '전체'})</span>
+                  </div>
+                  <p className="text-xs">항목: +{syncResult.items.inserted} / 업데이트 {syncResult.items.updated}</p>
+                  <p className="text-xs">별칭: +{syncResult.aliases.inserted}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button onClick={handleSafeSync} disabled={syncing} size="sm" className="flex-1">
+                  {syncing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
+                  신규만 추가
+                </Button>
+                <AlertDialog open={fullResetDialogOpen} onOpenChange={setFullResetDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" disabled={syncing} size="sm" className="flex-1">전체 동기화</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5 text-amber-500" />
+                        전체 동기화
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-2">
+                        <p>기존 마스터 표준항목이 코드 데이터로 덮어씌워집니다.</p>
+                        <p className="text-amber-600">직접 수정한 항목명, 단위 등이 초기값으로 되돌아갑니다.</p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>취소</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleFullSync}>전체 동기화 실행</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Excel 관리 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileSpreadsheet className="w-4 h-4" />
+                Excel 관리
+              </CardTitle>
+              <CardDescription className="text-xs">
+                마스터 표준항목을 Excel로 내보내거나 가져옵니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {importResult && (
+                <div className={`p-3 rounded-lg text-sm ${importResult.success ? 'bg-green-50 border border-green-200' : 'bg-amber-50 border border-amber-200'}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {importResult.success && importResult.items.failed === 0 ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                    )}
+                    <span className="font-medium">{importResult.success ? '가져오기 완료' : '가져오기 실패'}</span>
+                  </div>
+                  <p className="text-xs">항목: 총 {importResult.items.total}개 중 +{importResult.items.inserted} / 업데이트 {importResult.items.updated}</p>
+                  {importResult.errors.length > 0 && (
+                    <p className="text-xs text-red-600 mt-1">{importResult.errors[0]}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleExcelExport} disabled={excelExporting || excelImporting} size="sm" className="flex-1">
+                  {excelExporting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
+                  내보내기
+                </Button>
+                <Button variant="outline" onClick={() => excelFileInputRef.current?.click()} disabled={excelExporting || excelImporting} size="sm" className="flex-1">
+                  {excelImporting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
+                  가져오기
+                </Button>
+                <input ref={excelFileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelImport} />
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Excel에서 설명(description)을 편집한 후 가져오기하면 일괄 업데이트됩니다.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="items" className="space-y-6">
           <TabsList>
             <TabsTrigger value="items" className="gap-2">
@@ -354,18 +657,10 @@ export default function AdminMasterDataPage() {
                     <CardTitle>마스터 표준항목</CardTitle>
                     <CardDescription>모든 사용자에게 공통으로 적용되는 표준 검사항목입니다</CardDescription>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href="/settings?tab=data">
-                        <Upload className="w-4 h-4 mr-1" />
-                        Excel 가져오기
-                      </Link>
-                    </Button>
-                    <Button onClick={() => setIsAddModalOpen(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      항목 추가
-                    </Button>
-                  </div>
+                  <Button onClick={() => setIsAddModalOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    항목 추가
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent>

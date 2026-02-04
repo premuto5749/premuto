@@ -48,9 +48,10 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
     { href: '/dashboard', label: '검사 결과 대시보드', icon: '📊' },
     { href: '/hospital-contacts', label: '병원 연락처', icon: '🏥' },
     { href: '/records-management', label: '검사 기록 관리', icon: '🗑️' },
-    { href: '/standard-items', label: '표준항목 관리', icon: '📋' },
+    { href: '/standard-items', label: '내 검사항목', icon: '📋' },
     { href: '/mapping-management', label: '미분류 항목 정리', icon: '🔀' },
     { href: '/settings', label: '설정', icon: '🔧' },
+    { href: '/admin', label: '관리자', icon: '🔐' },
   ]
 
   return (
@@ -70,7 +71,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                   <Menu className="w-5 h-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left">
+              <SheetContent side="left" className="overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle>Mimo Health Log</SheetTitle>
                 </SheetHeader>
@@ -108,13 +109,10 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                     </span>
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </a>
-                  <p className="px-4 py-2 text-xs text-muted-foreground">
-                    버그나 개선 요청, 응원의 글을 보내주세요.
-                  </p>
                   <form action="/auth/signout" method="post">
                     <button
                       type="submit"
-                      className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
+                      className="w-full flex items-center px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left text-red-600"
                     >
                       🚪 로그아웃
                     </button>
