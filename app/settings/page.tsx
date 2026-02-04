@@ -993,6 +993,14 @@ interface SyncStatus {
   }
 }
 
+// 사용자 커스텀 데이터 상태 인터페이스
+interface UserCustomDataStats {
+  customItems: number
+  customAliases: number
+  customMappings: number
+  hasCustomData: boolean
+}
+
 // 데이터 관리 섹션
 function DataManagementSection() {
   const [exporting, setExporting] = useState<string | null>(null)
@@ -1010,6 +1018,13 @@ function DataManagementSection() {
     aliases: { inserted: number; skipped: number }
   } | null>(null)
   const [fullResetDialogOpen, setFullResetDialogOpen] = useState(false)
+
+  // 사용자 커스텀 데이터 초기화 관련 상태
+  const [userCustomStats, setUserCustomStats] = useState<UserCustomDataStats | null>(null)
+  const [loadingUserStats, setLoadingUserStats] = useState(false)
+  const [resettingUserData, setResettingUserData] = useState(false)
+  const [userResetDialogOpen, setUserResetDialogOpen] = useState(false)
+  const [userResetSuccess, setUserResetSuccess] = useState<boolean | null>(null)
 
   // Excel import/export 관련 상태
   const [excelExporting, setExcelExporting] = useState(false)
@@ -1033,6 +1048,44 @@ function DataManagementSection() {
       console.error('Failed to load sync status:', error)
     } finally {
       setLoadingStatus(false)
+    }
+  }
+
+  // 사용자 커스텀 데이터 상태 조회
+  const loadUserCustomStats = async () => {
+    setLoadingUserStats(true)
+    try {
+      const res = await fetch('/api/user/reset-master-data')
+      const data = await res.json()
+      if (data.success) {
+        setUserCustomStats(data.data)
+      }
+    } catch (error) {
+      console.error('Failed to load user custom stats:', error)
+    } finally {
+      setLoadingUserStats(false)
+    }
+  }
+
+  // 사용자 커스텀 데이터 초기화
+  const handleUserDataReset = async () => {
+    setResettingUserData(true)
+    setUserResetSuccess(null)
+    setUserResetDialogOpen(false)
+    try {
+      const res = await fetch('/api/user/reset-master-data', {
+        method: 'POST'
+      })
+      const data = await res.json()
+      setUserResetSuccess(data.success)
+      if (data.success) {
+        setUserCustomStats({ customItems: 0, customAliases: 0, customMappings: 0, hasCustomData: false })
+      }
+    } catch (error) {
+      console.error('Failed to reset user data:', error)
+      setUserResetSuccess(false)
+    } finally {
+      setResettingUserData(false)
     }
   }
 
@@ -1332,6 +1385,112 @@ function DataManagementSection() {
 
           <p className="text-xs text-muted-foreground">
             * 신규 항목만 추가: 기존에 없는 항목만 추가합니다. 사용자가 수정한 내용은 유지됩니다.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 내 커스텀 데이터 초기화 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RefreshCw className="w-5 h-5" />
+            내 커스텀 데이터 초기화
+          </CardTitle>
+          <CardDescription>
+            직접 추가하거나 수정한 검사항목/별칭을 기본값으로 되돌립니다. 검사 기록은 유지됩니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 현재 상태 표시 */}
+          {userCustomStats ? (
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span>커스텀 검사항목</span>
+                <span className="font-medium">{userCustomStats.customItems}개</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>커스텀 별칭</span>
+                <span className="font-medium">{userCustomStats.customAliases}개</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span>커스텀 매핑</span>
+                <span className="font-medium">{userCustomStats.customMappings}개</span>
+              </div>
+              {!userCustomStats.hasCustomData && (
+                <div className="flex items-center gap-2 text-sm text-green-600 mt-2">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>커스텀 데이터가 없습니다 (기본값 사용 중)</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Button variant="outline" size="sm" onClick={loadUserCustomStats} disabled={loadingUserStats}>
+              {loadingUserStats ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Info className="w-4 h-4 mr-2" />
+              )}
+              현재 상태 확인
+            </Button>
+          )}
+
+          {/* 초기화 결과 표시 */}
+          {userResetSuccess !== null && (
+            <div className={`p-4 rounded-lg ${userResetSuccess ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <div className="flex items-center gap-2">
+                {userResetSuccess ? (
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                )}
+                <span className="font-medium">
+                  {userResetSuccess ? '초기화 완료! 기본값으로 되돌아갔습니다.' : '초기화 실패'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* 초기화 버튼 */}
+          <AlertDialog open={userResetDialogOpen} onOpenChange={setUserResetDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                disabled={resettingUserData || (userCustomStats !== null && !userCustomStats.hasCustomData)}
+                className="w-full"
+              >
+                {resettingUserData ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
+                커스텀 데이터 초기화
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  커스텀 데이터 초기화
+                </AlertDialogTitle>
+                <AlertDialogDescription className="space-y-2">
+                  <p>직접 추가하거나 수정한 검사항목, 별칭, 매핑이 모두 삭제됩니다.</p>
+                  <p className="text-amber-600">
+                    초기화 후에는 기본 마스터 데이터만 사용하게 됩니다.
+                  </p>
+                  <p>검사 기록(결과값)은 영향받지 않습니다.</p>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={handleUserDataReset}>
+                  초기화 실행
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <p className="text-xs text-muted-foreground">
+            * 이 기능은 내가 직접 추가/수정한 데이터만 삭제합니다. 전역 마스터 데이터에는 영향을 주지 않습니다.
           </p>
         </CardContent>
       </Card>

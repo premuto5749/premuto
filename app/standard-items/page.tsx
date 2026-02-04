@@ -53,6 +53,9 @@ interface StandardItem {
   description_common: string | null
   description_high: string | null
   description_low: string | null
+  // 사용자 오버라이드 관련
+  is_custom?: boolean    // 사용자가 새로 추가한 항목
+  is_modified?: boolean  // 마스터를 수정한 항목
 }
 
 interface ItemAlias {
@@ -309,6 +312,10 @@ function StandardItemsContent() {
     examTypeStats[type] = (examTypeStats[type] || 0) + 1
   })
 
+  // 커스텀/수정된 항목 통계
+  const customItemsCount = items.filter(item => item.is_custom).length
+  const modifiedItemsCount = items.filter(item => item.is_modified).length
+
   // 항목별 별칭 맵
   const aliasesByItemId = aliases.reduce((acc, alias) => {
     if (!acc[alias.standard_item_id]) {
@@ -335,7 +342,7 @@ function StandardItemsContent() {
 
       <div className="container max-w-7xl mx-auto py-10 px-4">
         {/* 통계 카드 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <Card>
             <CardContent className="pt-6">
               <div className="text-sm font-medium text-muted-foreground">전체 표준 항목</div>
@@ -350,8 +357,14 @@ function StandardItemsContent() {
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-sm font-medium text-muted-foreground">검사 유형 수</div>
-              <div className="text-2xl font-bold text-green-600">{Object.keys(examTypeStats).length}개</div>
+              <div className="text-sm font-medium text-muted-foreground">내 커스텀 항목</div>
+              <div className="text-2xl font-bold text-green-600">{customItemsCount}개</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-sm font-medium text-muted-foreground">수정한 항목</div>
+              <div className="text-2xl font-bold text-amber-600">{modifiedItemsCount}개</div>
             </CardContent>
           </Card>
         </div>
@@ -423,6 +436,12 @@ function StandardItemsContent() {
                                 <span className="font-medium">{item.name}</span>
                                 {item.display_name_ko && (
                                   <span className="text-muted-foreground">({item.display_name_ko})</span>
+                                )}
+                                {item.is_custom && (
+                                  <Badge className="text-xs bg-green-100 text-green-800 hover:bg-green-100">내 항목</Badge>
+                                )}
+                                {item.is_modified && (
+                                  <Badge className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-100">수정됨</Badge>
                                 )}
                                 {hasDescription && (
                                   <span title="설명 있음">
