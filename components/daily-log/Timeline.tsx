@@ -514,49 +514,33 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                       ))}
                     </div>
 
-                    {/* 사진 추가 버튼 */}
+                    {/* 사진 추가 버튼 (label 기반 - iOS Safari 호환) */}
                     <div className="flex gap-2">
-                      <label className="flex-1">
+                      <label className="flex-1 cursor-pointer">
                         <input
                           type="file"
                           accept="image/*"
                           capture="environment"
                           onChange={handlePhotoSelect}
-                          className="hidden"
+                          className="sr-only"
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full"
-                          onClick={(e) => {
-                            const input = e.currentTarget.parentElement?.querySelector('input')
-                            input?.click()
-                          }}
-                        >
-                          <Camera className="w-4 h-4 mr-2" />
+                        <div className="flex items-center justify-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                          <Camera className="w-4 h-4" />
                           촬영
-                        </Button>
+                        </div>
                       </label>
-                      <label className="flex-1">
+                      <label className="flex-1 cursor-pointer">
                         <input
                           type="file"
                           accept="image/*"
                           multiple
                           onChange={handlePhotoSelect}
-                          className="hidden"
+                          className="sr-only"
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full"
-                          onClick={(e) => {
-                            const input = e.currentTarget.parentElement?.querySelector('input')
-                            input?.click()
-                          }}
-                        >
-                          <ImagePlus className="w-4 h-4 mr-2" />
+                        <div className="flex items-center justify-center gap-2 h-10 px-4 rounded-md border border-input bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                          <ImagePlus className="w-4 h-4" />
                           갤러리
-                        </Button>
+                        </div>
                       </label>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -56,8 +56,6 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   // 모달이 열릴 때마다 현재 시간으로 초기화 (defaultDate가 있으면 해당 날짜 사용)
@@ -157,13 +155,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotos(prev => [...prev, ...validFiles])
     setPhotoPreviews(prev => [...prev, ...newPreviews])
 
-    // input 초기화 (카메라, 갤러리 모두)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-    if (cameraInputRef.current) {
-      cameraInputRef.current.value = ''
-    }
+    // input 초기화 (같은 파일 다시 선택 가능하도록)
+    e.target.value = ''
   }
 
   // 사진 제거 핸들러
@@ -556,47 +549,37 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               {/* 사진 추가 버튼 */}
               {photos.length < MAX_PHOTOS && (
                 <div className="flex gap-2">
-                  {/* 카메라 촬영 버튼 */}
-                  <input
-                    ref={cameraInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoSelect}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => cameraInputRef.current?.click()}
-                    disabled={isSubmitting || isUploading}
-                    className="flex-1"
-                  >
-                    <Camera className="w-4 h-4 mr-2" />
-                    촬영
-                  </Button>
+                  {/* 카메라 촬영 버튼 (label 기반 - iOS Safari 호환) */}
+                  <label className={`flex-1 ${isSubmitting || isUploading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoSelect}
+                      className="sr-only"
+                      disabled={isSubmitting || isUploading}
+                    />
+                    <div className="flex items-center justify-center gap-2 h-9 px-3 rounded-md border border-input bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                      <Camera className="w-4 h-4" />
+                      촬영
+                    </div>
+                  </label>
 
-                  {/* 갤러리 선택 버튼 */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handlePhotoSelect}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isSubmitting || isUploading}
-                    className="flex-1"
-                  >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    갤러리 ({photos.length}/{MAX_PHOTOS})
-                  </Button>
+                  {/* 갤러리 선택 버튼 (label 기반 - iOS Safari 호환) */}
+                  <label className={`flex-1 ${isSubmitting || isUploading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handlePhotoSelect}
+                      className="sr-only"
+                      disabled={isSubmitting || isUploading}
+                    />
+                    <div className="flex items-center justify-center gap-2 h-9 px-3 rounded-md border border-input bg-background text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                      <ImageIcon className="w-4 h-4" />
+                      갤러리 ({photos.length}/{MAX_PHOTOS})
+                    </div>
+                  </label>
                 </div>
               )}
             </div>
