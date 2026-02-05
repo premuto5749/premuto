@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, ShieldCheck, Save, RotateCcw, Zap, FileText } from 'lucide-react'
-import type { OcrSettings, OcrSettingsResponse } from '@/app/api/admin/ocr-settings/route'
+import { Loader2, ShieldCheck, Save, RotateCcw } from 'lucide-react'
+
+const DEFAULT_MAX_TOKENS = 8000
 
 export default function OcrSettingsPage() {
   const router = useRouter()
@@ -17,20 +18,7 @@ export default function OcrSettingsPage() {
   const [authorized, setAuthorized] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-
-  const [quickSettings, setQuickSettings] = useState<OcrSettings>({
-    maxSizeMB: 1,
-    initialQuality: 0.85,
-    maxFiles: 5,
-    maxTokens: 8000
-  })
-
-  const [batchSettings, setBatchSettings] = useState<OcrSettings>({
-    maxSizeMB: 1,
-    initialQuality: 0.85,
-    maxFiles: 10,
-    maxTokens: 8000
-  })
+  const [maxTokens, setMaxTokens] = useState(DEFAULT_MAX_TOKENS)
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -50,9 +38,8 @@ export default function OcrSettingsPage() {
         const res = await fetch('/api/admin/ocr-settings')
         const data = await res.json()
 
-        if (data.success) {
-          setQuickSettings(data.data.quick_upload)
-          setBatchSettings(data.data.batch_upload)
+        if (data.success && data.data.quick_upload) {
+          setMaxTokens(data.data.quick_upload.maxTokens || DEFAULT_MAX_TOKENS)
         }
       } catch (err) {
         console.error('Failed to fetch settings:', err)
@@ -71,13 +58,21 @@ export default function OcrSettingsPage() {
     setSuccess(null)
 
     try {
+      // 고정 압축 설정과 함께 저장
+      const settingsData = {
+        maxSizeMB: 1,
+        initialQuality: 0.85,
+        maxFiles: 5,
+        maxTokens: maxTokens
+      }
+
       const res = await fetch('/api/admin/ocr-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          quick_upload: quickSettings,
-          batch_upload: batchSettings
-        } as OcrSettingsResponse)
+          quick_upload: settingsData,
+          batch_upload: { ...settingsData, maxFiles: 10 }
+        })
       })
 
       const data = await res.json()
@@ -95,18 +90,7 @@ export default function OcrSettingsPage() {
   }
 
   const handleReset = () => {
-    setQuickSettings({
-      maxSizeMB: 1,
-      initialQuality: 0.85,
-      maxFiles: 5,
-      maxTokens: 8000
-    })
-    setBatchSettings({
-      maxSizeMB: 1,
-      initialQuality: 0.85,
-      maxFiles: 10,
-      maxTokens: 8000
-    })
+    setMaxTokens(DEFAULT_MAX_TOKENS)
     setSuccess(null)
     setError(null)
   }
@@ -148,132 +132,18 @@ export default function OcrSettingsPage() {
     )
   }
 
-  const SettingsCard = ({
-    title,
-    description,
-    icon: Icon,
-    settings,
-    setSettings
-  }: {
-    title: string
-    description: string
-    icon: React.ElementType
-    settings: OcrSettings
-    setSettings: React.Dispatch<React.SetStateAction<OcrSettings>>
-  }) => (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Icon className="w-5 h-5" />
-          {title}
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor={`${title}-maxSizeMB`}>
-              최대 파일 크기 (MB)
-              <span className="text-xs text-muted-foreground ml-2">0.1~10</span>
-            </Label>
-            <Input
-              id={`${title}-maxSizeMB`}
-              type="number"
-              step="0.1"
-              min="0.1"
-              max="10"
-              value={settings.maxSizeMB}
-              onChange={(e) => setSettings(prev => ({
-                ...prev,
-                maxSizeMB: parseFloat(e.target.value) || 1
-              }))}
-            />
-            <p className="text-xs text-muted-foreground">
-              압축 후 최대 크기. 클수록 인식률 ↑, 속도 ↓
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor={`${title}-initialQuality`}>
-              이미지 품질
-              <span className="text-xs text-muted-foreground ml-2">0.1~1.0</span>
-            </Label>
-            <Input
-              id={`${title}-initialQuality`}
-              type="number"
-              step="0.05"
-              min="0.1"
-              max="1"
-              value={settings.initialQuality}
-              onChange={(e) => setSettings(prev => ({
-                ...prev,
-                initialQuality: parseFloat(e.target.value) || 0.85
-              }))}
-            />
-            <p className="text-xs text-muted-foreground">
-              JPEG 품질. 1.0 = 최고 품질
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor={`${title}-maxFiles`}>
-              최대 파일 수
-              <span className="text-xs text-muted-foreground ml-2">1~20</span>
-            </Label>
-            <Input
-              id={`${title}-maxFiles`}
-              type="number"
-              min="1"
-              max="20"
-              value={settings.maxFiles}
-              onChange={(e) => setSettings(prev => ({
-                ...prev,
-                maxFiles: parseInt(e.target.value) || 5
-              }))}
-            />
-            <p className="text-xs text-muted-foreground">
-              한 번에 업로드 가능한 최대 파일 수
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor={`${title}-maxTokens`}>
-              AI 최대 토큰
-              <span className="text-xs text-muted-foreground ml-2">1000~32000</span>
-            </Label>
-            <Input
-              id={`${title}-maxTokens`}
-              type="number"
-              step="1000"
-              min="1000"
-              max="32000"
-              value={settings.maxTokens}
-              onChange={(e) => setSettings(prev => ({
-                ...prev,
-                maxTokens: parseInt(e.target.value) || 8000
-              }))}
-            />
-            <p className="text-xs text-muted-foreground">
-              Claude API max_tokens. 클수록 많은 항목 추출 가능
-            </p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-
   return (
     <div className="min-h-screen bg-muted">
       <AppHeader title="OCR 설정" />
 
-      <div className="container max-w-4xl mx-auto py-6 px-4">
+      <div className="container max-w-2xl mx-auto py-6 px-4">
         {/* 관리자 배지 */}
         <div className="mb-6 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-3">
           <ShieldCheck className="w-6 h-6 text-primary" />
           <div>
             <p className="font-medium text-primary">OCR 설정 관리</p>
             <p className="text-sm text-muted-foreground">
-              이미지 압축 및 AI 처리 설정을 조정합니다. 변경 후 새로운 업로드부터 적용됩니다.
+              AI 출력 토큰 설정을 조정합니다. 변경 후 새로운 업로드부터 적용됩니다.
             </p>
           </div>
         </div>
@@ -291,23 +161,35 @@ export default function OcrSettingsPage() {
         )}
 
         {/* 설정 카드 */}
-        <div className="space-y-6">
-          <SettingsCard
-            title="간편 업로드"
-            description="단일 검사일 업로드 설정 (/upload-quick)"
-            icon={Zap}
-            settings={quickSettings}
-            setSettings={setQuickSettings}
-          />
-
-          <SettingsCard
-            title="일괄 업로드"
-            description="다중 파일 일괄 업로드 설정 (/upload)"
-            icon={FileText}
-            settings={batchSettings}
-            setSettings={setBatchSettings}
-          />
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>AI 최대 토큰 (max_tokens)</CardTitle>
+            <CardDescription>
+              Claude API의 max_tokens 값입니다. 클수록 많은 검사 항목을 추출할 수 있습니다.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="maxTokens">
+                max_tokens
+                <span className="text-xs text-muted-foreground ml-2">1000~32000</span>
+              </Label>
+              <Input
+                id="maxTokens"
+                type="number"
+                step="1000"
+                min="1000"
+                max="32000"
+                value={maxTokens}
+                onChange={(e) => setMaxTokens(parseInt(e.target.value) || DEFAULT_MAX_TOKENS)}
+                className="max-w-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                기본값: 8000 | 항목이 많은 검사지: 12000~16000 권장
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* 액션 버튼 */}
         <div className="mt-6 flex gap-4">
@@ -326,19 +208,19 @@ export default function OcrSettingsPage() {
           </Button>
           <Button variant="outline" onClick={handleReset}>
             <RotateCcw className="w-4 h-4 mr-2" />
-            기본값으로 초기화
+            기본값
           </Button>
         </div>
 
         {/* 참고 정보 */}
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle className="text-sm">설정 가이드</CardTitle>
+            <CardTitle className="text-sm">고정된 클라이언트 설정</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p><strong>인식률 우선:</strong> maxSizeMB ↑, initialQuality ↑, maxTokens ↑</p>
-            <p><strong>속도 우선:</strong> maxSizeMB ↓, initialQuality ↓, maxTokens ↓</p>
-            <p><strong>균형 추천:</strong> maxSizeMB=1, initialQuality=0.85, maxTokens=8000</p>
+          <CardContent className="text-sm text-muted-foreground space-y-1">
+            <p>이미지 압축: 1MB, 2400px, 품질 0.85</p>
+            <p>간편 업로드 최대 파일: 5개</p>
+            <p>일괄 업로드 최대 파일: 10개</p>
           </CardContent>
         </Card>
       </div>

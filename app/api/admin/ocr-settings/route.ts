@@ -30,10 +30,19 @@ const DEFAULT_SETTINGS: OcrSettingsResponse = {
   }
 }
 
-// GET: 누구나 설정 조회 가능
+// GET: 관리자만 설정 조회 가능
 export async function GET() {
   try {
     const supabase = await createClient()
+
+    // 관리자 권한 확인
+    const adminCheck = await isAdmin(supabase)
+    if (!adminCheck) {
+      return NextResponse.json(
+        { error: '관리자 권한이 필요합니다' },
+        { status: 403 }
+      )
+    }
 
     const { data, error } = await supabase
       .from('app_settings')
