@@ -330,7 +330,12 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>
             {selectedCategory ? LOG_CATEGORY_CONFIG[selectedCategory].icon + ' ' + LOG_CATEGORY_CONFIG[selectedCategory].label + ' 기록' : '빠른 기록'}
