@@ -3,16 +3,19 @@
 import { ReactNode } from 'react'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { PetProvider } from '@/contexts/PetContext'
+import { SiteSettingsProvider } from '@/contexts/SiteSettingsContext'
 import { RequirePetGuard } from '@/components/RequirePetGuard'
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <AuthProvider>
-      <PetProvider>
-        <RequirePetGuard>
-          {children}
-        </RequirePetGuard>
-      </PetProvider>
-    </AuthProvider>
+    <SiteSettingsProvider>
+      <AuthProvider>
+        <PetProvider>
+          <RequirePetGuard>
+            {children}
+          </RequirePetGuard>
+        </PetProvider>
+      </AuthProvider>
+    </SiteSettingsProvider>
   )
 }
