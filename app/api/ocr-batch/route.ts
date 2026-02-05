@@ -253,10 +253,10 @@ async function processFile(file: File, fileIndex: number, retryCount = 0): Promi
     // 파일별 고유 프롬프트 생성 (파일명 포함)
     const fileSpecificPrompt = `[파일: ${file.name}]\n\n${OCR_PROMPT}\n\n⚠️ 중요: 이 이미지/문서에서만 데이터를 추출하세요. 다른 파일의 내용과 혼동하지 마세요.`
 
-    // Claude API 호출 (max_tokens 줄여서 속도 향상)
+    // Claude API 호출
     const message = await getAnthropicClient().messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
+      max_tokens: 8000,
       messages: [
         {
           role: 'user',

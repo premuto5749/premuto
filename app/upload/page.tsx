@@ -21,10 +21,11 @@ const FileUploader = dynamic(
   { ssr: false, loading: () => <div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" /></div> }
 )
 
-// 이미지 압축 옵션
+// 최적화된 이미지 압축 옵션 (인식률 + 속도 균형)
 const compressionOptions = {
-  maxSizeMB: 0.5, // 각 파일 최대 500KB로 압축
-  maxWidthOrHeight: 2048,
+  maxSizeMB: 1,              // 1MB (인식률 유지 + 속도 향상)
+  maxWidthOrHeight: 2400,    // 적정 해상도
+  initialQuality: 0.85,      // 적정 품질
   useWebWorker: true,
 }
 
