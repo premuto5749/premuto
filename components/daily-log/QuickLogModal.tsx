@@ -111,8 +111,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotoPreviews([])
   }
 
-  // 사진을 기기에 저장하는 함수 (테스트용 비활성화)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // 사진을 기기에 저장하는 함수
   const savePhotoToDevice = (file: File) => {
     const url = URL.createObjectURL(file)
     const a = document.createElement('a')
@@ -125,7 +124,6 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   }
 
   // 사진 선택 핸들러
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>, isFromCamera = false) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
@@ -162,10 +160,10 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
       }
       validFiles.push(file)
 
-      // 카메라로 촬영한 사진은 기기에도 저장 (테스트용 비활성화)
-      // if (isFromCamera) {
-      //   savePhotoToDevice(file)
-      // }
+      // 카메라로 촬영한 사진은 기기에도 저장
+      if (isFromCamera) {
+        savePhotoToDevice(file)
+      }
     }
 
     if (validFiles.length === 0) return
@@ -328,43 +326,9 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setSelectedCategory(category)
   }
 
-  // 파일 선택 중 여부 추적 (카메라/갤러리 열려있을 때)
-  const isSelectingFileRef = useRef(false)
-
-  // 의도치 않은 모달 닫힘 방지 (카메라 복귀 시 리렌더로 인한 닫힘 방지)
-  const handleOpenChange = (newOpen: boolean) => {
-    // 파일 선택 중이면 닫기 시도 무시
-    if (!newOpen && isSelectingFileRef.current) {
-      console.log('[QuickLogModal] Prevented close during file selection')
-      return
-    }
-    onOpenChange(newOpen)
-  }
-
-  // 카메라/갤러리 버튼 클릭 시 플래그 설정
-  const handleCameraClick = () => {
-    isSelectingFileRef.current = true
-    cameraInputRef.current?.click()
-    // 3초 후 플래그 리셋 (파일 선택 완료/취소 대비)
-    setTimeout(() => { isSelectingFileRef.current = false }, 3000)
-  }
-
-  const handleGalleryClick = () => {
-    isSelectingFileRef.current = true
-    fileInputRef.current?.click()
-    // 3초 후 플래그 리셋
-    setTimeout(() => { isSelectingFileRef.current = false }, 3000)
-  }
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className="sm:max-w-md"
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onFocusOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
             {selectedCategory ? LOG_CATEGORY_CONFIG[selectedCategory].icon + ' ' + LOG_CATEGORY_CONFIG[selectedCategory].label + ' 기록' : '빠른 기록'}
@@ -622,7 +586,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={handleCameraClick}
+                    onClick={() => cameraInputRef.current?.click()}
                     disabled={isSubmitting || isUploading}
                     className="flex-1"
                   >
@@ -643,7 +607,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={handleGalleryClick}
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={isSubmitting || isUploading}
                     className="flex-1"
                   >
