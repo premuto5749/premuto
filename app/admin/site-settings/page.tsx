@@ -249,10 +249,13 @@ export default function SiteSettingsPage() {
     imageUrl: string | null
     inputRef: React.RefObject<HTMLInputElement>
     accept?: string
-    previewSize?: 'sm' | 'md' | 'lg'
+    previewSize?: 'sm' | 'md' | 'lg' | 'horizontal'
   }) => {
     const state = uploadStates[assetType]
-    const sizeClass = previewSize === 'sm' ? 'w-16 h-16' : previewSize === 'lg' ? 'w-full max-w-md h-40' : 'w-24 h-24'
+    const sizeClass = previewSize === 'sm' ? 'w-16 h-16'
+      : previewSize === 'lg' ? 'w-full max-w-md h-40'
+      : previewSize === 'horizontal' ? 'w-48 h-12'
+      : 'w-24 h-24'
 
     return (
       <div className="space-y-3">
@@ -435,12 +438,12 @@ export default function SiteSettingsPage() {
 
             <ImageUploadCard
               assetType="logo"
-              title="로고"
-              description="헤더, 로그인 페이지에 표시 (권장: 120x120px, PNG)"
+              title="로고 (가로형)"
+              description="헤더, 로그인 페이지에 표시 (권장: 가로형, 높이 40~60px)"
               imageUrl={settings.logoUrl}
               inputRef={logoInputRef}
               accept="image/png,image/svg+xml,image/jpeg"
-              previewSize="md"
+              previewSize="horizontal"
             />
 
             <hr />
@@ -460,12 +463,12 @@ export default function SiteSettingsPage() {
         {/* 로고 사용처 안내 */}
         <Card className="mb-4 bg-blue-50/50 border-blue-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-blue-800">로고 사용처</CardTitle>
+            <CardTitle className="text-sm text-blue-800">로고 사용처 (가로형 권장)</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-blue-700 space-y-1">
-            <p>• AppHeader (상단 메뉴바)</p>
-            <p>• 로그인 페이지</p>
-            <p>• PWA 홈 화면 아이콘 (추후 지원)</p>
+            <p>• 햄버거 메뉴 상단 (높이 32px)</p>
+            <p>• 로그인 페이지 상단 (높이 48px)</p>
+            <p>• 비율이 유지되므로 가로형 로고 권장</p>
           </CardContent>
         </Card>
 
@@ -559,24 +562,42 @@ export default function SiteSettingsPage() {
           <CardHeader>
             <CardTitle className="text-sm">미리보기</CardTitle>
           </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <div className="p-3 bg-muted rounded border flex items-center gap-3">
-              {settings.logoUrl && (
-                <div className="relative w-8 h-8 rounded overflow-hidden">
+          <CardContent className="text-sm space-y-3">
+            {/* 헤더 미리보기 */}
+            <div className="p-3 bg-muted rounded border">
+              <p className="text-xs text-muted-foreground mb-2">헤더 메뉴</p>
+              <div className="flex items-center">
+                {settings.logoUrl ? (
                   <Image
                     src={settings.logoUrl}
                     alt="Logo"
-                    fill
-                    className="object-contain"
+                    width={120}
+                    height={32}
+                    className="h-6 w-auto object-contain"
                     unoptimized
                   />
-                </div>
-              )}
-              <div>
-                <p className="font-medium">{settings.siteName}</p>
-                <p className="text-muted-foreground text-xs">{settings.siteDescription}</p>
+                ) : (
+                  <span className="font-medium">{settings.siteName}</span>
+                )}
               </div>
             </div>
+            {/* 로그인 페이지 미리보기 */}
+            <div className="p-3 bg-muted rounded border text-center">
+              <p className="text-xs text-muted-foreground mb-2">로그인 페이지</p>
+              {settings.logoUrl && (
+                <Image
+                  src={settings.logoUrl}
+                  alt="Logo"
+                  width={160}
+                  height={48}
+                  className="h-10 w-auto object-contain mx-auto mb-2"
+                  unoptimized
+                />
+              )}
+              <p className="font-medium">{settings.siteName}</p>
+              <p className="text-muted-foreground text-xs">{settings.siteDescription}</p>
+            </div>
+            {/* 키워드 */}
             <div className="flex flex-wrap gap-1">
               {settings.keywords.map((k, i) => (
                 <span key={i} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded">

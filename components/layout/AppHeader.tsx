@@ -81,18 +81,19 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
               </SheetTrigger>
               <SheetContent side="left" className="overflow-y-auto">
                 <SheetHeader>
-                  <SheetTitle className="flex items-center gap-2">
-                    {siteSettings.logoUrl && (
+                  <SheetTitle className="flex items-center justify-start">
+                    {siteSettings.logoUrl ? (
                       <Image
                         src={siteSettings.logoUrl}
-                        alt="Logo"
-                        width={28}
-                        height={28}
-                        className="rounded"
+                        alt={siteSettings.siteName}
+                        width={160}
+                        height={40}
+                        className="h-8 w-auto object-contain"
                         unoptimized
                       />
+                    ) : (
+                      siteSettings.siteName
                     )}
-                    {siteSettings.siteName}
                   </SheetTitle>
                 </SheetHeader>
                 <nav className="mt-6 space-y-2">
