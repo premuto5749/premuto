@@ -210,6 +210,30 @@ UI에서 강조 표시할 항목:
   - RLS 기반 사용자 격리
 - **AI/OCR**: Claude API, GPT-4o
 
+### Context 구조 및 Provider 계층
+
+앱 전역 상태 관리를 위한 Context Provider 구조:
+
+```
+<AuthProvider>           # 인증 및 관리자 상태
+  <PetProvider>          # 반려동물 목록 및 현재 선택
+    <RequirePetGuard>    # 반려동물 필수 등록 가드
+      {children}
+    </RequirePetGuard>
+  </PetProvider>
+</AuthProvider>
+```
+
+| Context | 파일 | 역할 |
+|---------|------|------|
+| `AuthContext` | `contexts/AuthContext.tsx` | 관리자 상태 (`isAdmin`) 전역 관리. 앱 초기화 시 1회만 `/api/auth/check-admin` 호출 |
+| `PetContext` | `contexts/PetContext.tsx` | 반려동물 목록, 현재 선택된 pet, localStorage 동기화 |
+| `RequirePetGuard` | `components/RequirePetGuard.tsx` | 반려동물 미등록 시 등록 모달 표시 |
+
+**주의**: `RequirePetGuard`는 `initialLoadDone` 플래그를 사용하여 초기 로딩 시에만 스피너를 표시합니다.
+이후 auth 상태 변경으로 인한 re-fetch 시에는 children을 언마운트하지 않습니다.
+(모달 내 파일 선택 등의 상호작용 중단 방지)
+
 ## 6. 코딩 컨벤션
 
 ### 상태 판정 시각화

@@ -158,6 +158,9 @@ mimo-health-log/
 │   ├── upload/          # 파일 업로드 관련
 │   ├── staging/         # 검수 페이지
 │   └── dashboard/       # 시각화 대시보드
+├── contexts/            # React Context Providers
+│   ├── AuthContext.tsx  # 인증/관리자 상태 (앱 초기화 시 1회 체크)
+│   └── PetContext.tsx   # 반려동물 목록 및 현재 선택
 ├── lib/
 │   ├── supabase/        # Supabase 클라이언트
 │   ├── ocr/             # OCR 처리 로직
