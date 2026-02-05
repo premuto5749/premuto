@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useRef } from 'react'
+import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import Image from 'next/image'
 import { Upload, File, X, FileText } from 'lucide-react'
@@ -26,23 +26,8 @@ export function FileUploader({
   isProcessing = false
 }: FileUploaderProps) {
   const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // 모바일용 직접 파일 선택 핸들러
-  const handleDirectFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files && files.length > 0) {
-      console.log('[FileUploader] Direct file select:', files.length, 'files')
-      onDrop(Array.from(files))
-    }
-    // input 초기화 (같은 파일 다시 선택 가능)
-    e.target.value = ''
-  }
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    console.log('[FileUploader] onDrop called:', acceptedFiles.length, 'files')
-    acceptedFiles.forEach(f => console.log('[FileUploader] accepted:', f.name, f.type, f.size))
-
     if (acceptedFiles.length === 0) return
 
     // 기존 파일과 합쳐서 최대 10개 제한
@@ -83,22 +68,8 @@ export function FileUploader({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    onDropRejected: (rejectedFiles) => {
-      console.log('[FileUploader] onDropRejected:', rejectedFiles.length, 'files')
-      rejectedFiles.forEach(r => {
-        console.log('[FileUploader] rejected:', r.file.name, r.file.type, r.errors.map(e => e.code).join(', '))
-      })
-      if (rejectedFiles.length > 0) {
-        const errors = rejectedFiles[0].errors
-        if (errors.some(e => e.code === 'file-invalid-type')) {
-          alert('지원하지 않는 파일 형식입니다. JPG, PNG, PDF만 업로드 가능합니다.')
-        } else if (errors.some(e => e.code === 'file-too-large')) {
-          alert('파일 크기가 너무 큽니다. 최대 10MB까지 업로드 가능합니다.')
-        }
-      }
-    },
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif'],
+      'image/*': ['.png', '.jpg', '.jpeg'],
       'application/pdf': ['.pdf']
     },
     maxFiles: 10,
@@ -134,12 +105,7 @@ export function FileUploader({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {selectedFiles.map((file, index) => {
-            // 파일 참조 비교 대신 name + size + lastModified로 비교 (모바일 호환성)
-            const fileWithPreview = filesWithPreview.find(f =>
-              f.file.name === file.name &&
-              f.file.size === file.size &&
-              f.file.lastModified === file.lastModified
-            )
+            const fileWithPreview = filesWithPreview.find(f => f.file === file)
             const preview = fileWithPreview?.preview
             const isPdf = file.type === 'application/pdf'
 
@@ -210,56 +176,35 @@ export function FileUploader({
   }
 
   return (
-    <div className="space-y-4">
-      {/* 모바일용 명시적 파일 선택 버튼 */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*,.pdf"
-        multiple
-        onChange={handleDirectFileSelect}
-        className="hidden"
-      />
-      <Button
-        type="button"
-        variant="outline"
-        size="lg"
-        className="w-full py-6"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={isProcessing}
-      >
-        <Upload className="w-5 h-5 mr-2" />
-        파일 선택하기
-      </Button>
-
-      {/* 드래그앤드롭 영역 (PC용) */}
-      <div
-        {...getRootProps()}
-        className={`
-          border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
-          transition-colors duration-200
-          ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
-          ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary hover:bg-primary/5'}
-        `}
-      >
-        <input {...getInputProps()} />
-        <Upload className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
-        {isDragActive ? (
-          <p className="text-base font-medium">파일들을 여기에 놓아주세요</p>
-        ) : (
-          <>
-            <p className="text-base font-medium mb-2">
-              또는 여기에 드래그앤드롭
-            </p>
-            <p className="text-xs text-muted-foreground">
-              지원 형식: JPG, PNG, PDF (각 파일 최대 10MB, 최대 10개)
-            </p>
-            <p className="text-xs text-blue-600 mt-2">
-              💡 예: CBC 결과지 + Chemistry 결과지 + 특수 검사 결과지
-            </p>
-          </>
-        )}
-      </div>
+    <div
+      {...getRootProps()}
+      className={`
+        border-2 border-dashed rounded-lg p-12 text-center cursor-pointer
+        transition-colors duration-200
+        ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
+        ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary hover:bg-primary/5'}
+      `}
+    >
+      <input {...getInputProps()} />
+      <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+      {isDragActive ? (
+        <p className="text-lg font-medium">파일들을 여기에 놓아주세요</p>
+      ) : (
+        <>
+          <p className="text-lg font-medium mb-2">
+            한 번의 검사에 해당하는 모든 문서를 업로드하세요
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">
+            여러 파일을 한 번에 선택하거나 드래그앤드롭할 수 있습니다
+          </p>
+          <p className="text-xs text-muted-foreground">
+            지원 형식: JPG, PNG, PDF (각 파일 최대 10MB, 최대 10개)
+          </p>
+          <p className="text-xs text-blue-600 mt-2">
+            💡 예: CBC 결과지 + Chemistry 결과지 + 특수 검사 결과지
+          </p>
+        </>
+      )}
     </div>
   )
 }
