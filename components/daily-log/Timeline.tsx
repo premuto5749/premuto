@@ -719,60 +719,63 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       {/* 이미지 확대 보기 (Lightbox Carousel) */}
       <Dialog open={lightboxPhotos.length > 0} onOpenChange={() => setLightboxPhotos([])}>
         <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden">
-          {/* 닫기 버튼 */}
-          <button
-            onClick={() => setLightboxPhotos([])}
-            className="absolute top-4 right-4 z-50 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-
-          {/* 이전 버튼 */}
-          {lightboxPhotos.length > 1 && (
+          {/* 커스텀 컨트롤 wrapper (기본 X 버튼 숨김 규칙 우회) */}
+          <div className="relative w-full h-full">
+            {/* 닫기 버튼 */}
             <button
-              onClick={() => setLightboxIndex((prev) => (prev - 1 + lightboxPhotos.length) % lightboxPhotos.length)}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+              onClick={() => setLightboxPhotos([])}
+              className="absolute top-4 right-4 z-50 w-10 h-10 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
             >
-              <ChevronLeft className="w-8 h-8" />
+              <X className="w-6 h-6" />
             </button>
-          )}
 
-          {/* 다음 버튼 */}
-          {lightboxPhotos.length > 1 && (
-            <button
-              onClick={() => setLightboxIndex((prev) => (prev + 1) % lightboxPhotos.length)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
-            >
-              <ChevronRight className="w-8 h-8" />
-            </button>
-          )}
+            {/* 이전 버튼 */}
+            {lightboxPhotos.length > 1 && (
+              <button
+                onClick={() => setLightboxIndex((prev) => (prev - 1 + lightboxPhotos.length) % lightboxPhotos.length)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+              >
+                <ChevronLeft className="w-8 h-8" />
+              </button>
+            )}
 
-          {/* 페이지 인디케이터 */}
-          {lightboxPhotos.length > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-2">
-              {lightboxPhotos.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setLightboxIndex(idx)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    idx === lightboxIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/60'
-                  }`}
+            {/* 다음 버튼 */}
+            {lightboxPhotos.length > 1 && (
+              <button
+                onClick={() => setLightboxIndex((prev) => (prev + 1) % lightboxPhotos.length)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center text-white transition-colors"
+              >
+                <ChevronRight className="w-8 h-8" />
+              </button>
+            )}
+
+            {/* 페이지 인디케이터 */}
+            {lightboxPhotos.length > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-2">
+                {lightboxPhotos.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setLightboxIndex(idx)}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      idx === lightboxIndex ? 'bg-white' : 'bg-white/40 hover:bg-white/60'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
+            {lightboxPhotos[lightboxIndex] && (
+              <div className="w-full h-full flex items-center justify-center p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={lightboxPhotos[lightboxIndex]}
+                  alt={`사진 ${lightboxIndex + 1}/${lightboxPhotos.length}`}
+                  className="max-w-full max-h-[85vh] object-contain"
+                  onClick={(e) => e.stopPropagation()}
                 />
-              ))}
-            </div>
-          )}
-
-          {lightboxPhotos[lightboxIndex] && (
-            <div className="w-full h-full flex items-center justify-center p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={lightboxPhotos[lightboxIndex]}
-                alt={`사진 ${lightboxIndex + 1}/${lightboxPhotos.length}`}
-                className="max-w-full max-h-[85vh] object-contain"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>
