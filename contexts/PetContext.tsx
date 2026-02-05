@@ -1,7 +1,8 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react'
 import { Pet } from '@/types'
+import { createClient } from '@/lib/supabase/client'
 
 interface PetContextType {
   pets: Pet[]
@@ -67,8 +68,35 @@ export function PetProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // 초기 로드 완료 여부 추적
+  const initialLoadDone = useRef(false)
+
   useEffect(() => {
-    fetchPets()
+    // 초기 로드
+    fetchPets().then(() => {
+      initialLoadDone.current = true
+    })
+
+    // 인증 상태 변경 감지 - 로그인 직후 세션이 설정되면 다시 fetch
+    const supabase = createClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // SIGNED_IN: 로그인 완료, TOKEN_REFRESHED: 토큰 갱신
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // 초기 로드 이후에만 다시 fetch (중복 호출 방지)
+        if (initialLoadDone.current) {
+          fetchPets()
+        }
+      } else if (event === 'SIGNED_OUT') {
+        // 로그아웃 시 상태 초기화
+        setPets([])
+        setCurrentPetState(null)
+        localStorage.removeItem(CURRENT_PET_KEY)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [fetchPets])
 
   const setCurrentPet = useCallback((pet: Pet | null) => {
