@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useRef } from 'react'
 import { useDropzone, FileRejection } from 'react-dropzone'
 import Image from 'next/image'
 import { Upload, File, X, FileText } from 'lucide-react'
@@ -26,6 +26,7 @@ export function FileUploader({
   isProcessing = false
 }: FileUploaderProps) {
   const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     console.log('onDrop called with', acceptedFiles.length, 'files')
@@ -101,6 +102,24 @@ export function FileUploader({
     onFileRemove(index)
     setFilesWithPreview(prev => prev.filter((_, i) => i !== index))
   }
+
+  // 직접 input 핸들러 (모바일용)
+  const handleDirectInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('handleDirectInput called')
+    const files = e.target.files
+    if (files && files.length > 0) {
+      console.log('Files selected via direct input:', files.length)
+      onDrop(Array.from(files))
+    }
+    // input 초기화 (같은 파일 다시 선택 가능하도록)
+    e.target.value = ''
+  }, [onDrop])
+
+  // 모바일 파일 선택 버튼 클릭 핸들러
+  const handleMobileButtonClick = useCallback(() => {
+    console.log('Mobile button clicked')
+    fileInputRef.current?.click()
+  }, [])
 
   if (selectedFiles.length > 0) {
     return (
@@ -194,16 +213,6 @@ export function FileUploader({
     )
   }
 
-  // 직접 input 핸들러 (모바일 폴백)
-  const handleDirectInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files && files.length > 0) {
-      onDrop(Array.from(files))
-    }
-    // input 초기화 (같은 파일 다시 선택 가능하도록)
-    e.target.value = ''
-  }
-
   return (
     <div className="space-y-4">
       <div
@@ -237,23 +246,29 @@ export function FileUploader({
         )}
       </div>
 
-      {/* 모바일용 직접 파일 선택 (dropzone 우회) */}
-      <div className="relative">
-        <input
-          type="file"
-          accept=".png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.pdf,image/*,application/pdf"
-          multiple
-          onChange={handleDirectInput}
-          disabled={isProcessing}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-        />
-        <div className={`w-full py-3 px-4 border-2 border-primary rounded-lg text-center ${isProcessing ? 'opacity-50' : 'hover:bg-primary/5'}`}>
-          <span className="flex items-center justify-center gap-2 font-medium text-primary">
-            <Upload className="w-4 h-4" />
-            📱 파일 선택하기 (모바일)
-          </span>
-        </div>
-      </div>
+      {/* 숨겨진 파일 입력 (모바일용) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/heic,image/heif,application/pdf"
+        multiple
+        onChange={handleDirectInput}
+        disabled={isProcessing}
+        style={{ display: 'none' }}
+      />
+
+      {/* 모바일용 파일 선택 버튼 */}
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        onClick={handleMobileButtonClick}
+        disabled={isProcessing}
+        className="w-full border-2 border-primary text-primary hover:bg-primary/5"
+      >
+        <Upload className="w-4 h-4 mr-2" />
+        📱 파일 선택하기 (모바일)
+      </Button>
     </div>
   )
 }
