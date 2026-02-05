@@ -253,10 +253,10 @@ async function processFile(file: File, fileIndex: number, retryCount = 0): Promi
     // 파일별 고유 프롬프트 생성 (파일명 포함)
     const fileSpecificPrompt = `[파일: ${file.name}]\n\n${OCR_PROMPT}\n\n⚠️ 중요: 이 이미지/문서에서만 데이터를 추출하세요. 다른 파일의 내용과 혼동하지 마세요.`
 
-    // Claude API 호출
+    // Claude API 호출 (max_tokens 줄여서 속도 향상)
     const message = await getAnthropicClient().messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 16000,
+      max_tokens: 4000,
       messages: [
         {
           role: 'user',
@@ -508,13 +508,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`🚀 Processing ${files.length} files with Claude API...`)
+    console.log(`🚀 Processing ${files.length} files with Claude API (sequential)...`)
 
-    // 모든 파일을 병렬로 처리 (각 파일이 여러 결과를 반환할 수 있음)
-    // fileIndex를 전달하여 파일별 유니크한 처리 보장
-    const nestedResults = await Promise.all(
-      files.map((file, index) => processFile(file, index))
-    )
+    // 순차 처리로 변경 (rate limit 회피 + 안정성 향상)
+    const nestedResults: FileResult[][] = []
+    for (let i = 0; i < files.length; i++) {
+      console.log(`📄 Processing file ${i + 1}/${files.length}: ${files[i].name}`)
+      const result = await processFile(files[i], i)
+      nestedResults.push(result)
+    }
 
     // 중첩 배열을 평탄화 (한 파일에서 여러 날짜 그룹이 나올 수 있음)
     const results = nestedResults.flat()
