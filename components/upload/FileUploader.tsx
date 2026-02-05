@@ -28,7 +28,13 @@ export function FileUploader({
   const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0) return
+    console.log('onDrop called with', acceptedFiles.length, 'files')
+
+    if (acceptedFiles.length === 0) {
+      // 모바일에서 파일 거부 시 알림
+      alert('파일을 선택해주세요. 지원 형식: JPG, PNG, PDF')
+      return
+    }
 
     // 기존 파일과 합쳐서 최대 10개 제한
     if (selectedFiles.length + acceptedFiles.length > 10) {
@@ -66,10 +72,27 @@ export function FileUploader({
     setFilesWithPreview(prev => [...prev, ...newFilesWithPreview])
   }, [selectedFiles, onFilesSelect])
 
+  // 파일 거부 시 알림
+  const onDropRejected = useCallback((rejectedFiles: { file: File; errors: { code: string; message: string }[] }[]) => {
+    console.log('Files rejected:', rejectedFiles)
+    const reasons = rejectedFiles.map(r => {
+      const errorCodes = r.errors.map(e => e.code)
+      if (errorCodes.includes('file-too-large')) return `${r.file.name}: 10MB 초과`
+      if (errorCodes.includes('file-invalid-type')) return `${r.file.name}: 지원하지 않는 형식`
+      return `${r.file.name}: 업로드 불가`
+    })
+    alert(`파일 업로드 실패:\n${reasons.join('\n')}`)
+  }, [])
+
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg'],
+      'image/*': ['.png', '.jpg', '.jpeg', '.heic', '.heif'],
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+      'image/heic': ['.heic'],
+      'image/heif': ['.heif'],
       'application/pdf': ['.pdf']
     },
     maxFiles: 10,
