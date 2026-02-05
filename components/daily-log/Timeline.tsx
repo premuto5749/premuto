@@ -244,30 +244,15 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setNewPhotoPreviews(prev => prev.filter((_, i) => i !== index))
   }
 
-  // 사진을 기기에 저장하는 함수
-  const savePhotoToDevice = (file: File) => {
-    const url = URL.createObjectURL(file)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `mimo_${new Date().toISOString().slice(0, 10)}_${Date.now()}.jpg`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>, isFromCamera = false) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
     // 파일 추가
     setNewPhotoFiles(prev => [...prev, ...files])
 
-    // 미리보기 생성 및 카메라 촬영 시 기기에 저장
+    // 미리보기 생성
     files.forEach(file => {
-      if (isFromCamera) {
-        savePhotoToDevice(file)
-      }
       const reader = new FileReader()
       reader.onloadend = () => {
         setNewPhotoPreviews(prev => [...prev, reader.result as string])
@@ -536,7 +521,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                           type="file"
                           accept="image/*"
                           capture="environment"
-                          onChange={(e) => handlePhotoSelect(e, true)}
+                          onChange={handlePhotoSelect}
                           className="hidden"
                         />
                         <Button
@@ -557,7 +542,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                           type="file"
                           accept="image/*"
                           multiple
-                          onChange={(e) => handlePhotoSelect(e, false)}
+                          onChange={handlePhotoSelect}
                           className="hidden"
                         />
                         <Button

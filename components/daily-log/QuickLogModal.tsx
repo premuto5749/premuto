@@ -111,20 +111,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotoPreviews([])
   }
 
-  // 사진을 기기에 저장하는 함수
-  const savePhotoToDevice = (file: File) => {
-    const url = URL.createObjectURL(file)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `mimo_${new Date().toISOString().slice(0, 10)}_${Date.now()}.jpg`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
   // 사진 선택 핸들러
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>, isFromCamera = false) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
@@ -159,11 +147,6 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         continue
       }
       validFiles.push(file)
-
-      // 카메라로 촬영한 사진은 기기에도 저장
-      if (isFromCamera) {
-        savePhotoToDevice(file)
-      }
     }
 
     if (validFiles.length === 0) return
@@ -579,7 +562,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    onChange={(e) => handlePhotoSelect(e, true)}
+                    onChange={handlePhotoSelect}
                     className="hidden"
                   />
                   <Button
@@ -600,7 +583,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     type="file"
                     accept="image/*"
                     multiple
-                    onChange={(e) => handlePhotoSelect(e, false)}
+                    onChange={handlePhotoSelect}
                     className="hidden"
                   />
                   <Button
