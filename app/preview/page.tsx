@@ -250,7 +250,7 @@ function PreviewContent() {
 
     try {
       // OCR 결과를 ai-mapping API 형식으로 변환
-      const ocrItems = allItems.map(item => ({
+      const ocrResults = allItems.map(item => ({
         name: item.name,
         raw_name: item.raw_name || item.name,
         value: item.value,
@@ -266,7 +266,10 @@ function PreviewContent() {
       const response = await fetch('/api/ai-mapping', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: ocrItems })
+        body: JSON.stringify({
+          batch_id: batchData.batch_id,
+          ocr_results: ocrResults
+        })
       })
 
       if (!response.ok) {
@@ -282,21 +285,49 @@ function PreviewContent() {
 
       if (result.success && result.data) {
         // 매핑 결과를 allItems에 적용
+        // API 응답 형식: [{ocr_item, suggested_mapping, isGarbage, garbageReason}]
         setAllItems(prev => {
           const updated = [...prev]
-          result.data.items.forEach((mappedItem: {
-            name: string
-            raw_name?: string
-            mapping?: MappingInfo | null
+          result.data.forEach((mappedResult: {
+            ocr_item: { name: string; raw_name?: string }
+            suggested_mapping: {
+              standard_item_id: string
+              standard_item_name: string
+              display_name_ko: string
+              confidence: number
+              reasoning?: string
+              source_hint?: string
+            } | null
             isGarbage?: boolean
-            garbageReason?: string
+            garbageReason?: string | null
           }, index: number) => {
             if (index < updated.length) {
+              let mapping = null
+              if (mappedResult.suggested_mapping) {
+                // reasoning에서 method 판별
+                const reasoning = mappedResult.suggested_mapping.reasoning || ''
+                let method = 'ai_match'
+                if (reasoning.includes('정규항목')) {
+                  method = 'exact'
+                } else if (reasoning.includes('별칭')) {
+                  method = 'alias'
+                }
+
+                mapping = {
+                  standard_item_id: mappedResult.suggested_mapping.standard_item_id,
+                  standard_item_name: mappedResult.suggested_mapping.standard_item_name,
+                  display_name_ko: mappedResult.suggested_mapping.display_name_ko,
+                  confidence: mappedResult.suggested_mapping.confidence,
+                  method,
+                  source_hint: mappedResult.suggested_mapping.source_hint,
+                }
+              }
+
               updated[index] = {
                 ...updated[index],
-                mapping: mappedItem.mapping || null,
-                isGarbage: mappedItem.isGarbage || false,
-                garbageReason: mappedItem.garbageReason || undefined
+                mapping,
+                isGarbage: mappedResult.isGarbage || false,
+                garbageReason: mappedResult.garbageReason || undefined
               }
             }
           })
@@ -304,8 +335,14 @@ function PreviewContent() {
         })
 
         // 매핑 통계 저장
-        if (result.data.stats) {
-          setMappingStats(result.data.stats)
+        if (result.stats) {
+          setMappingStats({
+            exactMatch: result.stats.exactMatch || 0,
+            aliasMatch: result.stats.aliasMatch || 0,
+            aiMatch: result.stats.aiMatch || 0,
+            garbage: result.stats.garbage || 0,
+            unmapped: result.stats.failed || 0
+          })
         }
 
         setIsMapped(true)
