@@ -69,7 +69,7 @@ export function FileUploader({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg'],
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif'],
       'application/pdf': ['.pdf']
     },
     maxFiles: 10,
@@ -105,7 +105,12 @@ export function FileUploader({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {selectedFiles.map((file, index) => {
-            const fileWithPreview = filesWithPreview.find(f => f.file === file)
+            // 파일 참조 비교 대신 name + size + lastModified로 비교 (모바일 호환성)
+            const fileWithPreview = filesWithPreview.find(f =>
+              f.file.name === file.name &&
+              f.file.size === file.size &&
+              f.file.lastModified === file.lastModified
+            )
             const preview = fileWithPreview?.preview
             const isPdf = file.type === 'application/pdf'
 
