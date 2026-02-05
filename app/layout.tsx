@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/Providers";
+import { getSiteSettings } from "@/lib/site-settings";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -15,18 +16,39 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-export const metadata: Metadata = {
-  title: "Mimo Health Log",
-  description: "미모 건강 기록",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
 
-export default function RootLayout({
+  return {
+    title: settings.siteName,
+    description: settings.siteDescription,
+    keywords: settings.keywords,
+    icons: settings.faviconUrl ? { icon: settings.faviconUrl } : undefined,
+    openGraph: {
+      title: settings.siteName,
+      description: settings.siteDescription,
+      images: settings.ogImageUrl ? [settings.ogImageUrl] : undefined,
+    },
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const settings = await getSiteSettings();
+
+  return {
+    themeColor: settings.themeColor,
+  };
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const settings = await getSiteSettings();
+
   return (
-    <html lang="ko">
+    <html lang={settings.language}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

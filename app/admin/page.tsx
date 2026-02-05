@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle, Sliders } from 'lucide-react'
+import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle, Sliders, Globe } from 'lucide-react'
 import Link from 'next/link'
 
 interface AdminStats {
@@ -209,6 +209,26 @@ export default function AdminPage() {
                 <div className="flex gap-2">
                   <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">실시간 반영</span>
                   <span className="text-xs bg-muted px-2 py-1 rounded">간편/일괄 개별 설정</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/admin/site-settings">
+            <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Globe className="w-5 h-5" />
+                  사이트 설정
+                </CardTitle>
+                <CardDescription>
+                  파비콘, 메타태그, 검색 키워드 등 사이트 기본 정보를 설정합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">SEO 설정</span>
+                  <span className="text-xs bg-muted px-2 py-1 rounded">OG 이미지</span>
                 </div>
               </CardContent>
             </Card>
