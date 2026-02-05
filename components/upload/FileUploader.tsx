@@ -102,18 +102,6 @@ export function FileUploader({
     setFilesWithPreview(prev => prev.filter((_, i) => i !== index))
   }
 
-  // 직접 input 핸들러 (모바일용)
-  const handleDirectInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('handleDirectInput called')
-    const files = e.target.files
-    if (files && files.length > 0) {
-      console.log('Files selected via direct input:', files.length)
-      onDrop(Array.from(files))
-    }
-    // input 초기화 (같은 파일 다시 선택 가능하도록)
-    e.target.value = ''
-  }, [onDrop])
-
   if (selectedFiles.length > 0) {
     return (
       <div className="space-y-4">
@@ -238,24 +226,6 @@ export function FileUploader({
           </>
         )}
       </div>
-
-      {/* 모바일용 직접 파일 선택 (label 기반 - iOS Safari 호환) */}
-      <label className={`relative block w-full ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/heic,image/heif,application/pdf"
-          multiple
-          onChange={handleDirectInput}
-          disabled={isProcessing}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        />
-        <div className="w-full py-3 px-4 border-2 border-primary rounded-lg text-center hover:bg-primary/5">
-          <span className="flex items-center justify-center gap-2 font-medium text-primary">
-            <Upload className="w-4 h-4" />
-            📱 파일 선택하기 (모바일)
-          </span>
-        </div>
-      </label>
     </div>
   )
 }
