@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { useDropzone } from 'react-dropzone'
+import { useDropzone, FileRejection } from 'react-dropzone'
 import Image from 'next/image'
 import { Upload, File, X, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -73,7 +73,7 @@ export function FileUploader({
   }, [selectedFiles, onFilesSelect])
 
   // 파일 거부 시 알림
-  const onDropRejected = useCallback((rejectedFiles: { file: File; errors: { code: string; message: string }[] }[]) => {
+  const onDropRejected = useCallback((rejectedFiles: FileRejection[]) => {
     console.log('Files rejected:', rejectedFiles)
     const reasons = rejectedFiles.map(r => {
       const errorCodes = r.errors.map(e => e.code)
