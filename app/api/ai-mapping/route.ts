@@ -14,10 +14,10 @@ import {
 export const maxDuration = 120
 
 // 배치 처리 설정 (rate limit: 30,000 tokens/min)
-const AI_BATCH_SIZE = 20 // 한 번에 AI에게 보내는 항목 수 (증가)
-const BATCH_DELAY_MS = 1000 // 배치 간 대기 시간 (1초로 단축)
-const MAX_RETRIES = 2 // 최대 재시도 횟수
-const RETRY_DELAY_MS = 3000 // 재시도 시 기본 대기 시간 (3초)
+const AI_BATCH_SIZE = 30 // 한 번에 AI에게 보내는 항목 수 (더 크게)
+const MAX_PARALLEL_BATCHES = 3 // 동시에 처리할 최대 배치 수
+const MAX_RETRIES = 1 // 최대 재시도 횟수 (시간 절약)
+const RETRY_DELAY_MS = 1000 // 재시도 시 기본 대기 시간 (1초)
 
 // Anthropic 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
 function getAnthropicClient() {
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 Phase 1 complete: Exact=${exactMatchCount}, Alias=${aliasMatchCount}, Need AI=${itemsNeedingAi.length}`)
 
-    // 2단계: AI가 필요한 항목들을 배치로 처리
+    // 2단계: AI가 필요한 항목들을 병렬 배치로 처리 (속도 최적화)
     if (itemsNeedingAi.length > 0) {
       console.log(`🤖 Starting AI batch mapping for ${itemsNeedingAi.length} items in batches of ${AI_BATCH_SIZE}...`)
 
@@ -166,20 +166,13 @@ export async function POST(request: NextRequest) {
         batches.push(itemsNeedingAi.slice(i, i + AI_BATCH_SIZE))
       }
 
-      console.log(`📦 Created ${batches.length} batches`)
+      console.log(`📦 Created ${batches.length} batches, processing ${MAX_PARALLEL_BATCHES} in parallel`)
 
-      // 각 배치를 순차적으로 처리 (rate limit 방지)
-      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-        const batch = batches[batchIndex]
+      // 배치 처리 함수
+      const processBatch = async (batch: { ocrItem: OcrResult; index: number }[], batchIndex: number): Promise<MappingResult[]> => {
+        const results: MappingResult[] = []
         console.log(`🔄 Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} items)...`)
 
-        // 첫 번째 배치가 아니면 대기
-        if (batchIndex > 0) {
-          console.log(`⏳ Waiting ${BATCH_DELAY_MS}ms before next batch...`)
-          await delay(BATCH_DELAY_MS)
-        }
-
-        // 배치 내 항목들을 한 번에 AI에게 요청
         try {
           const batchResults = await getAiMappingSuggestionBatch(
             batch.map(b => b.ocrItem),
@@ -188,98 +181,73 @@ export async function POST(request: NextRequest) {
             userId
           )
 
-          // 결과 매핑
           for (let i = 0; i < batch.length; i++) {
             const { ocrItem, index } = batch[i]
             const suggestion = batchResults[i] || null
-
-            if (suggestion) {
-              aiMatchCount++
-            } else {
-              failedCount++
-            }
-
-            mappingResults.push({
+            results.push({
               ocr_item: ocrItem,
               suggested_mapping: suggestion,
               index
             })
           }
-
           console.log(`✅ Batch ${batchIndex + 1} complete`)
         } catch (batchError) {
           console.error(`❌ Batch ${batchIndex + 1} failed:`, batchError)
 
-          // Rate limit 에러인 경우 재시도
-          if (batchError instanceof Anthropic.RateLimitError ||
-              (batchError instanceof Error && (
-                batchError.message.includes('rate_limit') ||
-                batchError.message.includes('quota') ||
-                batchError.message.includes('429')
-              ))) {
-
-            // 재시도 로직
-            let retrySuccess = false
-            for (let retry = 0; retry < MAX_RETRIES; retry++) {
-              const retryDelay = RETRY_DELAY_MS * Math.pow(2, retry) // 지수 백오프: 5s, 10s, 20s
-              console.log(`⏳ Rate limited. Retry ${retry + 1}/${MAX_RETRIES} after ${retryDelay}ms...`)
-              await delay(retryDelay)
-
-              try {
-                const batchResults = await getAiMappingSuggestionBatch(
-                  batch.map(b => b.ocrItem),
-                  standardItems || [],
-                  supabase,
-                  userId
-                )
-
-                for (let i = 0; i < batch.length; i++) {
-                  const { ocrItem, index } = batch[i]
-                  const suggestion = batchResults[i] || null
-
-                  if (suggestion) {
-                    aiMatchCount++
-                  } else {
-                    failedCount++
-                  }
-
-                  mappingResults.push({
-                    ocr_item: ocrItem,
-                    suggested_mapping: suggestion,
-                    index
-                  })
-                }
-
-                retrySuccess = true
-                console.log(`✅ Batch ${batchIndex + 1} succeeded on retry ${retry + 1}`)
-                break
-              } catch (retryError) {
-                console.error(`❌ Retry ${retry + 1} failed:`, retryError)
-              }
-            }
-
-            if (!retrySuccess) {
-              // 모든 재시도 실패 - 이 배치 항목들을 실패로 처리
-              console.error(`❌ All retries failed for batch ${batchIndex + 1}`)
-              for (const { ocrItem, index } of batch) {
-                failedCount++
-                mappingResults.push({
+          // 한 번만 재시도
+          if (MAX_RETRIES > 0) {
+            console.log(`⏳ Retrying batch ${batchIndex + 1}...`)
+            await delay(RETRY_DELAY_MS)
+            try {
+              const batchResults = await getAiMappingSuggestionBatch(
+                batch.map(b => b.ocrItem),
+                standardItems || [],
+                supabase,
+                userId
+              )
+              for (let i = 0; i < batch.length; i++) {
+                const { ocrItem, index } = batch[i]
+                results.push({
                   ocr_item: ocrItem,
-                  suggested_mapping: null,
+                  suggested_mapping: batchResults[i] || null,
                   index
                 })
               }
+              console.log(`✅ Batch ${batchIndex + 1} succeeded on retry`)
+              return results
+            } catch {
+              console.error(`❌ Retry failed for batch ${batchIndex + 1}`)
             }
-          } else {
-            // 다른 에러인 경우 해당 배치 항목들을 실패로 처리
-            for (const { ocrItem, index } of batch) {
+          }
+
+          // 실패한 항목들
+          for (const { ocrItem, index } of batch) {
+            results.push({
+              ocr_item: ocrItem,
+              suggested_mapping: null,
+              index
+            })
+          }
+        }
+        return results
+      }
+
+      // 병렬 처리 (MAX_PARALLEL_BATCHES 개씩)
+      for (let i = 0; i < batches.length; i += MAX_PARALLEL_BATCHES) {
+        const parallelBatches = batches.slice(i, i + MAX_PARALLEL_BATCHES)
+        const parallelResults = await Promise.all(
+          parallelBatches.map((batch, idx) => processBatch(batch, i + idx))
+        )
+
+        // 결과 합치기 및 통계 업데이트
+        for (const batchResults of parallelResults) {
+          for (const result of batchResults) {
+            if (result.suggested_mapping) {
+              aiMatchCount++
+            } else {
               failedCount++
-              mappingResults.push({
-                ocr_item: ocrItem,
-                suggested_mapping: null,
-                index
-              })
             }
+            mappingResults.push(result)
           }
         }
       }
