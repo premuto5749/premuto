@@ -111,7 +111,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotoPreviews([])
   }
 
-  // 사진을 기기에 저장하는 함수
+  // 사진을 기기에 저장하는 함수 (테스트용 비활성화)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const savePhotoToDevice = (file: File) => {
     const url = URL.createObjectURL(file)
     const a = document.createElement('a')
@@ -124,6 +125,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   }
 
   // 사진 선택 핸들러
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>, isFromCamera = false) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
