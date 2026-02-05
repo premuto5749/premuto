@@ -328,13 +328,42 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setSelectedCategory(category)
   }
 
+  // 파일 선택 중 여부 추적 (카메라/갤러리 열려있을 때)
+  const isSelectingFileRef = useRef(false)
+
+  // 의도치 않은 모달 닫힘 방지 (카메라 복귀 시 리렌더로 인한 닫힘 방지)
+  const handleOpenChange = (newOpen: boolean) => {
+    // 파일 선택 중이면 닫기 시도 무시
+    if (!newOpen && isSelectingFileRef.current) {
+      console.log('[QuickLogModal] Prevented close during file selection')
+      return
+    }
+    onOpenChange(newOpen)
+  }
+
+  // 카메라/갤러리 버튼 클릭 시 플래그 설정
+  const handleCameraClick = () => {
+    isSelectingFileRef.current = true
+    cameraInputRef.current?.click()
+    // 3초 후 플래그 리셋 (파일 선택 완료/취소 대비)
+    setTimeout(() => { isSelectingFileRef.current = false }, 3000)
+  }
+
+  const handleGalleryClick = () => {
+    isSelectingFileRef.current = true
+    fileInputRef.current?.click()
+    // 3초 후 플래그 리셋
+    setTimeout(() => { isSelectingFileRef.current = false }, 3000)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="sm:max-w-md"
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle>
@@ -593,7 +622,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => cameraInputRef.current?.click()}
+                    onClick={handleCameraClick}
                     disabled={isSubmitting || isUploading}
                     className="flex-1"
                   >
@@ -614,7 +643,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleGalleryClick}
                     disabled={isSubmitting || isUploading}
                     className="flex-1"
                   >
