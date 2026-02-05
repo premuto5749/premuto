@@ -508,15 +508,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`🚀 Processing ${files.length} files with Claude API (sequential)...`)
+    console.log(`🚀 Processing ${files.length} files with Claude API (parallel)...`)
 
-    // 순차 처리로 변경 (rate limit 회피 + 안정성 향상)
-    const nestedResults: FileResult[][] = []
-    for (let i = 0; i < files.length; i++) {
-      console.log(`📄 Processing file ${i + 1}/${files.length}: ${files[i].name}`)
-      const result = await processFile(files[i], i)
-      nestedResults.push(result)
-    }
+    // 병렬 처리 (max_tokens 줄여서 rate limit 위험 감소)
+    const nestedResults = await Promise.all(
+      files.map((file, index) => {
+        console.log(`📄 Starting file ${index + 1}/${files.length}: ${file.name}`)
+        return processFile(file, index)
+      })
+    )
 
     // 중첩 배열을 평탄화 (한 파일에서 여러 날짜 그룹이 나올 수 있음)
     const results = nestedResults.flat()
