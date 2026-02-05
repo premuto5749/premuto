@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/contexts/AuthContext'
 import { usePet } from '@/contexts/PetContext'
 
 interface AppHeaderProps {
@@ -39,23 +40,9 @@ interface AppHeaderProps {
 export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: AppHeaderProps) {
   const pathname = usePathname()
   const [isDonateOpen, setIsDonateOpen] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
   const { toast } = useToast()
+  const { isAdmin } = useAuth()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
-
-  // 관리자 권한 확인
-  useEffect(() => {
-    const checkAdmin = async () => {
-      try {
-        const res = await fetch('/api/auth/check-admin')
-        const data = await res.json()
-        setIsAdmin(data.isAdmin === true)
-      } catch {
-        setIsAdmin(false)
-      }
-    }
-    checkAdmin()
-  }, [])
 
   const navItems = [
     { href: '/daily-log', label: '일일 기록', icon: '📝' },
