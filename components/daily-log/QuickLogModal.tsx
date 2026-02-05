@@ -328,7 +328,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onInteractOutside={(e) => {
+          // 카메라/파일 선택 중에는 Dialog가 닫히지 않도록 방지
+          e.preventDefault()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {selectedCategory ? LOG_CATEGORY_CONFIG[selectedCategory].icon + ' ' + LOG_CATEGORY_CONFIG[selectedCategory].label + ' 기록' : '빠른 기록'}

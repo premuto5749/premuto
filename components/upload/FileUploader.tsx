@@ -105,7 +105,10 @@ export function FileUploader({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {selectedFiles.map((file, index) => {
-            const fileWithPreview = filesWithPreview.find(f => f.file === file)
+            // 파일 이름과 크기로 비교 (참조 비교 대신)
+            const fileWithPreview = filesWithPreview.find(
+              f => f.file.name === file.name && f.file.size === file.size
+            )
             const preview = fileWithPreview?.preview
             const isPdf = file.type === 'application/pdf'
 

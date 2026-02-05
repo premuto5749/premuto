@@ -351,7 +351,7 @@ async function processFile(file: File, fileIndex: number, retryCount = 0): Promi
         }
 
         return {
-          name: item.raw_name?.toUpperCase() || item.name?.toUpperCase() || '',
+          name: item.raw_name || item.name || '',
           raw_name: item.raw_name || item.name || '',
           value: processedValue,
           unit: item.unit || '',
