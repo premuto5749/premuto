@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { isAdmin } from '@/lib/auth/admin'
+import { checkCurrentUserIsAdmin } from '@/lib/auth/admin'
 
 export interface OcrSettings {
   maxSizeMB: number
@@ -33,17 +33,16 @@ const DEFAULT_SETTINGS: OcrSettingsResponse = {
 // GET: 관리자만 설정 조회 가능
 export async function GET() {
   try {
-    const supabase = await createClient()
-
     // 관리자 권한 확인
-    const adminCheck = await isAdmin(supabase)
-    if (!adminCheck) {
+    const { isAdmin } = await checkCurrentUserIsAdmin()
+    if (!isAdmin) {
       return NextResponse.json(
         { error: '관리자 권한이 필요합니다' },
         { status: 403 }
       )
     }
 
+    const supabase = await createClient()
     const { data, error } = await supabase
       .from('app_settings')
       .select('key, value')
@@ -92,17 +91,16 @@ export async function GET() {
 // PUT: 관리자만 설정 수정 가능
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
     // 관리자 권한 확인
-    const adminCheck = await isAdmin(supabase)
-    if (!adminCheck) {
+    const { isAdmin } = await checkCurrentUserIsAdmin()
+    if (!isAdmin) {
       return NextResponse.json(
         { error: '관리자 권한이 필요합니다' },
         { status: 403 }
       )
     }
 
+    const supabase = await createClient()
     const body = await request.json()
     const { quick_upload, batch_upload } = body as OcrSettingsResponse
 
