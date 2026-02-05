@@ -338,6 +338,10 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
           // 모바일에서 카메라 앱 전환 시 모달이 닫히지 않도록 방지
           e.preventDefault()
         }}
+        onFocusOutside={(e) => {
+          // 포커스 이동 시 모달 닫힘 방지
+          e.preventDefault()
+        }}
       >
         <DialogHeader>
           <DialogTitle>
