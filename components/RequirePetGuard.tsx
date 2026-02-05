@@ -37,6 +37,7 @@ export function RequirePetGuard({ children }: RequirePetGuardProps) {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
 
   // 인증 상태 확인
   useEffect(() => {
@@ -47,6 +48,13 @@ export function RequirePetGuard({ children }: RequirePetGuardProps) {
     }
     checkAuth()
   }, [])
+
+  // 초기 로드 완료 추적
+  useEffect(() => {
+    if (!isLoading && isAuthenticated !== null && !initialLoadDone) {
+      setInitialLoadDone(true)
+    }
+  }, [isLoading, isAuthenticated, initialLoadDone])
 
   // 반려동물 등록 필요 여부 확인
   useEffect(() => {
@@ -72,8 +80,8 @@ export function RequirePetGuard({ children }: RequirePetGuardProps) {
     router.push('/settings?tab=pet&onboarding=true')
   }
 
-  // 로딩 중
-  if (isLoading || isAuthenticated === null) {
+  // 초기 로딩 중에만 로딩 스피너 표시 (이후 리로드 시에는 children 유지)
+  if (!initialLoadDone && (isLoading || isAuthenticated === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
