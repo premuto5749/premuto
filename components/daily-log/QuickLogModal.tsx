@@ -109,8 +109,20 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotoPreviews([])
   }
 
+  // 사진을 기기에 저장하는 함수
+  const savePhotoToDevice = (file: File) => {
+    const url = URL.createObjectURL(file)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `mimo_${new Date().toISOString().slice(0, 10)}_${Date.now()}.jpg`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   // 사진 선택 핸들러
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>, isFromCamera = false) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
 
@@ -145,6 +157,11 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         continue
       }
       validFiles.push(file)
+
+      // 카메라로 촬영한 사진은 기기에도 저장
+      if (isFromCamera) {
+        savePhotoToDevice(file)
+      }
     }
 
     if (validFiles.length === 0) return
@@ -549,13 +566,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               {/* 사진 추가 버튼 */}
               {photos.length < MAX_PHOTOS && (
                 <div className="flex gap-2">
-                  {/* 카메라 촬영 버튼 (label 기반 - iOS Safari 호환) */}
+                  {/* 카메라 촬영 버튼 (label 기반) */}
                   <label className={`flex-1 ${isSubmitting || isUploading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
                     <input
                       type="file"
                       accept="image/*"
                       capture="environment"
-                      onChange={handlePhotoSelect}
+                      onChange={(e) => handlePhotoSelect(e, true)}
                       className="sr-only"
                       disabled={isSubmitting || isUploading}
                     />
@@ -565,13 +582,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     </div>
                   </label>
 
-                  {/* 갤러리 선택 버튼 (label 기반 - iOS Safari 호환) */}
+                  {/* 갤러리 선택 버튼 (label 기반) */}
                   <label className={`flex-1 ${isSubmitting || isUploading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>
                     <input
                       type="file"
                       accept="image/*"
                       multiple
-                      onChange={handlePhotoSelect}
+                      onChange={(e) => handlePhotoSelect(e, false)}
                       className="sr-only"
                       disabled={isSubmitting || isUploading}
                     />
