@@ -174,8 +174,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setPhotos(prev => [...prev, ...validFiles])
     setPhotoPreviews(prev => [...prev, ...newPreviews])
 
-    // input 초기화 (같은 파일 다시 선택 가능하도록)
-    e.target.value = ''
+    // input 초기화 (카메라, 갤러리 모두)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = ''
+    }
   }
 
   // 사진 제거 핸들러
@@ -323,7 +328,17 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className="sm:max-w-md"
+        onInteractOutside={(e) => {
+          // 카메라/파일 선택 중 모달이 닫히지 않도록 방지
+          e.preventDefault()
+        }}
+        onPointerDownOutside={(e) => {
+          // 모바일에서 카메라 앱 전환 시 모달이 닫히지 않도록 방지
+          e.preventDefault()
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {selectedCategory ? LOG_CATEGORY_CONFIG[selectedCategory].icon + ' ' + LOG_CATEGORY_CONFIG[selectedCategory].label + ' 기록' : '빠른 기록'}
