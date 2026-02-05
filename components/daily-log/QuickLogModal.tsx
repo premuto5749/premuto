@@ -160,10 +160,10 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
       }
       validFiles.push(file)
 
-      // 카메라로 촬영한 사진은 기기에도 저장
-      if (isFromCamera) {
-        savePhotoToDevice(file)
-      }
+      // 카메라로 촬영한 사진은 기기에도 저장 (테스트용 비활성화)
+      // if (isFromCamera) {
+      //   savePhotoToDevice(file)
+      // }
     }
 
     if (validFiles.length === 0) return
