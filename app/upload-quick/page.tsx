@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import imageCompression from 'browser-image-compression'
@@ -21,16 +21,12 @@ const FileUploader = dynamic(
   { ssr: false, loading: () => <div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" /></div> }
 )
 
-// 최적화된 이미지 압축 옵션 (인식률 + 속도 균형)
-const compressionOptions = {
-  maxSizeMB: 1,              // 1MB (인식률 유지 + 속도 향상)
-  maxWidthOrHeight: 2400,    // 적정 해상도
-  initialQuality: 0.85,      // 적정 품질
-  useWebWorker: true,
+// 기본 설정값 (DB 조회 실패 시 폴백)
+const DEFAULT_SETTINGS = {
+  maxSizeMB: 1,
+  initialQuality: 0.85,
+  maxFiles: 5
 }
-
-// 파일 개수 제한
-const MAX_FILES = 5
 
 export default function UploadQuickPage() {
   const router = useRouter()
@@ -38,12 +34,33 @@ export default function UploadQuickPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rateLimitError, setRateLimitError] = useState(false)
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+
+  // 설정 로드
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await fetch('/api/admin/ocr-settings')
+        const data = await res.json()
+        if (data.success && data.data.quick_upload) {
+          setSettings({
+            maxSizeMB: data.data.quick_upload.maxSizeMB,
+            initialQuality: data.data.quick_upload.initialQuality,
+            maxFiles: data.data.quick_upload.maxFiles
+          })
+        }
+      } catch (err) {
+        console.warn('Failed to load OCR settings, using defaults:', err)
+      }
+    }
+    loadSettings()
+  }, [])
 
   const handleFilesSelect = (files: File[]) => {
     // 파일 개수 제한
-    if (files.length > MAX_FILES) {
-      setError(`최대 ${MAX_FILES}개 파일만 업로드 가능합니다. 여러 날짜의 검사는 '일괄 업로드' 메뉴를 이용해주세요.`)
-      setSelectedFiles(files.slice(0, MAX_FILES))
+    if (files.length > settings.maxFiles) {
+      setError(`최대 ${settings.maxFiles}개 파일만 업로드 가능합니다. 여러 날짜의 검사는 '일괄 업로드' 메뉴를 이용해주세요.`)
+      setSelectedFiles(files.slice(0, settings.maxFiles))
       return
     }
     setSelectedFiles(files)
@@ -72,6 +89,12 @@ export default function UploadQuickPage() {
         // 이미지 파일만 압축 (PDF는 제외)
         if (file.type.startsWith('image/')) {
           try {
+            const compressionOptions = {
+              maxSizeMB: settings.maxSizeMB,
+              maxWidthOrHeight: 2400,
+              initialQuality: settings.initialQuality,
+              useWebWorker: true,
+            }
             processedFile = await imageCompression(file, compressionOptions)
             console.log(`Compressed ${file.name}: ${(file.size / 1024).toFixed(1)}KB -> ${(processedFile.size / 1024).toFixed(1)}KB`)
           } catch (compressError) {
@@ -153,7 +176,7 @@ export default function UploadQuickPage() {
         <CardHeader>
           <CardTitle>파일 선택</CardTitle>
           <CardDescription>
-            같은 날짜의 검사지를 선택하세요 (최대 {MAX_FILES}개, 각 10MB 이하)
+            같은 날짜의 검사지를 선택하세요 (최대 {settings.maxFiles}개, 각 10MB 이하)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -162,7 +185,7 @@ export default function UploadQuickPage() {
             onFileRemove={handleFileRemove}
             selectedFiles={selectedFiles}
             isProcessing={isProcessing}
-            maxFiles={MAX_FILES}
+            maxFiles={settings.maxFiles}
           />
         </CardContent>
       </Card>

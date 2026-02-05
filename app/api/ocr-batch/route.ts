@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { OcrResult } from '@/types'
 import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
 import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
+import { createClient } from '@/lib/supabase/server'
 
 // 최대 실행 시간 설정 (120초 - OCR은 시간이 오래 걸림)
 export const maxDuration = 120
@@ -12,6 +13,30 @@ function getAnthropicClient() {
   return new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
   })
+}
+
+// OCR 설정 조회 함수 (DB에서 max_tokens 가져오기)
+async function getOcrMaxTokens(): Promise<number> {
+  const DEFAULT_MAX_TOKENS = 8000
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'ocr_quick_upload')
+      .single()
+
+    if (error || !data) {
+      console.log('OCR settings not found, using default max_tokens:', DEFAULT_MAX_TOKENS)
+      return DEFAULT_MAX_TOKENS
+    }
+
+    const maxTokens = (data.value as { maxTokens?: number })?.maxTokens
+    return maxTokens || DEFAULT_MAX_TOKENS
+  } catch (err) {
+    console.warn('Failed to fetch OCR settings, using default:', err)
+    return DEFAULT_MAX_TOKENS
+  }
 }
 
 // JSON 문자열을 정리하고 복구하는 함수
@@ -205,7 +230,7 @@ const OCR_PROMPT = `수의학 혈액검사 결과지에서 데이터를 추출�
 6. 이미지의 모든 검사 항목을 빠짐없이 추출하세요. 테이블 전체를 확인하세요.`
 
 // 단일 파일 OCR 처리 함수 (Claude API 사용, 다중 날짜 지원)
-async function processFile(file: File, fileIndex: number, retryCount = 0): Promise<FileResult[]> {
+async function processFile(file: File, fileIndex: number, maxTokens: number, retryCount = 0): Promise<FileResult[]> {
   const startTime = Date.now()
   const MAX_RETRIES = 2
 
@@ -253,10 +278,10 @@ async function processFile(file: File, fileIndex: number, retryCount = 0): Promi
     // 파일별 고유 프롬프트 생성 (파일명 포함)
     const fileSpecificPrompt = `[파일: ${file.name}]\n\n${OCR_PROMPT}\n\n⚠️ 중요: 이 이미지/문서에서만 데이터를 추출하세요. 다른 파일의 내용과 혼동하지 마세요.`
 
-    // Claude API 호출
+    // Claude API 호출 (max_tokens는 DB 설정값 사용)
     const message = await getAnthropicClient().messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 8000,
+      max_tokens: maxTokens,
       messages: [
         {
           role: 'user',
@@ -287,7 +312,7 @@ async function processFile(file: File, fileIndex: number, retryCount = 0): Promi
       if (retryCount < MAX_RETRIES) {
         console.log(`⚠️ JSON parse failed for ${file.name}, retrying... (${retryCount + 1}/${MAX_RETRIES})`)
         await new Promise(resolve => setTimeout(resolve, 1000)) // 1초 대기
-        return processFile(file, fileIndex, retryCount + 1)
+        return processFile(file, fileIndex, maxTokens, retryCount + 1)
       }
 
       console.error(`❌ JSON parse error for ${file.name} after ${MAX_RETRIES} retries`)
@@ -445,7 +470,7 @@ async function processFile(file: File, fileIndex: number, retryCount = 0): Promi
     if (retryCount < MAX_RETRIES) {
       console.log(`⚠️ Retrying ${file.name}... (${retryCount + 1}/${MAX_RETRIES})`)
       await new Promise(resolve => setTimeout(resolve, 2000)) // 2초 대기
-      return processFile(file, fileIndex, retryCount + 1)
+      return processFile(file, fileIndex, maxTokens, retryCount + 1)
     }
 
     // 최종 실패 시 빈 결과 반환
@@ -508,13 +533,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`🚀 Processing ${files.length} files with Claude API (parallel)...`)
+    // DB에서 max_tokens 설정 조회
+    const maxTokens = await getOcrMaxTokens()
+    console.log(`🚀 Processing ${files.length} files with Claude API (parallel, max_tokens=${maxTokens})...`)
 
-    // 병렬 처리 (max_tokens 줄여서 rate limit 위험 감소)
+    // 병렬 처리
     const nestedResults = await Promise.all(
       files.map((file, index) => {
         console.log(`📄 Starting file ${index + 1}/${files.length}: ${file.name}`)
-        return processFile(file, index)
+        return processFile(file, index, maxTokens)
       })
     )
 
