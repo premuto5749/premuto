@@ -28,6 +28,9 @@ export function FileUploader({
   const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    console.log('[FileUploader] onDrop called:', acceptedFiles.length, 'files')
+    acceptedFiles.forEach(f => console.log('[FileUploader] accepted:', f.name, f.type, f.size))
+
     if (acceptedFiles.length === 0) return
 
     // 기존 파일과 합쳐서 최대 10개 제한
@@ -68,6 +71,20 @@ export function FileUploader({
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected: (rejectedFiles) => {
+      console.log('[FileUploader] onDropRejected:', rejectedFiles.length, 'files')
+      rejectedFiles.forEach(r => {
+        console.log('[FileUploader] rejected:', r.file.name, r.file.type, r.errors.map(e => e.code).join(', '))
+      })
+      if (rejectedFiles.length > 0) {
+        const errors = rejectedFiles[0].errors
+        if (errors.some(e => e.code === 'file-invalid-type')) {
+          alert('지원하지 않는 파일 형식입니다. JPG, PNG, PDF만 업로드 가능합니다.')
+        } else if (errors.some(e => e.code === 'file-too-large')) {
+          alert('파일 크기가 너무 큽니다. 최대 10MB까지 업로드 가능합니다.')
+        }
+      }
+    },
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif'],
       'application/pdf': ['.pdf']
