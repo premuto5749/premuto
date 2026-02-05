@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -16,6 +18,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
+  const { settings: siteSettings } = useSiteSettings()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,11 +70,23 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
+          {siteSettings.logoUrl && (
+            <div className="flex justify-center mb-4">
+              <Image
+                src={siteSettings.logoUrl}
+                alt="Logo"
+                width={80}
+                height={80}
+                className="rounded-lg"
+                unoptimized
+              />
+            </div>
+          )}
           <CardTitle className="text-2xl font-bold text-center">
             {isSignUp ? '회원가입' : '로그인'}
           </CardTitle>
           <CardDescription className="text-center">
-            Mimo Health Log
+            {siteSettings.siteName}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -145,7 +160,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center">
             <p className="text-xs text-muted-foreground">
-              미모 맞춤형 혈액검사 아카이브
+              {siteSettings.siteDescription}
             </p>
           </div>
         </CardContent>

@@ -1,6 +1,7 @@
+import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-export interface SiteSettings {
+interface SiteSettings {
   siteName: string
   siteDescription: string
   faviconUrl: string | null
@@ -22,7 +23,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   language: 'ko'
 }
 
-export async function getSiteSettings(): Promise<SiteSettings> {
+// GET: 공개 설정 조회 (로그인 불필요)
+export async function GET() {
   try {
     const supabase = await createClient()
     const { data, error } = await supabase
@@ -32,13 +34,22 @@ export async function getSiteSettings(): Promise<SiteSettings> {
       .single()
 
     if (error || !data) {
-      return DEFAULT_SETTINGS
+      return NextResponse.json({
+        success: true,
+        data: DEFAULT_SETTINGS
+      })
     }
 
-    return { ...DEFAULT_SETTINGS, ...data.value }
+    const settings: SiteSettings = { ...DEFAULT_SETTINGS, ...data.value }
+
+    return NextResponse.json({
+      success: true,
+      data: settings
+    })
   } catch {
-    return DEFAULT_SETTINGS
+    return NextResponse.json({
+      success: true,
+      data: DEFAULT_SETTINGS
+    })
   }
 }
-
-export { DEFAULT_SETTINGS }

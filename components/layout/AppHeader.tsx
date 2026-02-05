@@ -30,6 +30,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePet } from '@/contexts/PetContext'
+import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
 interface AppHeaderProps {
   title: string
@@ -43,6 +44,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
   const { toast } = useToast()
   const { isAdmin } = useAuth()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
+  const { settings: siteSettings } = useSiteSettings()
 
   const navItems = [
     { href: '/daily-log', label: '일일 기록', icon: '📝' },
@@ -79,7 +81,19 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
               </SheetTrigger>
               <SheetContent side="left" className="overflow-y-auto">
                 <SheetHeader>
-                  <SheetTitle>Mimo Health Log</SheetTitle>
+                  <SheetTitle className="flex items-center gap-2">
+                    {siteSettings.logoUrl && (
+                      <Image
+                        src={siteSettings.logoUrl}
+                        alt="Logo"
+                        width={28}
+                        height={28}
+                        className="rounded"
+                        unoptimized
+                      />
+                    )}
+                    {siteSettings.siteName}
+                  </SheetTitle>
                 </SheetHeader>
                 <nav className="mt-6 space-y-2">
                   {navItems.map((item) => (

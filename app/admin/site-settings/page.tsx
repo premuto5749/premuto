@@ -1,24 +1,33 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, ShieldCheck, Save, RotateCcw, Globe, Image, Tag, Palette, ArrowLeft } from 'lucide-react'
+import { Loader2, ShieldCheck, Save, RotateCcw, Globe, ImageIcon, Tag, Palette, ArrowLeft, Upload, X, FileImage } from 'lucide-react'
 import type { SiteSettings } from '@/app/api/admin/site-settings/route'
 
 const DEFAULT_SETTINGS: SiteSettings = {
   siteName: 'Mimo Health Log',
   siteDescription: '미모 건강 기록',
   faviconUrl: null,
+  logoUrl: null,
   ogImageUrl: null,
   keywords: ['반려동물', '건강기록', '혈액검사', '일일기록'],
   themeColor: '#ffffff',
   language: 'ko'
+}
+
+type AssetType = 'favicon' | 'logo' | 'ogImage'
+
+interface UploadState {
+  uploading: boolean
+  error: string | null
 }
 
 export default function SiteSettingsPage() {
@@ -30,11 +39,19 @@ export default function SiteSettingsPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS)
   const [keywordsText, setKeywordsText] = useState('')
+  const [uploadStates, setUploadStates] = useState<Record<AssetType, UploadState>>({
+    favicon: { uploading: false, error: null },
+    logo: { uploading: false, error: null },
+    ogImage: { uploading: false, error: null }
+  })
+
+  const faviconInputRef = useRef<HTMLInputElement>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const ogImageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        // 관리자 권한 확인
         const adminRes = await fetch('/api/admin/stats')
         if (adminRes.status === 403) {
           setError('관리자 권한이 필요합니다')
@@ -45,7 +62,6 @@ export default function SiteSettingsPage() {
 
         setAuthorized(true)
 
-        // 설정 조회
         const res = await fetch('/api/admin/site-settings')
         const data = await res.json()
 
@@ -64,13 +80,85 @@ export default function SiteSettingsPage() {
     fetchSettings()
   }, [])
 
+  const handleUpload = async (assetType: AssetType, file: File) => {
+    setUploadStates(prev => ({
+      ...prev,
+      [assetType]: { uploading: true, error: null }
+    }))
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('assetType', assetType)
+
+      const res = await fetch('/api/admin/site-assets', {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || '업로드 실패')
+      }
+
+      // 설정에 URL 업데이트
+      const urlKey = assetType === 'favicon' ? 'faviconUrl'
+        : assetType === 'logo' ? 'logoUrl'
+        : 'ogImageUrl'
+
+      setSettings(prev => ({ ...prev, [urlKey]: data.data.url }))
+      setSuccess(`${assetType === 'favicon' ? '파비콘' : assetType === 'logo' ? '로고' : 'OG 이미지'}가 업로드되었습니다`)
+    } catch (err) {
+      setUploadStates(prev => ({
+        ...prev,
+        [assetType]: { uploading: false, error: err instanceof Error ? err.message : '업로드 실패' }
+      }))
+    } finally {
+      setUploadStates(prev => ({
+        ...prev,
+        [assetType]: { ...prev[assetType], uploading: false }
+      }))
+    }
+  }
+
+  const handleDeleteAsset = async (assetType: AssetType) => {
+    try {
+      const res = await fetch('/api/admin/site-assets', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetType })
+      })
+
+      if (!res.ok) {
+        throw new Error('삭제 실패')
+      }
+
+      const urlKey = assetType === 'favicon' ? 'faviconUrl'
+        : assetType === 'logo' ? 'logoUrl'
+        : 'ogImageUrl'
+
+      setSettings(prev => ({ ...prev, [urlKey]: null }))
+      setSuccess('이미지가 삭제되었습니다')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '삭제 실패')
+    }
+  }
+
+  const handleFileChange = (assetType: AssetType, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleUpload(assetType, file)
+    }
+    e.target.value = ''
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setError(null)
     setSuccess(null)
 
     try {
-      // 키워드 파싱
       const keywords = keywordsText
         .split(',')
         .map(k => k.trim())
@@ -146,12 +234,103 @@ export default function SiteSettingsPage() {
     )
   }
 
+  const ImageUploadCard = ({
+    assetType,
+    title,
+    description,
+    imageUrl,
+    inputRef,
+    accept = 'image/*',
+    previewSize = 'md'
+  }: {
+    assetType: AssetType
+    title: string
+    description: string
+    imageUrl: string | null
+    inputRef: React.RefObject<HTMLInputElement>
+    accept?: string
+    previewSize?: 'sm' | 'md' | 'lg'
+  }) => {
+    const state = uploadStates[assetType]
+    const sizeClass = previewSize === 'sm' ? 'w-16 h-16' : previewSize === 'lg' ? 'w-full max-w-md h-40' : 'w-24 h-24'
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-start justify-between">
+          <div>
+            <Label>{title}</Label>
+            <p className="text-xs text-muted-foreground">{description}</p>
+          </div>
+        </div>
+
+        {imageUrl ? (
+          <div className="flex items-center gap-4">
+            <div className={`relative ${sizeClass} rounded border overflow-hidden bg-muted`}>
+              <Image
+                src={imageUrl}
+                alt={title}
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => inputRef.current?.click()}
+                disabled={state.uploading}
+              >
+                {state.uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                <span className="ml-2">변경</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleDeleteAsset(assetType)}
+                className="text-destructive hover:text-destructive"
+              >
+                <X className="w-4 h-4" />
+                <span className="ml-2">삭제</span>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div
+            className={`${sizeClass} rounded border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors`}
+            onClick={() => inputRef.current?.click()}
+          >
+            {state.uploading ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : (
+              <>
+                <FileImage className="w-6 h-6 text-muted-foreground mb-1" />
+                <span className="text-xs text-muted-foreground">클릭하여 업로드</span>
+              </>
+            )}
+          </div>
+        )}
+
+        <input
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          onChange={(e) => handleFileChange(assetType, e)}
+          className="hidden"
+        />
+
+        {state.error && (
+          <p className="text-xs text-destructive">{state.error}</p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-muted">
       <AppHeader title="사이트 설정" />
 
       <div className="container max-w-2xl mx-auto py-6 px-4">
-        {/* 뒤로가기 */}
         <Button
           variant="ghost"
           size="sm"
@@ -162,18 +341,16 @@ export default function SiteSettingsPage() {
           관리자 대시보드
         </Button>
 
-        {/* 관리자 배지 */}
         <div className="mb-6 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-3">
           <ShieldCheck className="w-6 h-6 text-primary" />
           <div>
             <p className="font-medium text-primary">사이트 설정 관리</p>
             <p className="text-sm text-muted-foreground">
-              파비콘, 메타태그, 검색 키워드 등을 설정합니다.
+              파비콘, 로고, 메타태그, 검색 키워드 등을 설정합니다.
             </p>
           </div>
         </div>
 
-        {/* 에러/성공 메시지 */}
         {error && (
           <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive">
             {error}
@@ -236,38 +413,59 @@ export default function SiteSettingsPage() {
         <Card className="mb-4">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Image className="w-5 h-5" />
+              <ImageIcon className="w-5 h-5" />
               이미지 설정
             </CardTitle>
             <CardDescription>
-              파비콘과 소셜 미디어 공유 이미지를 설정합니다.
+              파비콘, 로고, 소셜 미디어 공유 이미지를 업로드합니다.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="faviconUrl">파비콘 URL</Label>
-              <Input
-                id="faviconUrl"
-                value={settings.faviconUrl || ''}
-                onChange={(e) => setSettings({ ...settings, faviconUrl: e.target.value || null })}
-                placeholder="/favicon.ico 또는 외부 URL"
-              />
-              <p className="text-xs text-muted-foreground">
-                비워두면 기본 파비콘(/favicon.ico)을 사용합니다.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ogImageUrl">OG 이미지 URL</Label>
-              <Input
-                id="ogImageUrl"
-                value={settings.ogImageUrl || ''}
-                onChange={(e) => setSettings({ ...settings, ogImageUrl: e.target.value || null })}
-                placeholder="https://example.com/og-image.png"
-              />
-              <p className="text-xs text-muted-foreground">
-                소셜 미디어에서 공유할 때 표시되는 이미지입니다. 권장 크기: 1200x630px
-              </p>
-            </div>
+          <CardContent className="space-y-6">
+            <ImageUploadCard
+              assetType="favicon"
+              title="파비콘"
+              description="브라우저 탭에 표시되는 아이콘 (권장: 32x32px, ICO/PNG)"
+              imageUrl={settings.faviconUrl}
+              inputRef={faviconInputRef}
+              accept="image/png,image/x-icon,image/jpeg"
+              previewSize="sm"
+            />
+
+            <hr />
+
+            <ImageUploadCard
+              assetType="logo"
+              title="로고"
+              description="헤더, 로그인 페이지에 표시 (권장: 120x120px, PNG)"
+              imageUrl={settings.logoUrl}
+              inputRef={logoInputRef}
+              accept="image/png,image/svg+xml,image/jpeg"
+              previewSize="md"
+            />
+
+            <hr />
+
+            <ImageUploadCard
+              assetType="ogImage"
+              title="OG 이미지"
+              description="소셜 미디어 공유 시 표시 (권장: 1200x630px)"
+              imageUrl={settings.ogImageUrl}
+              inputRef={ogImageInputRef}
+              accept="image/png,image/jpeg,image/webp"
+              previewSize="lg"
+            />
+          </CardContent>
+        </Card>
+
+        {/* 로고 사용처 안내 */}
+        <Card className="mb-4 bg-blue-50/50 border-blue-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-blue-800">로고 사용처</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-blue-700 space-y-1">
+            <p>• AppHeader (상단 메뉴바)</p>
+            <p>• 로그인 페이지</p>
+            <p>• PWA 홈 화면 아이콘 (추후 지원)</p>
           </CardContent>
         </Card>
 
@@ -362,9 +560,22 @@ export default function SiteSettingsPage() {
             <CardTitle className="text-sm">미리보기</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <div className="p-3 bg-muted rounded border">
-              <p className="font-medium">{settings.siteName}</p>
-              <p className="text-muted-foreground text-xs">{settings.siteDescription}</p>
+            <div className="p-3 bg-muted rounded border flex items-center gap-3">
+              {settings.logoUrl && (
+                <div className="relative w-8 h-8 rounded overflow-hidden">
+                  <Image
+                    src={settings.logoUrl}
+                    alt="Logo"
+                    fill
+                    className="object-contain"
+                    unoptimized
+                  />
+                </div>
+              )}
+              <div>
+                <p className="font-medium">{settings.siteName}</p>
+                <p className="text-muted-foreground text-xs">{settings.siteDescription}</p>
+              </div>
             </div>
             <div className="flex flex-wrap gap-1">
               {settings.keywords.map((k, i) => (
