@@ -84,24 +84,17 @@ export function FileUploader({
     alert(`파일 업로드 실패:\n${reasons.join('\n')}`)
   }, [])
 
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     onDropRejected,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.heic', '.heif'],
-      'image/png': ['.png'],
-      'image/jpeg': ['.jpg', '.jpeg'],
-      'image/heic': ['.heic'],
-      'image/heif': ['.heif'],
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.heif'],
       'application/pdf': ['.pdf']
     },
     maxFiles: 10,
     maxSize: 10 * 1024 * 1024, // 10MB
     multiple: true,
     disabled: isProcessing,
-    noClick: false,
-    noKeyboard: false,
-    noDrag: false,
   })
 
   const handleRemove = (index: number) => {
@@ -201,6 +194,16 @@ export function FileUploader({
     )
   }
 
+  // 직접 input 핸들러 (모바일 폴백)
+  const handleDirectInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      onDrop(Array.from(files))
+    }
+    // input 초기화 (같은 파일 다시 선택 가능하도록)
+    e.target.value = ''
+  }
+
   return (
     <div className="space-y-4">
       <div
@@ -234,17 +237,23 @@ export function FileUploader({
         )}
       </div>
 
-      {/* 모바일 대체 버튼 */}
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        onClick={open}
-        disabled={isProcessing}
-      >
-        <Upload className="w-4 h-4 mr-2" />
-        파일 선택하기
-      </Button>
+      {/* 모바일용 직접 파일 선택 (dropzone 우회) */}
+      <div className="relative">
+        <input
+          type="file"
+          accept=".png,.jpg,.jpeg,.gif,.webp,.heic,.heif,.pdf,image/*,application/pdf"
+          multiple
+          onChange={handleDirectInput}
+          disabled={isProcessing}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+        />
+        <div className={`w-full py-3 px-4 border-2 border-primary rounded-lg text-center ${isProcessing ? 'opacity-50' : 'hover:bg-primary/5'}`}>
+          <span className="flex items-center justify-center gap-2 font-medium text-primary">
+            <Upload className="w-4 h-4" />
+            📱 파일 선택하기 (모바일)
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
