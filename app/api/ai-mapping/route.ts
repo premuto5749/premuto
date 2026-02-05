@@ -10,14 +10,14 @@ import {
   correctTruncatedUnit,
 } from '@/lib/ocr/item-matcher-v3'
 
-// 최대 실행 시간 설정 (60초)
-export const maxDuration = 60
+// 최대 실행 시간 설정 (120초)
+export const maxDuration = 120
 
 // 배치 처리 설정 (rate limit: 30,000 tokens/min)
-const AI_BATCH_SIZE = 10 // 한 번에 AI에게 보내는 항목 수
-const BATCH_DELAY_MS = 3000 // 배치 간 대기 시간 (3초)
-const MAX_RETRIES = 3 // 최대 재시도 횟수
-const RETRY_DELAY_MS = 5000 // 재시도 시 기본 대기 시간 (5초)
+const AI_BATCH_SIZE = 20 // 한 번에 AI에게 보내는 항목 수 (증가)
+const BATCH_DELAY_MS = 1000 // 배치 간 대기 시간 (1초로 단축)
+const MAX_RETRIES = 2 // 최대 재시도 횟수
+const RETRY_DELAY_MS = 3000 // 재시도 시 기본 대기 시간 (3초)
 
 // Anthropic 클라이언트는 런타임에 생성 (빌드 타임에 환경변수 없음)
 function getAnthropicClient() {
