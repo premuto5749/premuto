@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle } from 'lucide-react'
+import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle, Sliders } from 'lucide-react'
 import Link from 'next/link'
 
 interface AdminStats {
@@ -189,6 +189,26 @@ export default function AdminPage() {
                 <div className="flex gap-2">
                   <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">마스터 정리</span>
                   <span className="text-xs bg-muted px-2 py-1 rounded">AI 자동 매핑</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/admin/ocr-settings">
+            <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Sliders className="w-5 h-5" />
+                  OCR 설정
+                </CardTitle>
+                <CardDescription>
+                  이미지 압축, AI 토큰 등 OCR 처리 설정을 조정합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">실시간 반영</span>
+                  <span className="text-xs bg-muted px-2 py-1 rounded">간편/일괄 개별 설정</span>
                 </div>
               </CardContent>
             </Card>

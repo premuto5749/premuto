@@ -17,22 +17,24 @@ interface FileUploaderProps {
   onFileRemove: (index: number) => void
   selectedFiles: File[]
   isProcessing?: boolean
+  maxFiles?: number
 }
 
 export function FileUploader({
   onFilesSelect,
   onFileRemove,
   selectedFiles,
-  isProcessing = false
+  isProcessing = false,
+  maxFiles = 10
 }: FileUploaderProps) {
   const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return
 
-    // 기존 파일과 합쳐서 최대 10개 제한
-    if (selectedFiles.length + acceptedFiles.length > 10) {
-      alert('최대 10개 파일까지만 업로드할 수 있습니다.')
+    // 기존 파일과 합쳐서 최대 개수 제한
+    if (selectedFiles.length + acceptedFiles.length > maxFiles) {
+      alert(`최대 ${maxFiles}개 파일까지만 업로드할 수 있습니다.`)
       return
     }
 
@@ -64,7 +66,7 @@ export function FileUploader({
     )
 
     setFilesWithPreview(prev => [...prev, ...newFilesWithPreview])
-  }, [selectedFiles, onFilesSelect])
+  }, [selectedFiles, onFilesSelect, maxFiles])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -72,7 +74,7 @@ export function FileUploader({
       'image/*': ['.png', '.jpg', '.jpeg'],
       'application/pdf': ['.pdf']
     },
-    maxFiles: 10,
+    maxFiles: maxFiles,
     maxSize: 10 * 1024 * 1024, // 10MB
     multiple: true,
     disabled: isProcessing
@@ -88,7 +90,7 @@ export function FileUploader({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium">
-            업로드된 파일 ({selectedFiles.length}/10)
+            업로드된 파일 ({selectedFiles.length}/{maxFiles})
           </p>
           {!isProcessing && (
             <Button
@@ -158,7 +160,7 @@ export function FileUploader({
           })}
         </div>
 
-        {!isProcessing && selectedFiles.length < 10 && (
+        {!isProcessing && selectedFiles.length < maxFiles && (
           <div
             {...getRootProps()}
             className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors duration-200 border-muted-foreground/25 hover:border-primary hover:bg-primary/5"
@@ -167,7 +169,7 @@ export function FileUploader({
             <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm font-medium">파일 추가하기</p>
             <p className="text-xs text-muted-foreground mt-1">
-              최대 {10 - selectedFiles.length}개 더 추가 가능
+              최대 {maxFiles - selectedFiles.length}개 더 추가 가능
             </p>
           </div>
         )}
@@ -198,7 +200,7 @@ export function FileUploader({
             여러 파일을 한 번에 선택하거나 드래그앤드롭할 수 있습니다
           </p>
           <p className="text-xs text-muted-foreground">
-            지원 형식: JPG, PNG, PDF (각 파일 최대 10MB, 최대 10개)
+            지원 형식: JPG, PNG, PDF (각 파일 최대 10MB, 최대 {maxFiles}개)
           </p>
           <p className="text-xs text-blue-600 mt-2">
             💡 예: CBC 결과지 + Chemistry 결과지 + 특수 검사 결과지

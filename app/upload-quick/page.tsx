@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, ArrowRight, AlertCircle } from 'lucide-react'
+import { Loader2, ArrowRight, AlertCircle, Zap } from 'lucide-react'
 
 const FileUploader = dynamic(
   () => import('@/components/upload/FileUploader').then(mod => ({ default: mod.FileUploader })),
@@ -29,9 +29,9 @@ const COMPRESSION_SETTINGS = {
   useWebWorker: true,
 }
 
-const MAX_FILES = 10
+const MAX_FILES = 5
 
-export default function UploadPage() {
+export default function UploadQuickPage() {
   const router = useRouter()
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
@@ -39,6 +39,12 @@ export default function UploadPage() {
   const [rateLimitError, setRateLimitError] = useState(false)
 
   const handleFilesSelect = (files: File[]) => {
+    // 파일 개수 제한
+    if (files.length > MAX_FILES) {
+      setError(`최대 ${MAX_FILES}개 파일만 업로드 가능합니다. 여러 날짜의 검사는 '일괄 업로드' 메뉴를 이용해주세요.`)
+      setSelectedFiles(files.slice(0, MAX_FILES))
+      return
+    }
     setSelectedFiles(files)
     setError(null)
   }
@@ -122,15 +128,31 @@ export default function UploadPage() {
 
   return (
     <div className="min-h-screen bg-muted">
-      <AppHeader title="검사지 업로드" />
+      <AppHeader title="간편 업로드" />
 
       <div className="container max-w-4xl mx-auto py-10 px-4">
 
+      {/* 안내 배너 */}
+      <Card className="mb-6 border-blue-200 bg-blue-50">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <Zap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-blue-900">단일 검사일 전용</p>
+              <p className="text-sm text-blue-700 mt-1">
+                같은 날짜의 검사지만 업로드하세요 (예: CBC + Chemistry).
+                여러 날짜를 한번에 올리려면 <a href="/upload" className="underline font-medium">일괄 업로드</a>를 이용하세요.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>1단계: 파일 선택</CardTitle>
+          <CardTitle>파일 선택</CardTitle>
           <CardDescription>
-            여러 검사지를 한 번에 업로드할 수 있습니다 (최대 {MAX_FILES}개, 각 10MB 이하)
+            같은 날짜의 검사지를 선택하세요 (최대 {MAX_FILES}개, 각 10MB 이하)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -160,9 +182,9 @@ export default function UploadPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>2단계: AI 일괄 분석</CardTitle>
+          <CardTitle>AI 분석</CardTitle>
           <CardDescription>
-            Claude AI가 모든 검사지를 동시에 분석하여 항목별 결과를 추출합니다
+            Claude AI가 검사지를 분석하여 항목별 결과를 추출합니다
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -192,7 +214,7 @@ export default function UploadPage() {
           {isProcessing && (
             <div className="mt-4 p-4 bg-muted rounded-lg">
               <p className="text-sm text-center text-muted-foreground">
-                이미지 압축 및 {selectedFiles.length}개의 검사지를 분석하고 있습니다. 파일 수에 따라 20-60초 정도 소요됩니다...
+                고품질 이미지로 분석 중입니다. 10-30초 정도 소요됩니다...
               </p>
             </div>
           )}
@@ -200,12 +222,11 @@ export default function UploadPage() {
       </Card>
 
       <div className="mt-8 p-4 bg-muted rounded-lg">
-        <h3 className="font-medium mb-2">💡 팁</h3>
+        <h3 className="font-medium mb-2">이 모드의 장점</h3>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-          <li>같은 날짜의 검사 결과지를 모두 한 번에 업로드하세요 (예: CBC + Chemistry + 특수 검사)</li>
-          <li>검사지 전체가 선명하게 촬영된 이미지를 사용하세요</li>
-          <li>글씨가 흐리거나 잘린 경우 인식 정확도가 낮을 수 있습니다</li>
-          <li>분석 후 AI가 자동으로 항목을 매칭하며, 검수 페이지에서 확인 및 수정할 수 있습니다</li>
+          <li>고품질 이미지 분석으로 인식률 향상</li>
+          <li>파일 수 제한으로 타임아웃 방지</li>
+          <li>같은 날짜 검사지 집중 처리</li>
         </ul>
       </div>
       </div>

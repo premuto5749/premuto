@@ -27,6 +27,17 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`💾 Batch save started for ${results.length} items (batch: ${batch_id})`)
+    console.log(`📋 Request data: test_date=${test_date}, hospital=${hospital_name}, pet_id=${pet_id}`)
+
+    // 결과 데이터 검증
+    const invalidResults = results.filter(r => !r.standard_item_id)
+    if (invalidResults.length > 0) {
+      console.error(`❌ Invalid results without standard_item_id:`, invalidResults)
+      return NextResponse.json(
+        { error: `${invalidResults.length}개의 항목에 standard_item_id가 없습니다` },
+        { status: 400 }
+      )
+    }
 
     const supabase = await createClient()
 

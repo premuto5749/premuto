@@ -379,76 +379,27 @@ function PreviewContent() {
     try {
       // OCR에서 이미 매핑이 완료되었으므로 바로 저장
       const savePromises = dateGroups.map(async (group) => {
-        // 가비지 항목 제외, 매핑된 것과 매핑되지 않은 것 분리
-        const mappedItems: EditableItem[] = []
-        const unmappedItems: EditableItem[] = []
+        // 매핑된 항목만 저장 (가비지, 미매핑 제외)
+        const mappedItems = group.items.filter(item => !item.isGarbage && item.mapping)
 
-        group.items.forEach(item => {
-          // 가비지는 건너뜀
-          if (item.isGarbage) return
+        if (mappedItems.length === 0) {
+          console.log(`No mapped items for group ${group.date}, skipping...`)
+          return null
+        }
 
-          if (item.mapping) {
-            mappedItems.push(item)
-          } else {
-            unmappedItems.push(item)
-          }
-        })
-
-        // 미매칭 항목을 Unmapped 카테고리로 standard_items에 추가
-        const newStandardItemPromises = unmappedItems.map(async (item) => {
-          const createResponse = await fetch('/api/standard-items', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: item.name,
-              display_name_ko: item.name,
-              category: 'Unmapped',
-              default_unit: item.unit,
-              description: 'OCR에서 자동 생성됨'
-            })
-          })
-
-          if (!createResponse.ok) {
-            console.error(`Failed to create standard item for ${item.name}`)
-            return null
-          }
-
-          const newItem = await createResponse.json()
-          return {
-            item,
-            standard_item_id: newItem.data.id
-          }
-        })
-
-        const newStandardItems = (await Promise.all(newStandardItemPromises)).filter(Boolean)
-
-        // 모든 항목 통합 (매핑된 것 + 새로 생성된 것)
-        const allResults = [
-          ...mappedItems.map(item => ({
-            standard_item_id: item.mapping!.standard_item_id,
-            value: item.value,
-            unit: item.unit,
-            ref_min: item.ref_min,
-            ref_max: item.ref_max,
-            ref_text: item.ref_text,
-            source_filename: item.source_filename,
-            ocr_raw_name: item.raw_name || item.name,
-            mapping_confidence: item.mapping!.confidence,
-            user_verified: false
-          })),
-          ...newStandardItems.map(ns => ({
-            standard_item_id: ns!.standard_item_id,
-            value: ns!.item.value,
-            unit: ns!.item.unit,
-            ref_min: ns!.item.ref_min,
-            ref_max: ns!.item.ref_max,
-            ref_text: ns!.item.ref_text,
-            source_filename: ns!.item.source_filename,
-            ocr_raw_name: ns!.item.raw_name || ns!.item.name,
-            mapping_confidence: 0,
-            user_verified: false
-          }))
-        ]
+        // 모든 결과 생성 (매핑된 것만)
+        const allResults = mappedItems.map(item => ({
+          standard_item_id: item.mapping!.standard_item_id,
+          value: item.value,
+          unit: item.unit,
+          ref_min: item.ref_min,
+          ref_max: item.ref_max,
+          ref_text: item.ref_text,
+          source_filename: item.source_filename,
+          ocr_raw_name: item.raw_name || item.name,
+          mapping_confidence: item.mapping!.confidence,
+          user_verified: false
+        }))
 
         // 그룹의 파일들만 추출
         const groupFiles = [...new Set(group.items.map(item => item.source_filename))]
@@ -482,13 +433,20 @@ function PreviewContent() {
         return saveResult
       })
 
-      await Promise.all(savePromises)
+      const results = await Promise.all(savePromises)
+      const successCount = results.filter(r => r !== null).length
+
+      // 미매핑 항목 경고
+      const unmappedCount = allItems.filter(item => !item.isGarbage && !item.mapping).length
+      if (unmappedCount > 0) {
+        console.log(`⚠️ ${unmappedCount} unmapped items were skipped`)
+      }
 
       // 세션 스토리지 정리
       sessionStorage.removeItem('ocrBatchResult')
 
       // 대시보드로 이동
-      router.push('/dashboard?saved=true')
+      router.push(`/dashboard?saved=true&count=${successCount}&skipped=${unmappedCount}`)
 
     } catch (error) {
       console.error('Save error:', error)
