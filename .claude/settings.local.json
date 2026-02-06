@@ -5,7 +5,10 @@
       "Bash(npm install:*)",
       "Bash(npx kill-port:*)",
       "Bash(lsof:*)",
-      "Bash(xargs kill:*)"
+      "Bash(xargs kill:*)",
+      "Bash(npx supabase --version)",
+      "Bash(npx supabase db push:*)",
+      "Bash(npx supabase:*)"
     ]
   }
 }
