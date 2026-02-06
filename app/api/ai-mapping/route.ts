@@ -422,7 +422,7 @@ ${canonicalListWithUnits}
 
   const message = await getAnthropicClient().messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 8192, // 신규 항목 생성 시 더 많은 토큰 필요 (30개 배치)
+    max_tokens: 16000, // 신규 항목 생성 시 더 많은 토큰 필요 (30개 배치)
     messages: [
       {
         role: 'user',

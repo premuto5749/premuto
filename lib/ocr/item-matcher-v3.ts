@@ -431,6 +431,7 @@ export async function registerNewStandardItem(
     descriptionLow?: string;
   },
   supabase?: SupabaseClientType,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _userId?: string
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const client = supabase || (await createServerClient());
