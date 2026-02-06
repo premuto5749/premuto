@@ -466,8 +466,8 @@ export default function SiteSettingsPage() {
             <CardTitle className="text-sm text-blue-800">로고 사용처 (가로형 권장)</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-blue-700 space-y-1">
-            <p>• 햄버거 메뉴 상단 (높이 32px)</p>
-            <p>• 로그인 페이지 상단 (높이 48px)</p>
+            <p>• 햄버거 메뉴 상단 (높이 40px)</p>
+            <p>• 로그인 페이지 상단 (높이 56px)</p>
             <p>• 비율이 유지되므로 가로형 로고 권장</p>
           </CardContent>
         </Card>
@@ -565,15 +565,15 @@ export default function SiteSettingsPage() {
           <CardContent className="text-sm space-y-3">
             {/* 헤더 미리보기 */}
             <div className="p-3 bg-muted rounded border">
-              <p className="text-xs text-muted-foreground mb-2">헤더 메뉴</p>
+              <p className="text-xs text-muted-foreground mb-2">헤더 메뉴 (40px)</p>
               <div className="flex items-center">
                 {settings.logoUrl ? (
                   <Image
                     src={settings.logoUrl}
                     alt="Logo"
-                    width={120}
-                    height={32}
-                    className="h-6 w-auto object-contain"
+                    width={160}
+                    height={40}
+                    className="h-8 w-auto object-contain"
                     unoptimized
                   />
                 ) : (
@@ -583,14 +583,14 @@ export default function SiteSettingsPage() {
             </div>
             {/* 로그인 페이지 미리보기 */}
             <div className="p-3 bg-muted rounded border text-center">
-              <p className="text-xs text-muted-foreground mb-2">로그인 페이지</p>
+              <p className="text-xs text-muted-foreground mb-2">로그인 페이지 (56px)</p>
               {settings.logoUrl && (
                 <Image
                   src={settings.logoUrl}
                   alt="Logo"
-                  width={160}
-                  height={48}
-                  className="h-10 w-auto object-contain mx-auto mb-2"
+                  width={200}
+                  height={56}
+                  className="h-11 w-auto object-contain mx-auto mb-2"
                   unoptimized
                 />
               )}

@@ -86,9 +86,9 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                       <Image
                         src={siteSettings.logoUrl}
                         alt={siteSettings.siteName}
-                        width={160}
-                        height={40}
-                        className="h-8 w-auto object-contain"
+                        width={200}
+                        height={48}
+                        className="h-10 w-auto object-contain"
                         unoptimized
                       />
                     ) : (
