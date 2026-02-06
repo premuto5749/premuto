@@ -80,7 +80,7 @@ export function FileUploader({
     setFilesWithPreview(prev => [...prev, ...newFilesWithPreview])
   }, [selectedFiles, onFilesSelect, maxFiles, showError])
 
-  const onDropRejected = useCallback((rejections: { file: File; errors: { code: string }[] }[]) => {
+  const onDropRejected = useCallback((rejections: readonly { file: File; errors: readonly { code: string }[] }[]) => {
     const reasons: string[] = []
     for (const rejection of rejections) {
       for (const err of rejection.errors) {
