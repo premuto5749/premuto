@@ -1,16 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run dev:*)",
+      "Edit",
+      "Bash(ls:*)",
+      "Bash(git status)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run:*)",
+      "Bash(npx:*)",
       "Bash(npm install:*)",
-      "Bash(npx kill-port:*)",
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
-      "Bash(npx supabase --version)",
-      "Bash(npx supabase db push:*)",
-      "Bash(npx supabase:*)",
       "Bash(curl:*)",
-      "Bash(start:*)"
+      "Bash(start:*)",
+      "Bash(cd:*)"
     ]
   }
 }
