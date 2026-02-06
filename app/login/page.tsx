@@ -75,9 +75,9 @@ export default function LoginPage() {
               <Image
                 src={siteSettings.logoUrl}
                 alt="Logo"
-                width={120}
-                height={120}
-                className="w-24 h-24 object-contain"
+                width={200}
+                height={200}
+                className="w-[200px] h-[200px] object-contain"
                 unoptimized
               />
             </div>
