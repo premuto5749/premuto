@@ -48,38 +48,45 @@ export async function getTierConfig(): Promise<TierConfigMap> {
       .single()
 
     if (error || !data) {
+      console.warn('[Tier] tier_config not found in app_settings, using defaults:', error?.message)
       return DEFAULT_TIER_CONFIG
     }
 
     return data.value as TierConfigMap
-  } catch {
+  } catch (err) {
+    console.error('[Tier] getTierConfig error:', err)
     return DEFAULT_TIER_CONFIG
   }
 }
 
 /** 사용자 tier 조회 (없으면 free로 자동 생성) */
 export async function getUserTier(userId: string): Promise<TierName> {
-  try {
-    const supabase = await createClient()
+  const supabase = await createClient()
 
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('tier')
-      .eq('user_id', userId)
-      .single()
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('tier')
+    .eq('user_id', userId)
+    .single()
 
-    if (error || !data) {
-      // 프로필이 없으면 자동 생성
-      await supabase
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // 프로필이 없음 → 자동 생성
+      const { error: insertError } = await supabase
         .from('user_profiles')
-        .upsert({ user_id: userId, tier: 'free' }, { onConflict: 'user_id' })
+        .insert({ user_id: userId, tier: 'free' })
+
+      if (insertError) {
+        console.error('[Tier] Failed to create user_profile:', insertError.message)
+      }
       return 'free'
     }
-
-    return data.tier as TierName
-  } catch {
+    // 테이블 자체가 없는 경우 등
+    console.error('[Tier] getUserTier error:', error.message, error.code)
     return 'free'
   }
+
+  return (data?.tier as TierName) || 'free'
 }
 
 /** 오늘 사용량 조회 */
@@ -87,25 +94,26 @@ export async function getTodayUsage(
   userId: string,
   action: string
 ): Promise<number> {
-  try {
-    const supabase = await createClient()
+  const supabase = await createClient()
 
-    // 오늘 시작 (UTC 기준)
-    const todayStart = new Date()
-    todayStart.setUTCHours(0, 0, 0, 0)
+  // 오늘 시작 (KST 기준 = UTC+9)
+  const now = new Date()
+  const kstOffset = 9 * 60 * 60 * 1000
+  const kstNow = new Date(now.getTime() + kstOffset)
+  const todayStart = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate()) - kstOffset)
 
-    const { count, error } = await supabase
-      .from('usage_logs')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('action', action)
-      .gte('created_at', todayStart.toISOString())
+  const { count, error } = await supabase
+    .from('usage_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('action', action)
+    .gte('created_at', todayStart.toISOString())
 
-    if (error) return 0
-    return count || 0
-  } catch {
+  if (error) {
+    console.error(`[Tier] getTodayUsage error (${action}):`, error.message, error.code)
     return 0
   }
+  return count || 0
 }
 
 /** 사용량 기록 */
@@ -114,20 +122,24 @@ export async function logUsage(
   action: string,
   fileCount: number = 1,
   metadata: Record<string, unknown> = {}
-): Promise<void> {
-  try {
-    const supabase = await createClient()
-    await supabase
-      .from('usage_logs')
-      .insert({
-        user_id: userId,
-        action,
-        file_count: fileCount,
-        metadata,
-      })
-  } catch (err) {
-    console.error('Failed to log usage:', err)
+): Promise<boolean> {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('usage_logs')
+    .insert({
+      user_id: userId,
+      action,
+      file_count: fileCount,
+      metadata,
+    })
+
+  if (error) {
+    console.error(`[Tier] logUsage FAILED (${action}):`, error.message, error.code)
+    return false
   }
+
+  console.log(`[Tier] Usage logged: user=${userId.substring(0, 8)}... action=${action} files=${fileCount}`)
+  return true
 }
 
 /** 사용 가능 여부 체크 (tier + 사용량) */
@@ -160,6 +172,8 @@ export async function checkUsageLimit(
   // -1 = 무제한
   const allowed = limit === -1 || used < limit
   const remaining = limit === -1 ? -1 : Math.max(0, limit - used)
+
+  console.log(`[Tier] Check: user=${userId.substring(0, 8)}... tier=${tierName} action=${action} used=${used}/${limit} allowed=${allowed}`)
 
   return {
     allowed,

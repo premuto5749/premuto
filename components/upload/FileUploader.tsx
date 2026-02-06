@@ -82,14 +82,16 @@ export function FileUploader({
 
   const onDropRejected = useCallback((rejections: readonly { file: File; errors: readonly { code: string }[] }[]) => {
     const reasons: string[] = []
+    let tooManyShown = false
     for (const rejection of rejections) {
       for (const err of rejection.errors) {
         if (err.code === 'file-too-large') {
           reasons.push(`${rejection.file.name}: 파일 크기 초과 (최대 ${maxSizeMB}MB)`)
         } else if (err.code === 'file-invalid-type') {
           reasons.push(`${rejection.file.name}: 지원하지 않는 형식`)
-        } else if (err.code === 'too-many-files') {
-          reasons.push(`최대 ${maxFiles}개 파일까지만 업로드 가능`)
+        } else if (err.code === 'too-many-files' && !tooManyShown) {
+          reasons.push(`최대 ${maxFiles}개 파일까지만 업로드 가능합니다.`)
+          tooManyShown = true
         }
       }
     }
@@ -240,10 +242,7 @@ export function FileUploader({
               여러 파일을 한 번에 선택하거나 드래그앤드롭할 수 있습니다
             </p>
             <p className="text-xs text-muted-foreground">
-              지원 형식: JPG, PNG, PDF (각 파일 최대 {maxSizeMB}MB, 최대 {maxFiles}개)
-            </p>
-            <p className="text-xs text-blue-600 mt-2">
-              💡 예: CBC 결과지 + Chemistry 결과지 + 특수 검사 결과지
+              지원 형식: JPG, PNG, PDF | 최대 {maxFiles}개 | 이미지는 자동 압축
             </p>
           </>
         )}

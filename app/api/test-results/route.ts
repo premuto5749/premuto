@@ -144,6 +144,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const recordId = searchParams.get('recordId')
     const petId = searchParams.get('petId')
+    const showDeleted = searchParams.get('deleted') === 'true'
 
     // 사용자 인증 확인
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -162,6 +163,7 @@ export async function GET(request: NextRequest) {
           machine_type,
           pet_id,
           created_at,
+          deleted_at,
           test_results (
             id,
             standard_item_id,
@@ -207,6 +209,7 @@ export async function GET(request: NextRequest) {
         machine_type,
         pet_id,
         created_at,
+        deleted_at,
         test_results (
           id,
           standard_item_id,
@@ -226,6 +229,13 @@ export async function GET(request: NextRequest) {
       `)
       .eq('user_id', user.id)
       .order('test_date', { ascending: false })
+
+    // 삭제된 레코드 / 활성 레코드 필터
+    if (showDeleted) {
+      query = query.not('deleted_at', 'is', null)
+    } else {
+      query = query.is('deleted_at', null)
+    }
 
     // pet_id 필터가 있으면 적용
     if (petId) {
@@ -259,11 +269,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PATCH: 검사 기록 수정 (날짜, 병원명, 펫)
+// PATCH: 검사 기록 수정 (날짜, 병원명, 펫) 또는 복원
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, test_date, hospital_name, pet_id } = body
+    const { id, test_date, hospital_name, pet_id, restore } = body
 
     if (!id) {
       return NextResponse.json(
@@ -278,6 +288,32 @@ export async function PATCH(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    }
+
+    // 복원 요청
+    if (restore) {
+      const { data, error } = await supabase
+        .from('test_records')
+        .update({ deleted_at: null })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .not('deleted_at', 'is', null) // 삭제된 레코드만 복원 가능
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Failed to restore test record:', error)
+        return NextResponse.json(
+          { error: '검사 기록 복원에 실패했습니다', details: error.message },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        data,
+        message: '검사 기록이 복원되었습니다'
+      })
     }
 
     const updateData: Record<string, string | null> = {}
@@ -339,16 +375,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
-    // test_results가 CASCADE DELETE로 설정되어 있으므로
-    // test_records만 삭제하면 관련 결과도 자동 삭제됨
+    // 소프트 삭제: deleted_at 설정 (7일 후 영구 삭제)
     const { error } = await supabase
       .from('test_records')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', recordId)
       .eq('user_id', user.id)
+      .is('deleted_at', null) // 이미 삭제된 레코드는 무시
 
     if (error) {
-      console.error('Failed to delete test record:', error)
+      console.error('Failed to soft-delete test record:', error)
       return NextResponse.json(
         { error: '검사 기록 삭제에 실패했습니다', details: error.message },
         { status: 500 }
@@ -357,7 +393,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: '검사 기록이 삭제되었습니다'
+      message: '검사 기록이 삭제되었습니다 (7일 후 영구 삭제)'
     })
 
   } catch (error) {
