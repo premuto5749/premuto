@@ -139,14 +139,14 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                     후원하기
                   </button>
                   <a
-                    href="https://withpremuto.com"
+                    href="https://open.kakao.com/o/sI87b9ei"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
                   >
                     <span className="flex items-center">
-                      <MessageCircle className="w-4 h-4 mr-2 text-blue-500" />
-                      피드백 주기
+                      <MessageCircle className="w-4 h-4 mr-2 text-yellow-500" />
+                      의견 주기
                     </span>
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </a>
