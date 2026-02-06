@@ -270,6 +270,7 @@ export interface Medicine {
 export interface MedicinePreset {
   id: string
   user_id: string
+  pet_id: string | null      // null = 모든 반려동물에게 표시, string = 특정 반려동물에게만 표시
   preset_name: string
   medicines: Medicine[]
   created_at: string
@@ -278,6 +279,7 @@ export interface MedicinePreset {
 
 export interface MedicinePresetInput {
   preset_name: string
+  pet_id?: string | null     // null = 모든 반려동물, string = 특정 반려동물
   medicines: Medicine[]
 }
 

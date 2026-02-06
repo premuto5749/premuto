@@ -75,11 +75,15 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     }
   }, [photoPreviews])
 
-  // 약 프리셋 로드
+  // 약 프리셋 로드 (현재 선택된 반려동물에 맞는 프리셋만)
   useEffect(() => {
     const fetchPresets = async () => {
       try {
-        const res = await fetch('/api/medicine-presets')
+        // pet_id가 있으면 해당 반려동물용 + 전체 공통 프리셋만 가져옴
+        const url = petId
+          ? `/api/medicine-presets?pet_id=${petId}`
+          : '/api/medicine-presets'
+        const res = await fetch(url)
         if (res.ok) {
           const data = await res.json()
           setMedicinePresets(data.data || [])
@@ -89,7 +93,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
       }
     }
     fetchPresets()
-  }, [])
+  }, [petId])
 
   const categories: LogCategory[] = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing']
 
@@ -364,13 +368,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                   type="date"
                   value={logDate}
                   onChange={(e) => setLogDate(e.target.value)}
-                  className="flex-1"
+                  className="w-1/2"
                 />
                 <Input
                   type="time"
                   value={logTime}
                   onChange={(e) => setLogTime(e.target.value)}
-                  className="w-28"
+                  className="w-1/2"
                 />
               </div>
             </div>
