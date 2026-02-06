@@ -131,7 +131,7 @@ export default function UploadQuickPage() {
 
       // 413 에러 처리 (Payload Too Large)
       if (response.status === 413) {
-        throw new Error('전체 파일 크기가 서버 제한을 초과했습니다. 파일 개수를 줄이거나 더 작은 이미지를 사용해주세요.')
+        throw new Error('전체 파일 크기가 서버 제한(4.5MB)을 초과했습니다. 파일 개수를 줄이거나 더 작은 이미지를 사용해주세요.')
       }
 
       // JSON 파싱 시도
