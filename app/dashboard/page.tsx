@@ -27,6 +27,9 @@ interface TestResult {
     display_name_ko: string | null
     category: string | null
     default_unit: string | null
+    description_common: string | null
+    description_high: string | null
+    description_low: string | null
   }
 }
 

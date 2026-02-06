@@ -11,6 +11,7 @@ import { AppHeader } from '@/components/layout/AppHeader'
 import { useToast } from '@/hooks/use-toast'
 import type { DailyLog, DailyStats } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
+import { formatNumber } from '@/lib/utils'
 import {
   Popover,
   PopoverContent,
@@ -49,6 +50,34 @@ export default function DailyLogPage() {
     }
   }, [isPetsLoading, pets, currentPet, setCurrentPet])
 
+  // 로그 데이터에서 직접 통계 계산 (삭제된 항목이 포함되지 않도록 보장)
+  const computeStatsFromLogs = useCallback((logData: DailyLog[]): DailyStats | null => {
+    if (logData.length === 0) return null
+
+    return {
+      user_id: logData[0].user_id,
+      pet_id: logData[0].pet_id,
+      log_date: selectedDate,
+      total_meal_amount: logData
+        .filter(l => l.category === 'meal')
+        .reduce((sum, l) => sum + (l.amount || 0) - (l.leftover_amount || 0), 0),
+      meal_count: logData.filter(l => l.category === 'meal').length,
+      total_water_amount: logData
+        .filter(l => l.category === 'water')
+        .reduce((sum, l) => sum + (l.amount || 0), 0),
+      water_count: logData.filter(l => l.category === 'water').length,
+      medicine_count: logData.filter(l => l.category === 'medicine').length,
+      poop_count: logData.filter(l => l.category === 'poop').length,
+      pee_count: logData.filter(l => l.category === 'pee').length,
+      avg_breathing_rate: (() => {
+        const breathingLogs = logData.filter(l => l.category === 'breathing' && l.amount != null)
+        if (breathingLogs.length === 0) return null
+        return breathingLogs.reduce((sum, l) => sum + (l.amount || 0), 0) / breathingLogs.length
+      })(),
+      breathing_count: logData.filter(l => l.category === 'breathing').length,
+    }
+  }, [selectedDate])
+
   const fetchData = useCallback(async () => {
     // 반려동물 로딩 중이면 대기
     if (isPetsLoading) return
@@ -62,21 +91,12 @@ export default function DailyLogPage() {
       const logsRes = await fetch(`/api/daily-logs?date=${selectedDate}${petParam}`)
       if (logsRes.ok) {
         const logsData = await logsRes.json()
-        setLogs(logsData.data || [])
+        const fetchedLogs = logsData.data || []
+        setLogs(fetchedLogs)
+        // 로그 데이터에서 직접 통계 계산 (삭제된 항목 제외 보장)
+        setStats(computeStatsFromLogs(fetchedLogs))
       } else {
         setLogs([])
-      }
-
-      // 통계 조회 (별도 처리 - 뷰가 없을 수 있음)
-      try {
-        const statsRes = await fetch(`/api/daily-logs?date=${selectedDate}&stats=true${petParam}`)
-        if (statsRes.ok) {
-          const statsData = await statsRes.json()
-          setStats(statsData.data?.[0] || null)
-        } else {
-          setStats(null)
-        }
-      } catch {
         setStats(null)
       }
     } catch (error) {
@@ -86,7 +106,7 @@ export default function DailyLogPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedDate, currentPet, isPetsLoading])
+  }, [selectedDate, currentPet, isPetsLoading, computeStatsFromLogs])
 
   useEffect(() => {
     fetchData()
@@ -214,10 +234,10 @@ export default function DailyLogPage() {
       lines.push('📊 오늘 요약')
 
       if (stats.meal_count > 0) {
-        lines.push(`🍚 식사: ${stats.total_meal_amount}g (${stats.meal_count}회)`)
+        lines.push(`🍚 식사: ${formatNumber(stats.total_meal_amount)}g (${stats.meal_count}회)`)
       }
       if (stats.water_count > 0) {
-        lines.push(`💧 음수: ${stats.total_water_amount}ml (${stats.water_count}회)`)
+        lines.push(`💧 음수: ${formatNumber(stats.total_water_amount)}ml (${stats.water_count}회)`)
       }
       if (stats.medicine_count > 0) {
         lines.push(`💊 약: ${stats.medicine_count}회`)
@@ -229,7 +249,7 @@ export default function DailyLogPage() {
         lines.push(`🚽 배뇨: ${stats.pee_count}회`)
       }
       if (stats.breathing_count > 0 && stats.avg_breathing_rate) {
-        lines.push(`🫁 호흡수: 평균 ${Math.round(stats.avg_breathing_rate)}회/분 (${stats.breathing_count}회 측정)`)
+        lines.push(`🫁 호흡수: 평균 ${formatNumber(Math.round(stats.avg_breathing_rate))}회/분 (${stats.breathing_count}회 측정)`)
       }
 
       lines.push('')
@@ -249,7 +269,7 @@ export default function DailyLogPage() {
 
       // 양 표시 (배변/배뇨 제외)
       if (log.amount !== null && log.category !== 'poop' && log.category !== 'pee') {
-        content += ` ${log.amount}${log.unit || config.unit}`
+        content += ` ${formatNumber(log.amount)}${log.unit || config.unit}`
       }
 
       // 약 이름

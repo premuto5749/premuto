@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DailyStats } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
+import { formatNumber } from '@/lib/utils'
 
 interface DailyStatsCardProps {
   stats: DailyStats | null
@@ -42,14 +43,14 @@ export function DailyStatsCard({ stats, date }: DailyStatsCardProps) {
     {
       icon: LOG_CATEGORY_CONFIG.meal.icon,
       label: '식사',
-      value: stats.total_meal_amount > 0 ? `${stats.total_meal_amount}g` : '-',
+      value: stats.total_meal_amount > 0 ? `${formatNumber(stats.total_meal_amount)}g` : '-',
       count: stats.meal_count,
       color: LOG_CATEGORY_CONFIG.meal.color,
     },
     {
       icon: LOG_CATEGORY_CONFIG.water.icon,
       label: '음수',
-      value: stats.total_water_amount > 0 ? `${stats.total_water_amount}ml` : '-',
+      value: stats.total_water_amount > 0 ? `${formatNumber(stats.total_water_amount)}ml` : '-',
       count: stats.water_count,
       color: LOG_CATEGORY_CONFIG.water.color,
     },

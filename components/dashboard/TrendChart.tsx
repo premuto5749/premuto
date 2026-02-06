@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { formatNumber } from '@/lib/utils'
 
 interface TestResult {
   id: string
@@ -15,12 +16,16 @@ interface TestResult {
     name: string
     display_name_ko: string | null
     default_unit?: string | null
+    description_common?: string | null
+    description_high?: string | null
+    description_low?: string | null
   }
 }
 
 interface TestRecord {
   id: string
   test_date: string
+  hospital_name?: string | null
   test_results: TestResult[]
 }
 
@@ -68,7 +73,11 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
           ref_max: result.ref_max,
           status: result.status,
           unit: displayUnit,
-          displayName: result.standard_items_master.display_name_ko || result.standard_items_master.name
+          displayName: result.standard_items_master.display_name_ko || result.standard_items_master.name,
+          hospitalName: record.hospital_name || null,
+          descriptionCommon: result.standard_items_master.description_common || null,
+          descriptionHigh: result.standard_items_master.description_high || null,
+          descriptionLow: result.standard_items_master.description_low || null,
         }
       })
       .filter((d): d is NonNullable<typeof d> => d !== null)
@@ -146,7 +155,10 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
       hasAnyRefRange,
       yDomain,
       unit: latestPoint?.unit || '',
-      displayName: latestPoint?.displayName || itemName
+      displayName: latestPoint?.displayName || itemName,
+      descriptionCommon: latestPoint?.descriptionCommon || null,
+      descriptionHigh: latestPoint?.descriptionHigh || null,
+      descriptionLow: latestPoint?.descriptionLow || null,
     }
   }, [records, itemName])
 
@@ -203,12 +215,15 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                     return (
                       <div className="bg-background border rounded-lg shadow-lg p-3 z-50">
                         <p className="font-medium">{data.dateLabel}</p>
-                        <p className="text-sm">
-                          값: <span className="font-semibold">{data.value} {data.unit}</span>
+                        {data.hospitalName && (
+                          <p className="text-xs text-muted-foreground">{data.hospitalName}</p>
+                        )}
+                        <p className="text-sm mt-1">
+                          값: <span className="font-semibold">{formatNumber(data.value)} {data.unit}</span>
                         </p>
                         {(data.ref_min !== null || data.ref_max !== null) && (
                           <p className="text-xs text-muted-foreground">
-                            참고치: {data.ref_min ?? '-'} ~ {data.ref_max ?? '-'} {data.unit}
+                            참고치: {data.ref_min !== null ? formatNumber(data.ref_min) : '-'} ~ {data.ref_max !== null ? formatNumber(data.ref_max) : '-'} {data.unit}
                           </p>
                         )}
                         <p className="text-sm">
@@ -324,28 +339,52 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
               <div>
                 <p className="text-muted-foreground">최소값</p>
                 <p className="font-medium">
-                  {Math.min(...chartData.data.map(d => d.value))} {chartData.unit}
+                  {formatNumber(Math.min(...chartData.data.map(d => d.value)))} {chartData.unit}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground">최대값</p>
                 <p className="font-medium">
-                  {Math.max(...chartData.data.map(d => d.value))} {chartData.unit}
+                  {formatNumber(Math.max(...chartData.data.map(d => d.value)))} {chartData.unit}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground">평균</p>
                 <p className="font-medium">
-                  {(chartData.data.reduce((sum, d) => sum + d.value, 0) / chartData.data.length).toFixed(2)} {chartData.unit}
+                  {formatNumber(parseFloat((chartData.data.reduce((sum, d) => sum + d.value, 0) / chartData.data.length).toFixed(2)))} {chartData.unit}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground">최근값</p>
                 <p className="font-medium">
-                  {chartData.data[chartData.data.length - 1].value} {chartData.unit}
+                  {formatNumber(chartData.data[chartData.data.length - 1].value)} {chartData.unit}
                 </p>
               </div>
             </div>
+            {/* 항목 설명 */}
+            {(chartData.descriptionCommon || chartData.descriptionHigh || chartData.descriptionLow) && (
+              <div className="mt-3 pt-3 border-t">
+                {chartData.descriptionCommon && (
+                  <p className="text-sm text-muted-foreground mb-2">{chartData.descriptionCommon}</p>
+                )}
+                {(chartData.descriptionHigh || chartData.descriptionLow) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                    {chartData.descriptionHigh && (
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-red-500 flex-shrink-0">🔴 높을 때:</span>
+                        <span className="text-muted-foreground">{chartData.descriptionHigh}</span>
+                      </div>
+                    )}
+                    {chartData.descriptionLow && (
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-blue-500 flex-shrink-0">🔵 낮을 때:</span>
+                        <span className="text-muted-foreground">{chartData.descriptionLow}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {/* 참고치 변경 이력 */}
             <div className="mt-3 pt-3 border-t">
               <p className="text-sm font-medium mb-2">
@@ -366,7 +405,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                           : `${segment.startDate} ~ ${segment.endDate}`}
                       </span>
                       <span className="font-medium">
-                        {segment.ref_min ?? '-'} ~ {segment.ref_max ?? '-'} {chartData.unit}
+                        {segment.ref_min !== null ? formatNumber(segment.ref_min) : '-'} ~ {segment.ref_max !== null ? formatNumber(segment.ref_max) : '-'} {chartData.unit}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         ({segment.dataCount}건)

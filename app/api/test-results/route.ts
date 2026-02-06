@@ -223,7 +223,10 @@ export async function GET(request: NextRequest) {
             name,
             display_name_ko,
             category,
-            default_unit
+            default_unit,
+            description_common,
+            description_high,
+            description_low
           )
         )
       `)

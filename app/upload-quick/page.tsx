@@ -324,6 +324,10 @@ export default function UploadQuickPage() {
           <li>여러 날짜가 포함되어 있어도 AI가 자동으로 분리합니다</li>
           <li>분석 후 확인 화면에서 항목을 검수하고 저장합니다</li>
         </ul>
+        <p className="mt-3 pt-3 border-t text-[11px] text-muted-foreground/70 leading-relaxed">
+          본 서비스는 검사 결과를 기록·보관하는 도구이며, 어떠한 의료적 의견이나 진단을 제공하지 않습니다.
+          OCR 분석 결과의 정확성 확인은 사용자 본인의 책임이며, 의학적 판단은 반드시 수의사와 상의하세요.
+        </p>
       </div>
       </div>
 

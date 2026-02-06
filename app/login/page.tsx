@@ -165,6 +165,13 @@ export default function LoginPage() {
               </button>
             </div>
           </form>
+
+          {/* 면책 고지문 */}
+          <p className="mt-8 text-[11px] text-muted-foreground/70 leading-relaxed">
+            본 서비스는 반려동물 건강 데이터를 기록·보관하는 도구이며, 어떠한 의료적 의견이나 진단을 제공하지 않습니다.
+            데이터의 정확성 확인은 사용자 본인의 책임이며, 의학적 치료 관련 판단은 반드시 수의사와 상의하세요.
+            본 서비스는 기록된 데이터에 대한 법적 책임을 지지 않습니다.
+          </p>
         </div>
       </div>
 
