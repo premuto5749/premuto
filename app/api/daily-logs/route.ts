@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')   // 카테고리 필터
     const stats = searchParams.get('stats')         // 통계 조회 여부
     const petId = searchParams.get('pet_id')        // 반려동물 필터
+    const showDeleted = searchParams.get('deleted') === 'true' // 삭제된 기록 조회
 
     // 통계 조회
     if (stats === 'true') {
@@ -99,6 +100,13 @@ export async function GET(request: NextRequest) {
     // 일반 기록 조회
     let query = supabase.from('daily_logs').select('*')
       .eq('user_id', user.id)  // 명시적 user_id 필터링 (RLS 보완)
+
+    // 삭제된 기록 / 활성 기록 필터
+    if (showDeleted) {
+      query = query.not('deleted_at', 'is', null)
+    } else {
+      query = query.is('deleted_at', null)
+    }
 
     if (date) {
       // 특정 날짜의 기록 (KST 기준, UTC+9)
@@ -254,18 +262,20 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // 소프트 삭제: deleted_at 설정 (7일 후 영구 삭제)
     const { error } = await supabase
       .from('daily_logs')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('user_id', user.id)  // 본인 데이터만 삭제 가능
+      .eq('user_id', user.id)
+      .is('deleted_at', null) // 이미 삭제된 레코드는 무시
 
     if (error) {
-      console.error('Daily log delete error:', error)
+      console.error('Daily log soft-delete error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: '기록이 삭제되었습니다 (7일 후 영구 삭제)' })
 
   } catch (error) {
     console.error('Daily logs DELETE error:', error)
@@ -291,13 +301,41 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { id, ...updates } = body
+    const { id, restore, ...updates } = body
 
     if (!id) {
       return NextResponse.json(
         { error: 'ID is required' },
         { status: 400 }
       )
+    }
+
+    // 복원 요청
+    if (restore) {
+      const { data, error } = await supabase
+        .from('daily_logs')
+        .update({ deleted_at: null })
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .not('deleted_at', 'is', null)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Daily log restore error:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      const processedData = {
+        ...data,
+        photo_urls: await convertPathsToSignedUrls(supabase, data.photo_urls)
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: processedData as DailyLog,
+        message: '기록이 복원되었습니다'
+      })
     }
 
     // 첫 번째 시도: leftover_amount 포함
