@@ -82,14 +82,16 @@ export function FileUploader({
 
   const onDropRejected = useCallback((rejections: readonly { file: File; errors: readonly { code: string }[] }[]) => {
     const reasons: string[] = []
+    let tooManyShown = false
     for (const rejection of rejections) {
       for (const err of rejection.errors) {
         if (err.code === 'file-too-large') {
           reasons.push(`${rejection.file.name}: 파일 크기 초과 (최대 ${maxSizeMB}MB)`)
         } else if (err.code === 'file-invalid-type') {
           reasons.push(`${rejection.file.name}: 지원하지 않는 형식`)
-        } else if (err.code === 'too-many-files') {
-          reasons.push(`최대 ${maxFiles}개 파일까지만 업로드 가능`)
+        } else if (err.code === 'too-many-files' && !tooManyShown) {
+          reasons.push(`최대 ${maxFiles}개 파일까지만 업로드 가능합니다.`)
+          tooManyShown = true
         }
       }
     }
