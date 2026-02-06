@@ -105,8 +105,10 @@ export default function UploadQuickPage() {
 
     try {
       const formData = new FormData()
+      const MAX_PAYLOAD_MB = 4.5
 
       // 이미지 압축 후 FormData에 추가
+      let totalSize = 0
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i]
         let processedFile = file
@@ -121,7 +123,18 @@ export default function UploadQuickPage() {
           }
         }
 
+        totalSize += processedFile.size
         formData.append(`file${i}`, processedFile)
+      }
+
+      // 압축 후 전체 크기 체크
+      const totalMB = totalSize / (1024 * 1024)
+      if (totalMB > MAX_PAYLOAD_MB) {
+        throw new Error(
+          `파일 합계 ${totalMB.toFixed(1)}MB가 업로드 제한(${MAX_PAYLOAD_MB}MB)을 초과합니다.\n` +
+          `이미지는 자동 압축되지만, PDF는 원본 크기 그대로 전송됩니다.\n` +
+          `파일 수를 줄이거나 PDF 대신 이미지를 사용해보세요.`
+        )
       }
 
       const response = await fetch('/api/ocr-batch', {
@@ -129,9 +142,9 @@ export default function UploadQuickPage() {
         body: formData,
       })
 
-      // 413 에러 처리 (Payload Too Large)
+      // 413 에러 처리 (Payload Too Large) - 서버 측 추가 안전망
       if (response.status === 413) {
-        throw new Error('전체 파일 크기가 서버 제한(4.5MB)을 초과했습니다. 파일 개수를 줄이거나 더 작은 이미지를 사용해주세요.')
+        throw new Error('파일 크기가 서버 제한을 초과했습니다. 파일 수를 줄여주세요.')
       }
 
       // JSON 파싱 시도

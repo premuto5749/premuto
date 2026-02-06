@@ -242,10 +242,7 @@ export function FileUploader({
               여러 파일을 한 번에 선택하거나 드래그앤드롭할 수 있습니다
             </p>
             <p className="text-xs text-muted-foreground">
-              지원 형식: JPG, PNG, PDF (각 파일 최대 {maxSizeMB}MB, 최대 {maxFiles}개)
-            </p>
-            <p className="text-xs text-blue-600 mt-2">
-              💡 예: CBC 결과지 + Chemistry 결과지 + 특수 검사 결과지
+              지원 형식: JPG, PNG, PDF | 최대 {maxFiles}개 | 이미지는 자동 압축
             </p>
           </>
         )}
