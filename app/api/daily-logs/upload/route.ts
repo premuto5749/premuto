@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserTier, getTierConfig, logUsage } from '@/lib/tier'
 
+export const dynamic = 'force-dynamic'
+
 const BUCKET_NAME = 'daily-log-photos'
 
 export async function POST(request: NextRequest) {

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 // POST: 검사 기록에 새 항목 추가
 // [id]는 test_records.id (record_id)
 export async function POST(

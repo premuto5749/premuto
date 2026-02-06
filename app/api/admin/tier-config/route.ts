@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { checkCurrentUserIsAdmin } from '@/lib/auth/admin'
 import type { TierConfigMap } from '@/lib/tier'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const adminCheck = await checkCurrentUserIsAdmin()

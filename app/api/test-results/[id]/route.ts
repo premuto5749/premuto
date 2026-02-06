@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 // PATCH: 개별 검사 결과 항목 수정
 export async function PATCH(
   request: NextRequest,

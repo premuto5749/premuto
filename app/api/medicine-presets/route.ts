@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { MedicinePresetInput } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 // 약 프리셋 목록 조회
 // ?pet_id=xxx 쿼리 파라미터가 있으면 해당 반려동물용 프리셋 + 전체 공통 프리셋(pet_id=null) 반환
 // 쿼리 파라미터가 없으면 모든 프리셋 반환 (설정 페이지용)

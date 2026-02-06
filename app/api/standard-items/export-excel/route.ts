@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import * as XLSX from 'xlsx'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/standard-items/export-excel
  * 표준 항목과 별칭을 Excel 파일로 내보내기

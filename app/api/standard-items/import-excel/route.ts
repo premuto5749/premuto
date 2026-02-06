@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import * as XLSX from 'xlsx'
 
+export const dynamic = 'force-dynamic'
+
 interface ExcelRow {
   '항목명 (name)': string
   '한글명 (display_name_ko)'?: string

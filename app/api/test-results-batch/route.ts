@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import type { BatchSaveRequest } from '@/types'
 import { parseValue } from '@/lib/ocr/value-parser'
 
+export const dynamic = 'force-dynamic'
+
 // 최대 실행 시간 설정 (30초)
 export const maxDuration = 30
 

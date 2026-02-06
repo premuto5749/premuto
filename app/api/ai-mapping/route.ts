@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
 import {
+
+export const dynamic = 'force-dynamic'
   matchItemV3,
   type MatchResultV3,
   registerNewAlias,

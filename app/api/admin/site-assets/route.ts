@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkCurrentUserIsAdmin } from '@/lib/auth/admin'
 
+export const dynamic = 'force-dynamic'
+
 const BUCKET_NAME = 'site-assets'
 
 // 허용되는 이미지 타입

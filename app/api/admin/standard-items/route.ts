@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/admin/standard-items
  * 마스터 표준항목 목록 조회 (관리자 전용)

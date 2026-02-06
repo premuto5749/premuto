@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { UserSettingsInput } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 // 사용자 설정 조회
 export async function GET() {
   try {

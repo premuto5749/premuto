@@ -6,6 +6,8 @@ import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 import { createClient } from '@/lib/supabase/server'
 import { checkUsageLimit, logUsage } from '@/lib/tier'
 
+export const dynamic = 'force-dynamic'
+
 // 최대 실행 시간 설정 (120초 - OCR은 시간이 오래 걸림)
 export const maxDuration = 120
 

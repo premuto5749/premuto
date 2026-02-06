@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { requireAdmin } from '@/lib/auth/admin';
 import masterData from '@/config/master_data_v3.json';
 
+export const dynamic = 'force-dynamic'
+
 type SyncMode = 'safe' | 'full';
 
 interface SyncResult {

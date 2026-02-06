@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { checkCurrentUserIsAdmin } from '@/lib/auth/admin'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/auth/check-admin
  * 현재 사용자가 관리자인지 확인
