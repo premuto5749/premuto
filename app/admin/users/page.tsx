@@ -56,6 +56,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [changingTier, setChangingTier] = useState<{ userId: string; newTier: string; petNames: string[] } | null>(null)
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
@@ -66,15 +67,20 @@ export default function AdminUsersPage() {
         const res = await fetch('/api/admin/users')
         if (res.status === 403) {
           setAuthorized(false)
+          setError('관리자 권한이 필요합니다')
           return
         }
         const data = await res.json()
         if (data.success) {
           setAuthorized(true)
           setUsers(data.data)
+        } else {
+          setAuthorized(false)
+          setError(data.error || '사용자 목록을 불러오지 못했습니다')
         }
       } catch (err) {
         console.error('Failed to fetch users:', err)
+        setError('서버에 연결할 수 없습니다')
       } finally {
         setLoading(false)
       }
@@ -137,10 +143,13 @@ export default function AdminUsersPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-destructive">
                 <ShieldCheck className="w-5 h-5" />
-                접근 권한 없음
+                {error?.includes('권한') ? '접근 권한 없음' : '데이터 로드 실패'}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              {error && (
+                <p className="text-sm text-muted-foreground">{error}</p>
+              )}
               <Button onClick={() => router.push('/admin')}>관리자로 돌아가기</Button>
             </CardContent>
           </Card>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,11 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Dialog,
   DialogContent,
@@ -39,7 +43,7 @@ import {
 import {
   Loader2, Plus, Pencil, Search, RefreshCw, Trash2, Tag,
   Database, ShieldCheck, ArrowLeft, Upload, Download, FileSpreadsheet,
-  AlertTriangle, Info, CheckCircle, AlertCircle
+  AlertTriangle, Info, CheckCircle, AlertCircle, ChevronDown, ChevronRight
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -140,8 +144,12 @@ export default function AdminMasterDataPage() {
 
   // 별칭 모달 상태
   const [isAddAliasModalOpen, setIsAddAliasModalOpen] = useState(false)
+  const [addAliasTargetItem, setAddAliasTargetItem] = useState<StandardItem | null>(null)
   const [newAlias, setNewAlias] = useState({ alias: '', canonical_name: '', source_hint: '' })
   const [savingAlias, setSavingAlias] = useState(false)
+
+  // Collapsible 상태
+  const [openItemIds, setOpenItemIds] = useState<Set<string>>(new Set())
 
   // 마스터 데이터 동기화 상태
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
@@ -439,6 +447,32 @@ export default function AdminMasterDataPage() {
     }
   }
 
+  // 항목별 별칭 맵
+  const aliasesByItemId = useMemo(() => {
+    const map = new Map<string, ItemAlias[]>()
+    aliases.forEach(alias => {
+      const itemId = alias.standard_item_id
+      if (!map.has(itemId)) map.set(itemId, [])
+      map.get(itemId)!.push(alias)
+    })
+    return map
+  }, [aliases])
+
+  const toggleItemOpen = (id: string) => {
+    setOpenItemIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const openAddAliasModal = (item: StandardItem) => {
+    setAddAliasTargetItem(item)
+    setNewAlias({ alias: '', canonical_name: item.name, source_hint: '' })
+    setIsAddAliasModalOpen(true)
+  }
+
   // 필터링
   const filteredItems = items.filter(item => {
     const matchesSearch = searchTerm === '' ||
@@ -641,196 +675,213 @@ export default function AdminMasterDataPage() {
           </Card>
         </div>
 
-        <Tabs defaultValue="items" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="items" className="gap-2">
-              <Database className="w-4 h-4" />
-              표준항목 ({items.length})
-            </TabsTrigger>
-            <TabsTrigger value="aliases" className="gap-2">
-              <Tag className="w-4 h-4" />
-              별칭 ({aliases.length})
-            </TabsTrigger>
-          </TabsList>
-
-          {/* 표준항목 탭 */}
-          <TabsContent value="items">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                    <CardTitle>마스터 표준항목</CardTitle>
-                    <CardDescription>모든 사용자에게 공통으로 적용되는 표준 검사항목입니다</CardDescription>
-                  </div>
-                  <Button onClick={() => setIsAddModalOpen(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    항목 추가
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {/* 검색 및 필터 */}
-                <div className="flex flex-col md:flex-row gap-4 mb-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="항목명 검색..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <Select value={filterExamType} onValueChange={setFilterExamType}>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="검사 유형" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">전체 유형</SelectItem>
-                      {EXAM_TYPE_OPTIONS.map(type => (
-                        <SelectItem key={type} value={type}>
-                          {type} ({examTypeStats[type] || 0})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" onClick={fetchData}>
-                    <RefreshCw className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                {/* 항목 목록 */}
-                <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {filteredItems.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{item.name}</span>
-                          {item.display_name_ko && (
-                            <span className="text-muted-foreground">({item.display_name_ko})</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {item.exam_type || 'N/A'}
-                          </Badge>
-                          {item.default_unit && (
-                            <span className="text-xs text-muted-foreground">{item.default_unit}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditingItem({ ...item })
-                            setIsEditModalOpen(true)
-                          }}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>마스터 항목 삭제</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                &quot;{item.name}&quot;을(를) 삭제하시겠습니까?
-                                이 항목을 사용하는 검사 기록이 있으면 삭제할 수 없습니다.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>취소</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>
-                                삭제
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
+        {/* 표준항목 + 별칭 통합 */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <CardTitle>마스터 표준항목</CardTitle>
+                <CardDescription>
+                  표준항목 {items.length}개 / 별칭 {aliases.length}개 — 항목을 클릭하면 별칭을 관리할 수 있습니다
+                </CardDescription>
+              </div>
+              <Button onClick={() => setIsAddModalOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                항목 추가
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* 검색 및 필터 */}
+            <div className="flex flex-col md:flex-row gap-4 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="항목명 검색..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={filterExamType} onValueChange={setFilterExamType}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="검사 유형" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">전체 유형</SelectItem>
+                  {EXAM_TYPE_OPTIONS.map(type => (
+                    <SelectItem key={type} value={type}>
+                      {type} ({examTypeStats[type] || 0})
+                    </SelectItem>
                   ))}
-                </div>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" onClick={fetchData}>
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
 
-                {filteredItems.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    검색 결과가 없습니다
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* 별칭 탭 */}
-          <TabsContent value="aliases">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div>
-                    <CardTitle>마스터 별칭</CardTitle>
-                    <CardDescription>OCR에서 인식된 항목명을 표준항목에 매핑하는 별칭입니다</CardDescription>
-                  </div>
-                  <Button onClick={() => setIsAddAliasModalOpen(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    별칭 추가
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {aliases.map((alias) => (
-                    <div key={alias.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-mono">{alias.alias}</span>
-                          <span className="text-muted-foreground">→</span>
-                          <span className="font-medium">{alias.canonical_name}</span>
-                        </div>
-                        {alias.source_hint && (
-                          <Badge variant="secondary" className="text-xs mt-1">
-                            {alias.source_hint}
-                          </Badge>
-                        )}
-                      </div>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <Trash2 className="w-4 h-4 text-destructive" />
+            {/* 항목 목록 (Collapsible) */}
+            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              {filteredItems.map((item) => {
+                const itemAliases = aliasesByItemId.get(item.id) || []
+                const isOpen = openItemIds.has(item.id)
+                return (
+                  <Collapsible key={item.id} open={isOpen} onOpenChange={() => toggleItemOpen(item.id)}>
+                    <div className="border rounded-lg hover:bg-muted/50">
+                      {/* 항목 헤더 */}
+                      <div className="flex items-center p-3">
+                        <CollapsibleTrigger className="flex items-center gap-2 flex-1 text-left">
+                          {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{item.name}</span>
+                              {item.display_name_ko && (
+                                <span className="text-muted-foreground text-sm">({item.display_name_ko})</span>
+                              )}
+                              <Badge variant="outline" className="text-xs">
+                                {item.exam_type || 'N/A'}
+                              </Badge>
+                              {item.default_unit && (
+                                <span className="text-xs text-muted-foreground">{item.default_unit}</span>
+                              )}
+                              {itemAliases.length > 0 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  <Tag className="w-3 h-3 mr-1" />
+                                  별칭 {itemAliases.length}개
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </CollapsibleTrigger>
+                        <div className="flex gap-1 ml-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingItem({ ...item })
+                              setIsEditModalOpen(true)
+                            }}
+                          >
+                            <Pencil className="w-4 h-4" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>별칭 삭제</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              &quot;{alias.alias}&quot; 별칭을 삭제하시겠습니까?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>취소</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteAlias(alias.id)}>
-                              삭제
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  ))}
-                </div>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>마스터 항목 삭제</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  &quot;{item.name}&quot;을(를) 삭제하시겠습니까?
+                                  이 항목을 사용하는 검사 기록이 있으면 삭제할 수 없습니다.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>취소</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteItem(item.id)}>
+                                  삭제
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
 
-                {aliases.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    등록된 별칭이 없습니다
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                      {/* 펼쳐진 영역: 별칭 목록 */}
+                      <CollapsibleContent>
+                        <div className="px-3 pb-3 pt-0 border-t mx-3 mt-0">
+                          {/* 장기 태그 */}
+                          {item.organ_tags && item.organ_tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-3 mb-2">
+                              {item.organ_tags.map(tag => (
+                                <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* 설명 */}
+                          {(item.description_common || item.description_high || item.description_low) && (
+                            <div className="text-xs text-muted-foreground space-y-1 mb-3 mt-2">
+                              {item.description_common && <p>{item.description_common}</p>}
+                              {item.description_high && <p className="text-red-600">🔴 {item.description_high}</p>}
+                              {item.description_low && <p className="text-blue-600">🔵 {item.description_low}</p>}
+                            </div>
+                          )}
+
+                          {/* 별칭 섹션 */}
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-medium text-muted-foreground">별칭 목록</span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={() => openAddAliasModal(item)}
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                별칭 추가
+                              </Button>
+                            </div>
+                            {itemAliases.length > 0 ? (
+                              <div className="space-y-1">
+                                {itemAliases.map(alias => (
+                                  <div key={alias.id} className="flex items-center justify-between py-1.5 px-2 rounded bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                      <Tag className="w-3 h-3 text-muted-foreground" />
+                                      <span className="font-mono text-sm">{alias.alias}</span>
+                                      {alias.source_hint && (
+                                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                          {alias.source_hint}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                                          <Trash2 className="w-3 h-3 text-destructive" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>별칭 삭제</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            &quot;{alias.alias}&quot; 별칭을 삭제하시겠습니까?
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>취소</AlertDialogCancel>
+                                          <AlertDialogAction onClick={() => handleDeleteAlias(alias.id)}>
+                                            삭제
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground py-2">등록된 별칭이 없습니다</p>
+                            )}
+                          </div>
+                        </div>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
+                )
+              })}
+            </div>
+
+            {filteredItems.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                검색 결과가 없습니다
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* 항목 추가 모달 */}
         <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
@@ -1041,7 +1092,11 @@ export default function AdminMasterDataPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>마스터 별칭 추가</DialogTitle>
-              <DialogDescription>모든 사용자에게 적용됩니다.</DialogDescription>
+              <DialogDescription>
+                {addAliasTargetItem
+                  ? <><span className="font-medium text-foreground">{addAliasTargetItem.name}</span>에 별칭을 추가합니다. 모든 사용자에게 적용됩니다.</>
+                  : '모든 사용자에게 적용됩니다.'}
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
@@ -1051,15 +1106,6 @@ export default function AdminMasterDataPage() {
                   value={newAlias.alias}
                   onChange={(e) => setNewAlias({ ...newAlias, alias: e.target.value })}
                   placeholder="예: Cre, CREA"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>표준항목명 *</Label>
-                <Input
-                  value={newAlias.canonical_name}
-                  onChange={(e) => setNewAlias({ ...newAlias, canonical_name: e.target.value })}
-                  placeholder="예: Creatinine"
                 />
               </div>
 
