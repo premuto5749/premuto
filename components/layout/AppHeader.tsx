@@ -146,7 +146,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                   >
                     <span className="flex items-center">
                       <MessageCircle className="w-4 h-4 mr-2 text-yellow-500" />
-                      톡 보내기
+                      의견 주기
                     </span>
                     <ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </a>
