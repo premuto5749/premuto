@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 3-1. V3 하이브리드 매칭 (DB 기반: Step 0-2)
-      const v3Match: MatchResultV3 = await matchItemV3(itemName, { supabase })
+      const v3Match: MatchResultV3 = await matchItemV3(itemName, { supabase, userId })
 
       // Step 0: 가비지로 필터링된 경우
       if (v3Match.isGarbage) {

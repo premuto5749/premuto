@@ -433,16 +433,28 @@ export async function registerNewStandardItem(
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const client = supabase || (await createServerClient());
 
-  // 동일 이름 항목이 이미 존재하는지 확인
-  const { data: existing } = await client
+  // 동일 이름 항목이 이미 존재하는지 확인 (name 또는 display_name_ko)
+  const { data: existingByName } = await client
     .from('standard_items_master')
     .select('id')
     .ilike('name', item.name)
     .single();
 
-  if (existing) {
-    // 이미 존재하면 해당 id 반환
-    return { success: true, id: existing.id };
+  if (existingByName) {
+    return { success: true, id: existingByName.id };
+  }
+
+  // 한글명으로도 중복 체크 (AI가 영문명을 다르게 추천해도 한글명이 같으면 중복)
+  if (item.displayNameKo) {
+    const { data: existingByKo } = await client
+      .from('standard_items_master')
+      .select('id')
+      .ilike('display_name_ko', item.displayNameKo)
+      .single();
+
+    if (existingByKo) {
+      return { success: true, id: existingByKo.id };
+    }
   }
 
   // standard_items_master에 저장 (test_results FK 호환)
