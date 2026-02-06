@@ -82,9 +82,9 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
               <SheetContent side="left" className="overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle className="flex items-center justify-start">
-                    {siteSettings.logoUrl ? (
+                    {siteSettings.headerLogoUrl ? (
                       <Image
-                        src={siteSettings.logoUrl}
+                        src={siteSettings.headerLogoUrl}
                         alt={siteSettings.siteName}
                         width={200}
                         height={48}

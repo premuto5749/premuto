@@ -17,13 +17,14 @@ const DEFAULT_SETTINGS: SiteSettings = {
   siteDescription: '미모 건강 기록',
   faviconUrl: null,
   logoUrl: null,
+  headerLogoUrl: null,
   ogImageUrl: null,
   keywords: ['반려동물', '건강기록', '혈액검사', '일일기록'],
   themeColor: '#ffffff',
   language: 'ko'
 }
 
-type AssetType = 'favicon' | 'logo' | 'ogImage'
+type AssetType = 'favicon' | 'logo' | 'headerLogo' | 'ogImage'
 
 interface UploadState {
   uploading: boolean
@@ -42,11 +43,13 @@ export default function SiteSettingsPage() {
   const [uploadStates, setUploadStates] = useState<Record<AssetType, UploadState>>({
     favicon: { uploading: false, error: null },
     logo: { uploading: false, error: null },
+    headerLogo: { uploading: false, error: null },
     ogImage: { uploading: false, error: null }
   })
 
   const faviconInputRef = useRef<HTMLInputElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
+  const headerLogoInputRef = useRef<HTMLInputElement>(null)
   const ogImageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -105,10 +108,15 @@ export default function SiteSettingsPage() {
       // 설정에 URL 업데이트
       const urlKey = assetType === 'favicon' ? 'faviconUrl'
         : assetType === 'logo' ? 'logoUrl'
+        : assetType === 'headerLogo' ? 'headerLogoUrl'
         : 'ogImageUrl'
 
       setSettings(prev => ({ ...prev, [urlKey]: data.data.url }))
-      setSuccess(`${assetType === 'favicon' ? '파비콘' : assetType === 'logo' ? '로고' : 'OG 이미지'}가 업로드되었습니다`)
+      const assetName = assetType === 'favicon' ? '파비콘'
+        : assetType === 'logo' ? '로그인 로고'
+        : assetType === 'headerLogo' ? '헤더 로고'
+        : 'OG 이미지'
+      setSuccess(`${assetName}가 업로드되었습니다`)
     } catch (err) {
       setUploadStates(prev => ({
         ...prev,
@@ -136,6 +144,7 @@ export default function SiteSettingsPage() {
 
       const urlKey = assetType === 'favicon' ? 'faviconUrl'
         : assetType === 'logo' ? 'logoUrl'
+        : assetType === 'headerLogo' ? 'headerLogoUrl'
         : 'ogImageUrl'
 
       setSettings(prev => ({ ...prev, [urlKey]: null }))
@@ -439,12 +448,24 @@ export default function SiteSettingsPage() {
 
             <ImageUploadCard
               assetType="logo"
-              title="로고"
-              description="헤더 메뉴(가로형), 로그인 페이지(정방형 200x200)에 표시"
+              title="로그인 로고 (정방형)"
+              description="로그인 페이지에 표시 (권장: 200x200px)"
               imageUrl={settings.logoUrl}
               inputRef={logoInputRef}
               accept="image/png,image/svg+xml,image/jpeg"
               previewSize="square"
+            />
+
+            <hr />
+
+            <ImageUploadCard
+              assetType="headerLogo"
+              title="헤더 로고 (가로형)"
+              description="햄버거 메뉴 상단에 표시 (권장: 가로형, 높이 40px)"
+              imageUrl={settings.headerLogoUrl}
+              inputRef={headerLogoInputRef}
+              accept="image/png,image/svg+xml,image/jpeg"
+              previewSize="horizontal"
             />
 
             <hr />
@@ -467,9 +488,8 @@ export default function SiteSettingsPage() {
             <CardTitle className="text-sm text-blue-800">로고 사용처</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-blue-700 space-y-1">
-            <p>• 햄버거 메뉴 상단: 가로형 (높이 40px)</p>
-            <p>• 로그인 페이지: 정방형 (200x200px)</p>
-            <p>• 비율이 유지되므로 정방형 또는 가로형 로고 권장</p>
+            <p>• <strong>로그인 로고</strong>: 로그인 페이지 상단 (정방형 200x200px)</p>
+            <p>• <strong>헤더 로고</strong>: 햄버거 메뉴 상단 (가로형, 높이 40px)</p>
           </CardContent>
         </Card>
 
@@ -568,17 +588,17 @@ export default function SiteSettingsPage() {
             <div className="p-3 bg-muted rounded border">
               <p className="text-xs text-muted-foreground mb-2">헤더 메뉴 (40px)</p>
               <div className="flex items-center">
-                {settings.logoUrl ? (
+                {settings.headerLogoUrl ? (
                   <Image
-                    src={settings.logoUrl}
-                    alt="Logo"
+                    src={settings.headerLogoUrl}
+                    alt="Header Logo"
                     width={160}
                     height={40}
-                    className="h-8 w-auto object-contain"
+                    className="h-10 w-auto object-contain"
                     unoptimized
                   />
                 ) : (
-                  <span className="font-medium">{settings.siteName}</span>
+                  <span className="font-medium text-muted-foreground">(헤더 로고 없음)</span>
                 )}
               </div>
             </div>
