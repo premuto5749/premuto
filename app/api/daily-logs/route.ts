@@ -254,6 +254,7 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
+    const permanent = searchParams.get('permanent') === 'true'
 
     if (!id) {
       return NextResponse.json(
@@ -262,13 +263,30 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    if (permanent) {
+      // 영구 삭제 (이미 소프트 삭제된 레코드만)
+      const { error } = await supabase
+        .from('daily_logs')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .not('deleted_at', 'is', null)
+
+      if (error) {
+        console.error('Daily log permanent delete error:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, message: '기록이 영구 삭제되었습니다' })
+    }
+
     // 소프트 삭제: deleted_at 설정 (7일 후 영구 삭제)
     const { error } = await supabase
       .from('daily_logs')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', user.id)
-      .is('deleted_at', null) // 이미 삭제된 레코드는 무시
+      .is('deleted_at', null)
 
     if (error) {
       console.error('Daily log soft-delete error:', error)
