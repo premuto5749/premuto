@@ -75,7 +75,11 @@ export default function TierConfigPage() {
       } else {
         const numValue = parseInt(value, 10)
         if (!isNaN(numValue)) {
-          (updated[tier] as Record<string, unknown>)[field] = numValue
+          const t = updated[tier]
+          if (field === 'daily_ocr_limit') t.daily_ocr_limit = numValue
+          else if (field === 'max_files_per_ocr') t.max_files_per_ocr = numValue
+          else if (field === 'daily_log_max_photos') t.daily_log_max_photos = numValue
+          else if (field === 'daily_log_max_photo_size_mb') t.daily_log_max_photo_size_mb = numValue
         }
       }
       return updated
@@ -187,7 +191,7 @@ export default function TierConfigPage() {
                   <CardContent className="pt-6 space-y-4">
                     {Object.entries(FIELD_LABELS).map(([field, { label, description }]) => {
                       if (field === 'label') return null
-                      const value = (tierConfig as Record<string, unknown>)[field]
+                      const value = tierConfig[field as keyof TierConfig]
                       return (
                         <div key={field} className="space-y-1">
                           <Label htmlFor={`${tier}-${field}`} className="text-sm">
