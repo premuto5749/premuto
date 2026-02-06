@@ -75,15 +75,15 @@ export default function LoginPage() {
               <Image
                 src={siteSettings.logoUrl}
                 alt="Logo"
-                width={240}
-                height={72}
-                className="h-14 w-auto object-contain"
+                width={120}
+                height={120}
+                className="w-24 h-24 object-contain"
                 unoptimized
               />
             </div>
           )}
           <CardTitle className="text-2xl font-bold text-center">
-            {isSignUp ? '회원가입' : '로그인'}
+            {isSignUp ? '가입하기' : '들어가기'}
           </CardTitle>
           <CardDescription className="text-center">
             {siteSettings.siteName}
@@ -139,7 +139,7 @@ export default function LoginPage() {
                   처리 중...
                 </>
               ) : (
-                isSignUp ? '회원가입' : '로그인'
+                isSignUp ? '가입하기' : '들어가기'
               )}
             </Button>
 
@@ -153,16 +153,10 @@ export default function LoginPage() {
                 className="text-sm text-muted-foreground hover:text-primary underline"
                 disabled={isLoading}
               >
-                {isSignUp ? '이미 계정이 있으신가요? 로그인' : '계정이 없으신가요? 회원가입'}
+                {isSignUp ? '이미 계정이 있으신가요? 들어가기' : '계정이 없으신가요? 가입하기'}
               </button>
             </div>
           </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-xs text-muted-foreground">
-              {siteSettings.siteDescription}
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
