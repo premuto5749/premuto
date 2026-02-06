@@ -75,6 +75,26 @@ let cacheTimestamp: number = 0;
 let cachedUserId: string | null = null;
 const CACHE_TTL = 5 * 60 * 1000; // 5분
 
+/**
+ * 매칭용 문자열 정규화
+ * OCR 출력의 특수문자 변형을 통일하여 매칭 정확도 향상
+ */
+function normalizeForMatching(input: string): string {
+  let s = input.trim();
+  // NFKC normalization (full-width → half-width, compatibility decomposition)
+  s = s.normalize('NFKC');
+  // Smart quotes → straight quotes
+  s = s.replace(/[\u2018\u2019\u201A\u201B\u02BC]/g, "'");
+  s = s.replace(/[\u201C\u201D\u201E\u201F]/g, '"');
+  // Strip zero-width characters
+  s = s.replace(/[\u200B\u200C\u200D\uFEFF]/g, '');
+  // Normalize various dash/hyphen types to regular hyphen
+  s = s.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, '-');
+  // Lowercase
+  s = s.toLowerCase();
+  return s;
+}
+
 // ============================================
 // Step 0: 가비지 필터링 유틸리티
 // ============================================
@@ -204,7 +224,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
     if (!itemsError && items) {
       cachedStandardItems = new Map();
       for (const item of items) {
-        cachedStandardItems.set(item.name.toLowerCase(), item as StandardItem);
+        cachedStandardItems.set(normalizeForMatching(item.name), item as StandardItem);
       }
     }
 
@@ -215,7 +235,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
     if (!aliasesError && aliases) {
       cachedAliases = new Map();
       for (const alias of aliases) {
-        cachedAliases.set(alias.alias.toLowerCase(), alias as ItemAlias);
+        cachedAliases.set(normalizeForMatching(alias.alias), alias as ItemAlias);
       }
     }
 
@@ -231,7 +251,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
 
   cachedStandardItems = new Map();
   for (const item of items || []) {
-    cachedStandardItems.set(item.name.toLowerCase(), item as StandardItem);
+    cachedStandardItems.set(normalizeForMatching(item.name), item as StandardItem);
   }
 
   const { data: aliases } = await supabase
@@ -240,7 +260,7 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
 
   cachedAliases = new Map();
   for (const alias of aliases || []) {
-    cachedAliases.set(alias.alias.toLowerCase(), alias as ItemAlias);
+    cachedAliases.set(normalizeForMatching(alias.alias), alias as ItemAlias);
   }
 
   cachedUserId = null;
@@ -279,7 +299,7 @@ export async function matchItemV3(
     return createEmptyResult();
   }
 
-  const normalizedRaw = rawName.toLowerCase().trim();
+  const normalizedRaw = normalizeForMatching(rawName);
 
   // ============================================
   // Step 1: 정규 항목 exact match (case-insensitive)

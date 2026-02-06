@@ -1,10 +1,10 @@
 {
-  "version": "v4.1",
-  "updated_at": "2026-02-05",
+  "version": "v4.2",
+  "updated_at": "2026-02-06",
   "stats": {
     "test_items": 120,
-    "aliases": 76,
-    "total_recognizable_names": 196
+    "aliases": 90,
+    "total_recognizable_names": 210
   },
   "test_items": [
     {
@@ -2001,6 +2001,71 @@
       "alias": "CBASE(ECF,ST)(ABL80",
       "canonical": "cBase(Ecf)",
       "source_hint": "ABL80F standard temp (OCR잘림)"
+    },
+    {
+      "alias": "AP",
+      "canonical": "ALKP",
+      "source_hint": ""
+    },
+    {
+      "alias": "GPT",
+      "canonical": "ALT",
+      "source_hint": ""
+    },
+    {
+      "alias": "GOT",
+      "canonical": "AST",
+      "source_hint": ""
+    },
+    {
+      "alias": "SGPT",
+      "canonical": "ALT",
+      "source_hint": ""
+    },
+    {
+      "alias": "SGOT",
+      "canonical": "AST",
+      "source_hint": ""
+    },
+    {
+      "alias": "Bil",
+      "canonical": "T.Bilirubin",
+      "source_hint": ""
+    },
+    {
+      "alias": "Chol",
+      "canonical": "T.Cholesterol",
+      "source_hint": ""
+    },
+    {
+      "alias": "TCH",
+      "canonical": "T.Cholesterol",
+      "source_hint": ""
+    },
+    {
+      "alias": "Cr",
+      "canonical": "Creatinine",
+      "source_hint": ""
+    },
+    {
+      "alias": "iCa",
+      "canonical": "Calcium",
+      "source_hint": ""
+    },
+    {
+      "alias": "Phos",
+      "canonical": "Phosphorus",
+      "source_hint": ""
+    },
+    {
+      "alias": "FIB",
+      "canonical": "Fibrinogen",
+      "source_hint": ""
+    },
+    {
+      "alias": "Fib",
+      "canonical": "Fibrinogen",
+      "source_hint": ""
     }
   ],
   "sort_orders": {
