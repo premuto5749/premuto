@@ -10,6 +10,7 @@ import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus, Chevr
 import type { DailyLog } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
+import { formatNumber } from '@/lib/utils'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -101,13 +102,13 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       const leftover = log.leftover_amount || 0
       const eaten = log.amount - leftover
       if (leftover > 0) {
-        return `${eaten}g (급여 ${log.amount}g, 남김 ${leftover}g)`
+        return `${formatNumber(eaten)}g (급여 ${formatNumber(log.amount)}g, 남김 ${formatNumber(leftover)}g)`
       }
-      return `${log.amount}${log.unit || config.unit}`
+      return `${formatNumber(log.amount)}${log.unit || config.unit}`
     }
 
     if (log.amount !== null && log.amount !== undefined) {
-      return `${log.amount}${log.unit || config.unit}`
+      return `${formatNumber(log.amount)}${log.unit || config.unit}`
     }
 
     return ''
@@ -434,7 +435,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-muted-foreground">실제 식사량</span>
                             <span className="font-medium">
-                              {(parseFloat(editAmount) - (editLeftoverAmount ? parseFloat(editLeftoverAmount) : 0)).toFixed(0)}g
+                              {formatNumber(parseFloat(editAmount) - (editLeftoverAmount ? parseFloat(editLeftoverAmount) : 0))}g
                             </span>
                           </div>
                         </div>
@@ -590,18 +591,18 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <span className="text-sm text-muted-foreground">급여량</span>
-                        <span className="font-medium">{selectedLog.amount}g</span>
+                        <span className="font-medium">{formatNumber(selectedLog.amount)}g</span>
                       </div>
                       {(selectedLog.leftover_amount ?? 0) > 0 && (
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">남긴 양</span>
-                          <span className="font-medium">{selectedLog.leftover_amount}g</span>
+                          <span className="font-medium">{formatNumber(selectedLog.leftover_amount!)}g</span>
                         </div>
                       )}
                       <div className="flex justify-between border-t pt-2">
                         <span className="text-sm font-medium">실제 식사량</span>
                         <span className="font-medium text-primary">
-                          {selectedLog.amount - (selectedLog.leftover_amount || 0)}g
+                          {formatNumber(selectedLog.amount - (selectedLog.leftover_amount || 0))}g
                         </span>
                       </div>
                     </div>
@@ -614,7 +615,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                         {selectedLog.category === 'breathing' ? '호흡수' : '양'}
                       </p>
                       <p className="font-medium">
-                        {selectedLog.amount} {selectedLog.unit || LOG_CATEGORY_CONFIG[selectedLog.category].unit}
+                        {formatNumber(selectedLog.amount)} {selectedLog.unit || LOG_CATEGORY_CONFIG[selectedLog.category].unit}
                       </p>
                     </div>
                   )}

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { AlertCircle } from 'lucide-react'
@@ -38,12 +38,12 @@ interface PivotTableProps {
   panelFilter?: string | null
 }
 
-// 숫자를 소수점 첫째자리까지 표시 (정수면 그대로)
+// 숫자를 소수점 첫째자리까지 표시 (정수면 그대로) + 1000단위 컴마
 function formatValue(value: number): string {
   if (Number.isInteger(value)) {
-    return value.toString()
+    return value.toLocaleString('ko-KR')
   }
-  return value.toFixed(1)
+  return value.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
 // 0값 여부 확인 (측정된 0 vs 데이터 없음 구분)
@@ -293,6 +293,23 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
     return { changed: false, previousRef: null }
   }
 
+  // thead 높이 측정을 위한 ref
+  const theadRef = useRef<HTMLTableSectionElement>(null)
+  const [theadHeight, setTheadHeight] = useState(0)
+
+  useEffect(() => {
+    if (theadRef.current) {
+      const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          setTheadHeight(entry.contentRect.height)
+        }
+      })
+      observer.observe(theadRef.current)
+      setTheadHeight(theadRef.current.getBoundingClientRect().height)
+      return () => observer.disconnect()
+    }
+  }, [])
+
   if (sortedRecords.length === 0) {
     return (
       <Card>
@@ -314,7 +331,7 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
       <CardContent className="px-0 sm:px-6">
         <div className="overflow-auto max-h-[70vh]">
           <table className="w-full border-collapse text-xs sm:text-sm">
-            <thead className="sticky top-0 z-30 bg-background">
+            <thead ref={theadRef} className="sticky top-0 z-30 bg-background">
               <tr className="border-b">
                 <th className="sticky left-0 z-40 bg-background p-2 sm:p-3 text-left font-medium border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[100px] sm:min-w-[150px]">
                   항목
@@ -336,8 +353,8 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
             <tbody>
               {Array.from(pivotData.itemsByCategory.entries()).map(([category, items]) => (
                 <React.Fragment key={category}>
-                  <tr className="bg-muted/50">
-                    <td className="sticky left-0 z-20 p-2 font-semibold text-[10px] sm:text-xs uppercase bg-muted/50 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  <tr className="bg-muted/50" style={{ position: 'sticky', top: theadHeight, zIndex: 25 }}>
+                    <td className="sticky left-0 z-[26] p-2 font-semibold text-[10px] sm:text-xs uppercase bg-muted/50 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                       {category}
                     </td>
                     {sortedRecords.map((record) => (

@@ -14,7 +14,7 @@ export interface SiteSettings {
 const DEFAULT_SETTINGS: SiteSettings = {
   siteName: 'Mimo Health Log',
   siteDescription: '미모 건강 기록',
-  faviconUrl: null,
+  faviconUrl: '/favicon.ico',
   logoUrl: null,
   ogImageUrl: null,
   keywords: ['반려동물', '건강기록', '혈액검사', '일일기록'],
