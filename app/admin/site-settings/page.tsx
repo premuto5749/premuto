@@ -249,12 +249,13 @@ export default function SiteSettingsPage() {
     imageUrl: string | null
     inputRef: React.RefObject<HTMLInputElement>
     accept?: string
-    previewSize?: 'sm' | 'md' | 'lg' | 'horizontal'
+    previewSize?: 'sm' | 'md' | 'lg' | 'horizontal' | 'square'
   }) => {
     const state = uploadStates[assetType]
     const sizeClass = previewSize === 'sm' ? 'w-16 h-16'
       : previewSize === 'lg' ? 'w-full max-w-md h-40'
       : previewSize === 'horizontal' ? 'w-48 h-12'
+      : previewSize === 'square' ? 'w-[200px] h-[200px]'
       : 'w-24 h-24'
 
     return (
@@ -438,12 +439,12 @@ export default function SiteSettingsPage() {
 
             <ImageUploadCard
               assetType="logo"
-              title="로고 (가로형)"
-              description="헤더, 로그인 페이지에 표시 (권장: 가로형, 높이 40~60px)"
+              title="로고"
+              description="헤더 메뉴(가로형), 로그인 페이지(정방형 200x200)에 표시"
               imageUrl={settings.logoUrl}
               inputRef={logoInputRef}
               accept="image/png,image/svg+xml,image/jpeg"
-              previewSize="horizontal"
+              previewSize="square"
             />
 
             <hr />
@@ -463,12 +464,12 @@ export default function SiteSettingsPage() {
         {/* 로고 사용처 안내 */}
         <Card className="mb-4 bg-blue-50/50 border-blue-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-blue-800">로고 사용처 (가로형 권장)</CardTitle>
+            <CardTitle className="text-sm text-blue-800">로고 사용처</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-blue-700 space-y-1">
-            <p>• 햄버거 메뉴 상단 (높이 40px)</p>
-            <p>• 로그인 페이지 상단 (높이 56px)</p>
-            <p>• 비율이 유지되므로 가로형 로고 권장</p>
+            <p>• 햄버거 메뉴 상단: 가로형 (높이 40px)</p>
+            <p>• 로그인 페이지: 정방형 (200x200px)</p>
+            <p>• 비율이 유지되므로 정방형 또는 가로형 로고 권장</p>
           </CardContent>
         </Card>
 
@@ -583,19 +584,18 @@ export default function SiteSettingsPage() {
             </div>
             {/* 로그인 페이지 미리보기 */}
             <div className="p-3 bg-muted rounded border text-center">
-              <p className="text-xs text-muted-foreground mb-2">로그인 페이지 (56px)</p>
+              <p className="text-xs text-muted-foreground mb-2">로그인 페이지 (200x200)</p>
               {settings.logoUrl && (
                 <Image
                   src={settings.logoUrl}
                   alt="Logo"
                   width={200}
-                  height={56}
-                  className="h-11 w-auto object-contain mx-auto mb-2"
+                  height={200}
+                  className="w-[200px] h-[200px] object-contain mx-auto mb-2"
                   unoptimized
                 />
               )}
               <p className="font-medium">{settings.siteName}</p>
-              <p className="text-muted-foreground text-xs">{settings.siteDescription}</p>
             </div>
             {/* 키워드 */}
             <div className="flex flex-wrap gap-1">
