@@ -290,3 +290,15 @@ npx supabase db push # DB 마이그레이션
 **구현 위치**:
 - `app/api/daily-logs/upload/route.ts`: 파일 경로만 저장
 - `app/api/daily-logs/route.ts`: GET 시 Signed URL 변환
+
+## 10. Git 워크플로우
+
+### Branch Naming
+- 기능 개발: `feat/기능명` (예: `feat/user-auth`)
+- 버그 수정: `fix/이슈번호-설명` (예: `fix/123-login-error`)
+
+### Workflow
+- 모든 작업은 `main` 브랜치에서 파생된 새 브랜치에서 진행할 것.
+- 작업 완료 후에는 반드시 PR을 생성할 것.
+- Merge 대신 Rebase를 선호함.
+- **절대 main에 직접 push하지 말 것.**
