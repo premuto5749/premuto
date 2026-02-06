@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff } from 'lucide-react'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
@@ -117,7 +117,7 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
         )}
 
         <Tabs defaultValue={defaultTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="pet" className="text-xs sm:text-sm">
               <PawPrint className="w-4 h-4 mr-1 hidden sm:inline" />
               반려동물
@@ -133,6 +133,10 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
             <TabsTrigger value="theme" className="text-xs sm:text-sm">
               <Palette className="w-4 h-4 mr-1 hidden sm:inline" />
               테마
+            </TabsTrigger>
+            <TabsTrigger value="account" className="text-xs sm:text-sm">
+              <KeyRound className="w-4 h-4 mr-1 hidden sm:inline" />
+              계정
             </TabsTrigger>
             <TabsTrigger value="data" className="text-xs sm:text-sm">
               <Database className="w-4 h-4 mr-1 hidden sm:inline" />
@@ -179,6 +183,11 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
               saving={saving}
               setSaving={setSaving}
             />
+          </TabsContent>
+
+          {/* 계정 관리 */}
+          <TabsContent value="account">
+            <PasswordChangeSection />
           </TabsContent>
 
           {/* 데이터 관리 */}
@@ -1348,5 +1357,159 @@ function DataManagementSection() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// 비밀번호 변경 섹션
+function PasswordChangeSection() {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  const handleChangePassword = async () => {
+    setResult(null)
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setResult({ success: false, message: '모든 필드를 입력해주세요' })
+      return
+    }
+
+    if (newPassword.length < 6) {
+      setResult({ success: false, message: '새 비밀번호는 6자 이상이어야 합니다' })
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setResult({ success: false, message: '새 비밀번호가 일치하지 않습니다' })
+      return
+    }
+
+    setSaving(true)
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+
+      const data = await res.json()
+
+      if (data.success) {
+        setResult({ success: true, message: '비밀번호가 변경되었습니다' })
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      } else {
+        setResult({ success: false, message: data.error || '비밀번호 변경에 실패했습니다' })
+      }
+    } catch (error) {
+      console.error('Failed to change password:', error)
+      setResult({ success: false, message: '비밀번호 변경에 실패했습니다' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <KeyRound className="w-5 h-5" />
+          비밀번호 변경
+        </CardTitle>
+        <CardDescription>계정 비밀번호를 변경합니다</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="current_password">현재 비밀번호</Label>
+          <div className="relative">
+            <Input
+              id="current_password"
+              type={showCurrentPassword ? 'text' : 'password'}
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="현재 비밀번호 입력"
+              disabled={saving}
+            />
+            <button
+              type="button"
+              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              tabIndex={-1}
+            >
+              {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="new_password">새 비밀번호</Label>
+          <div className="relative">
+            <Input
+              id="new_password"
+              type={showNewPassword ? 'text' : 'password'}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="새 비밀번호 입력"
+              disabled={saving}
+              minLength={6}
+            />
+            <button
+              type="button"
+              onClick={() => setShowNewPassword(!showNewPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              tabIndex={-1}
+            >
+              {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">최소 6자 이상</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="confirm_password">새 비밀번호 확인</Label>
+          <Input
+            id="confirm_password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="새 비밀번호 다시 입력"
+            disabled={saving}
+          />
+        </div>
+
+        {result && (
+          <div className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
+            result.success
+              ? 'bg-green-50 text-green-700 border border-green-200'
+              : 'bg-red-50 text-red-700 border border-red-200'
+          }`}>
+            {result.success ? (
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            )}
+            {result.message}
+          </div>
+        )}
+
+        <Button
+          onClick={handleChangePassword}
+          disabled={saving || !currentPassword || !newPassword || !confirmPassword}
+          className="w-full"
+        >
+          {saving ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <KeyRound className="w-4 h-4 mr-2" />
+          )}
+          비밀번호 변경
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
