@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireAdmin } from '@/lib/auth/admin'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +15,7 @@ export async function GET() {
       return NextResponse.json({ error }, { status: 403 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // 1. pets 테이블에서 고유 user_id 목록 (auth.users는 RLS로 직접 조회 불가)
     const { data: petsData, error: petsError } = await supabase
@@ -147,7 +147,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'tier는 free, basic, premium 중 하나여야 합니다' }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // upsert: 프로필이 없으면 생성, 있으면 업데이트
     const { data, error: dbError } = await supabase
