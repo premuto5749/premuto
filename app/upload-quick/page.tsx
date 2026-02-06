@@ -195,10 +195,10 @@ export default function UploadQuickPage() {
           </div>
           <div className="text-sm font-medium">
             {ocrUsage.limit === -1 ? (
-              <span className="text-green-600">{ocrUsage.used}회 사용 (무제한)</span>
+              <span className="text-green-600">무제한</span>
             ) : (
               <span className={ocrUsage.remaining <= 0 ? 'text-destructive' : ''}>
-                {ocrUsage.used} / {ocrUsage.limit}회
+                {ocrUsage.remaining}/{ocrUsage.limit} 남음
               </span>
             )}
           </div>
