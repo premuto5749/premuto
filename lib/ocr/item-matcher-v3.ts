@@ -426,9 +426,6 @@ export async function registerNewStandardItem(
     unit: string;
     examType: string;
     organTags: string[];
-    descriptionCommon?: string;
-    descriptionHigh?: string;
-    descriptionLow?: string;
   },
   supabase?: SupabaseClientType,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -458,9 +455,6 @@ export async function registerNewStandardItem(
       category: item.examType,
       exam_type: item.examType,
       organ_tags: item.organTags,
-      description_common: item.descriptionCommon,
-      description_high: item.descriptionHigh,
-      description_low: item.descriptionLow,
     })
     .select('id')
     .single();
