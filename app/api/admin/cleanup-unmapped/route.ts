@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 
+export const dynamic = 'force-dynamic'
+
 interface CleanupAction {
   action: 'delete' | 'merge'
   itemId: string

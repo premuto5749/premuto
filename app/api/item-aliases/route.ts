@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/item-aliases
  * 모든 항목 별칭 조회 (사용자 오버라이드 병합)

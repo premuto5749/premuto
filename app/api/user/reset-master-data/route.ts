@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/user/reset-master-data
  * 사용자의 마스터 데이터 오버라이드를 초기화 (마스터 기본값으로 리셋)

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdmin } from '@/lib/auth/admin'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/admin/stats
  * 관리자 대시보드 통계 (관리자 전용)

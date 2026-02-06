@@ -15,6 +15,8 @@ import {
   ExportOptions
 } from '@/lib/export/excel-exporter'
 
+export const dynamic = 'force-dynamic'
+
 interface ExportRequest {
   record_ids?: string[]      // 특정 검사 기록만 내보내기 (선택)
   date_from?: string         // 시작 날짜 (선택)

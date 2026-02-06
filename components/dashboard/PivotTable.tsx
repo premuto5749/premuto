@@ -227,17 +227,17 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
       items.sort()
     })
 
-    // 날짜별 데이터 맵 생성
-    const dateMap = new Map<string, Map<string, TestResult>>()
+    // 레코드별 데이터 맵 생성 (record.id 기준 - 같은 날짜의 다른 레코드 구분)
+    const recordMap = new Map<string, Map<string, TestResult>>()
     sortedRecords.forEach(record => {
       const resultMap = new Map<string, TestResult>()
       record.test_results.forEach(result => {
         resultMap.set(result.standard_items_master.name, result)
       })
-      dateMap.set(record.test_date, resultMap)
+      recordMap.set(record.id, resultMap)
     })
 
-    return { itemsByCategory, itemDetails, dateMap }
+    return { itemsByCategory, itemDetails, recordMap }
   }, [sortedRecords, sortType, organFilter, panelFilter])
 
   const getStatusColor = (status: string) => {
@@ -361,7 +361,7 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
                           )}
                         </td>
                         {sortedRecords.map((record) => {
-                          const result = pivotData.dateMap.get(record.test_date)?.get(itemName)
+                          const result = pivotData.recordMap.get(record.id)?.get(itemName)
                           const refChange = result ? hasRefRangeChanged(record, itemName) : { changed: false, previousRef: null }
 
                           return (

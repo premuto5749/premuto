@@ -234,6 +234,26 @@ export default function AdminPage() {
             </Card>
           </Link>
 
+          <Link href="/admin/tier-config">
+            <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Users className="w-5 h-5" />
+                  Tier / 사용 제한 설정
+                </CardTitle>
+                <CardDescription>
+                  사용자 등급별 일일 AI 분석 횟수, 파일 업로드 제한을 설정합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">Tier 관리</span>
+                  <span className="text-xs bg-muted px-2 py-1 rounded">사용량 제한</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
           <Card className="opacity-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -242,7 +262,7 @@ export default function AdminPage() {
                 <span className="text-xs bg-muted px-2 py-0.5 rounded ml-auto">예정</span>
               </CardTitle>
               <CardDescription>
-                등록된 사용자 목록과 커스텀 데이터를 확인합니다.
+                등록된 사용자 목록과 Tier 설정을 관리합니다.
               </CardDescription>
             </CardHeader>
             <CardContent>

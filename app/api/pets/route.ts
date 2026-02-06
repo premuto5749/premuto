@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { PetInput, Pet } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 // 반려동물 목록 조회
 export async function GET() {
   try {

@@ -18,6 +18,8 @@ interface FileUploaderProps {
   selectedFiles: File[]
   isProcessing?: boolean
   maxFiles?: number
+  maxSizeMB?: number
+  onError?: (message: string) => void
 }
 
 export function FileUploader({
@@ -25,16 +27,26 @@ export function FileUploader({
   onFileRemove,
   selectedFiles,
   isProcessing = false,
-  maxFiles = 10
+  maxFiles = 10,
+  maxSizeMB = 10,
+  onError,
 }: FileUploaderProps) {
   const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
+  const [rejectionMessage, setRejectionMessage] = useState<string | null>(null)
+
+  const showError = useCallback((msg: string) => {
+    setRejectionMessage(msg)
+    if (onError) onError(msg)
+    setTimeout(() => setRejectionMessage(null), 5000)
+  }, [onError])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return
+    setRejectionMessage(null)
 
     // 기존 파일과 합쳐서 최대 개수 제한
     if (selectedFiles.length + acceptedFiles.length > maxFiles) {
-      alert(`최대 ${maxFiles}개 파일까지만 업로드할 수 있습니다.`)
+      showError(`최대 ${maxFiles}개 파일까지만 업로드할 수 있습니다. (현재 ${selectedFiles.length}개)`)
       return
     }
 
@@ -66,16 +78,35 @@ export function FileUploader({
     )
 
     setFilesWithPreview(prev => [...prev, ...newFilesWithPreview])
-  }, [selectedFiles, onFilesSelect, maxFiles])
+  }, [selectedFiles, onFilesSelect, maxFiles, showError])
+
+  const onDropRejected = useCallback((rejections: readonly { file: File; errors: readonly { code: string }[] }[]) => {
+    const reasons: string[] = []
+    for (const rejection of rejections) {
+      for (const err of rejection.errors) {
+        if (err.code === 'file-too-large') {
+          reasons.push(`${rejection.file.name}: 파일 크기 초과 (최대 ${maxSizeMB}MB)`)
+        } else if (err.code === 'file-invalid-type') {
+          reasons.push(`${rejection.file.name}: 지원하지 않는 형식`)
+        } else if (err.code === 'too-many-files') {
+          reasons.push(`최대 ${maxFiles}개 파일까지만 업로드 가능`)
+        }
+      }
+    }
+    if (reasons.length > 0) {
+      showError(reasons.join('\n'))
+    }
+  }, [maxFiles, maxSizeMB, showError])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     accept: {
       'image/*': ['.png', '.jpg', '.jpeg'],
       'application/pdf': ['.pdf']
     },
     maxFiles: maxFiles,
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: maxSizeMB * 1024 * 1024,
     multiple: true,
     disabled: isProcessing
   })
@@ -85,9 +116,16 @@ export function FileUploader({
     setFilesWithPreview(prev => prev.filter((_, i) => i !== index))
   }
 
+  const errorBanner = rejectionMessage && (
+    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+      <p className="text-sm text-destructive whitespace-pre-line">{rejectionMessage}</p>
+    </div>
+  )
+
   if (selectedFiles.length > 0) {
     return (
       <div className="space-y-4">
+        {errorBanner}
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium">
             업로드된 파일 ({selectedFiles.length}/{maxFiles})
@@ -178,35 +216,38 @@ export function FileUploader({
   }
 
   return (
-    <div
-      {...getRootProps()}
-      className={`
-        border-2 border-dashed rounded-lg p-12 text-center cursor-pointer
-        transition-colors duration-200
-        ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
-        ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary hover:bg-primary/5'}
-      `}
-    >
-      <input {...getInputProps()} />
-      <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-      {isDragActive ? (
-        <p className="text-lg font-medium">파일들을 여기에 놓아주세요</p>
-      ) : (
-        <>
-          <p className="text-lg font-medium mb-2">
-            한 번의 검사에 해당하는 모든 문서를 업로드하세요
-          </p>
-          <p className="text-sm text-muted-foreground mb-4">
-            여러 파일을 한 번에 선택하거나 드래그앤드롭할 수 있습니다
-          </p>
-          <p className="text-xs text-muted-foreground">
-            지원 형식: JPG, PNG, PDF (각 파일 최대 10MB, 최대 {maxFiles}개)
-          </p>
-          <p className="text-xs text-blue-600 mt-2">
-            💡 예: CBC 결과지 + Chemistry 결과지 + 특수 검사 결과지
-          </p>
-        </>
-      )}
+    <div className="space-y-4">
+      {errorBanner}
+      <div
+        {...getRootProps()}
+        className={`
+          border-2 border-dashed rounded-lg p-12 text-center cursor-pointer
+          transition-colors duration-200
+          ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'}
+          ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary hover:bg-primary/5'}
+        `}
+      >
+        <input {...getInputProps()} />
+        <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+        {isDragActive ? (
+          <p className="text-lg font-medium">파일들을 여기에 놓아주세요</p>
+        ) : (
+          <>
+            <p className="text-lg font-medium mb-2">
+              한 번의 검사에 해당하는 모든 문서를 업로드하세요
+            </p>
+            <p className="text-sm text-muted-foreground mb-4">
+              여러 파일을 한 번에 선택하거나 드래그앤드롭할 수 있습니다
+            </p>
+            <p className="text-xs text-muted-foreground">
+              지원 형식: JPG, PNG, PDF (각 파일 최대 {maxSizeMB}MB, 최대 {maxFiles}개)
+            </p>
+            <p className="text-xs text-blue-600 mt-2">
+              💡 예: CBC 결과지 + Chemistry 결과지 + 특수 검사 결과지
+            </p>
+          </>
+        )}
+      </div>
     </div>
   )
 }

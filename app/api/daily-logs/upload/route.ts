@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserTier, getTierConfig, logUsage } from '@/lib/tier'
 
-const MAX_FILES = 5
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+export const dynamic = 'force-dynamic'
 
 const BUCKET_NAME = 'daily-log-photos'
 
@@ -18,6 +18,15 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+
+    // Tier별 제한 조회
+    const [tier, tierConfigMap] = await Promise.all([
+      getUserTier(user.id),
+      getTierConfig(),
+    ])
+    const tierConfig = tierConfigMap[tier] || tierConfigMap.free
+    const maxFiles = tierConfig.daily_log_max_photos
+    const maxFileSize = tierConfig.daily_log_max_photo_size_mb * 1024 * 1024
 
     const formData = await request.formData()
 
@@ -37,18 +46,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (files.length > MAX_FILES) {
+    if (files.length > maxFiles) {
       return NextResponse.json(
-        { error: `Maximum ${MAX_FILES} files allowed` },
+        { error: `최대 ${maxFiles}개 파일만 업로드 가능합니다.` },
         { status: 400 }
       )
     }
 
     // 파일 검증
     for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) {
+      if (file.size > maxFileSize) {
         return NextResponse.json(
-          { error: `File ${file.name} exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit` },
+          { error: `${file.name} 파일이 ${tierConfig.daily_log_max_photo_size_mb}MB 제한을 초과합니다.` },
           { status: 400 }
         )
       }
@@ -123,6 +132,9 @@ export async function POST(request: NextRequest) {
       // 파일 경로만 저장 (Signed URL은 GET /api/daily-logs에서 생성)
       uploadedPaths.push(uploadData.path)
     }
+
+    // 사용량 기록
+    await logUsage(user.id, 'daily_log_photo', files.length)
 
     return NextResponse.json({
       success: true,

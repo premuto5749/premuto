@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { StandardItem } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 // 최대 실행 시간 설정 (60초)
 export const maxDuration = 60
 

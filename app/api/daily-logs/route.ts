@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import type { DailyLog, DailyLogInput, DailyStats } from '@/types'
 import { SupabaseClient } from '@supabase/supabase-js'
 
+export const dynamic = 'force-dynamic'
+
 const BUCKET_NAME = 'daily-log-photos'
 const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 7 // 7일
 

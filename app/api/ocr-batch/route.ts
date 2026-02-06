@@ -4,6 +4,9 @@ import type { OcrResult } from '@/types'
 import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
 import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 import { createClient } from '@/lib/supabase/server'
+import { checkUsageLimit, logUsage } from '@/lib/tier'
+
+export const dynamic = 'force-dynamic'
 
 // 최대 실행 시간 설정 (120초 - OCR은 시간이 오래 걸림)
 export const maxDuration = 120
@@ -488,6 +491,26 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
 
 export async function POST(request: NextRequest) {
   try {
+    // 사용자 인증 확인
+    const supabaseAuth = await createClient()
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    }
+
+    // Tier 사용량 체크
+    const usageCheck = await checkUsageLimit(user.id, 'ocr_analysis')
+    if (!usageCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: 'TIER_LIMIT_EXCEEDED',
+          message: `오늘 AI 분석 ${usageCheck.limit}회를 모두 사용했습니다. 내일 다시 이용할 수 있습니다.`,
+          usage: { used: usageCheck.used, limit: usageCheck.limit },
+        },
+        { status: 429 }
+      )
+    }
+
     const formData = await request.formData()
     const files: File[] = []
 
@@ -505,10 +528,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 파일 개수 제한 (최대 10개)
-    if (files.length > 10) {
+    // Tier별 파일 개수 제한
+    const maxFiles = usageCheck.tierConfig.max_files_per_ocr
+    if (files.length > maxFiles) {
       return NextResponse.json(
-        { error: 'Maximum 10 files allowed' },
+        { error: `현재 등급에서는 최대 ${maxFiles}개 파일만 업로드 가능합니다.` },
         { status: 400 }
       )
     }
@@ -622,6 +646,13 @@ export async function POST(request: NextRequest) {
     // 총 항목 수 계산
     const totalItems = successfulResults.reduce((sum, r) => sum + r.items.length, 0)
     console.log(`✅ OCR complete: ${successfulResults.length} files, ${totalItems} items extracted`)
+
+    // 사용량 기록
+    await logUsage(user.id, 'ocr_analysis', files.length, {
+      batch_id: batchId,
+      file_count: files.length,
+      item_count: totalItems,
+    })
 
     return NextResponse.json({
       success: true,
