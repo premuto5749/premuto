@@ -45,7 +45,8 @@ export async function middleware(request: NextRequest) {
 
   // 로그인이 필요한 경로들
   const protectedPaths = [
-    '/upload',
+    '/daily-log',       // 일일 기록
+    '/upload',          // 업로드 (upload-quick 포함)
     '/dashboard',
     '/preview',
     '/staging',
@@ -54,7 +55,8 @@ export async function middleware(request: NextRequest) {
     '/standard-items',  // 표준항목 관리
     '/settings',        // 설정
     '/records-management',
-    '/hospital-contacts'
+    '/hospital-contacts',
+    '/trash',           // 휴지통
   ]
   const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
 
@@ -63,9 +65,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // 로그인 페이지에 접근하려는데 이미 세션이 있으면 홈으로
+  // 인증된 사용자가 루트(/)에 접근하면 바로 /daily-log로 리다이렉트
+  if (request.nextUrl.pathname === '/' && session) {
+    return NextResponse.redirect(new URL('/daily-log', request.url))
+  }
+
+  // 로그인 페이지에 접근하려는데 이미 세션이 있으면 일일 기록으로
   if (request.nextUrl.pathname === '/login' && session) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/daily-log', request.url))
   }
 
   return response
