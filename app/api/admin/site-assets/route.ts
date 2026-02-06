@@ -12,6 +12,7 @@ const ASSET_CONFIG: Record<string, { folder: string; maxSize: number }> = {
   favicon: { folder: 'favicon', maxSize: 1 * 1024 * 1024 }, // 1MB
   logo: { folder: 'logo', maxSize: 2 * 1024 * 1024 }, // 2MB (로그인 페이지용 정방형)
   headerLogo: { folder: 'header-logo', maxSize: 2 * 1024 * 1024 }, // 2MB (헤더 메뉴용 가로형)
+  loginBgImage: { folder: 'login-bg', maxSize: 5 * 1024 * 1024 }, // 5MB (로그인 배경 이미지)
   ogImage: { folder: 'og', maxSize: 5 * 1024 * 1024 }, // 5MB
 }
 

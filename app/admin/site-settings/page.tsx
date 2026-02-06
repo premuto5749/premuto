@@ -18,13 +18,15 @@ const DEFAULT_SETTINGS: SiteSettings = {
   faviconUrl: null,
   logoUrl: null,
   headerLogoUrl: null,
+  loginBgImageUrl: null,
   ogImageUrl: null,
   keywords: ['반려동물', '건강기록', '혈액검사', '일일기록'],
   themeColor: '#ffffff',
+  primaryColor: '#f97316',
   language: 'ko'
 }
 
-type AssetType = 'favicon' | 'logo' | 'headerLogo' | 'ogImage'
+type AssetType = 'favicon' | 'logo' | 'headerLogo' | 'loginBgImage' | 'ogImage'
 
 interface UploadState {
   uploading: boolean
@@ -44,12 +46,14 @@ export default function SiteSettingsPage() {
     favicon: { uploading: false, error: null },
     logo: { uploading: false, error: null },
     headerLogo: { uploading: false, error: null },
+    loginBgImage: { uploading: false, error: null },
     ogImage: { uploading: false, error: null }
   })
 
   const faviconInputRef = useRef<HTMLInputElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const headerLogoInputRef = useRef<HTMLInputElement>(null)
+  const loginBgImageInputRef = useRef<HTMLInputElement>(null)
   const ogImageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -109,12 +113,14 @@ export default function SiteSettingsPage() {
       const urlKey = assetType === 'favicon' ? 'faviconUrl'
         : assetType === 'logo' ? 'logoUrl'
         : assetType === 'headerLogo' ? 'headerLogoUrl'
+        : assetType === 'loginBgImage' ? 'loginBgImageUrl'
         : 'ogImageUrl'
 
       setSettings(prev => ({ ...prev, [urlKey]: data.data.url }))
       const assetName = assetType === 'favicon' ? '파비콘'
         : assetType === 'logo' ? '로그인 로고'
         : assetType === 'headerLogo' ? '헤더 로고'
+        : assetType === 'loginBgImage' ? '로그인 배경'
         : 'OG 이미지'
       setSuccess(`${assetName}가 업로드되었습니다`)
     } catch (err) {
@@ -145,6 +151,7 @@ export default function SiteSettingsPage() {
       const urlKey = assetType === 'favicon' ? 'faviconUrl'
         : assetType === 'logo' ? 'logoUrl'
         : assetType === 'headerLogo' ? 'headerLogoUrl'
+        : assetType === 'loginBgImage' ? 'loginBgImageUrl'
         : 'ogImageUrl'
 
       setSettings(prev => ({ ...prev, [urlKey]: null }))
@@ -471,6 +478,18 @@ export default function SiteSettingsPage() {
             <hr />
 
             <ImageUploadCard
+              assetType="loginBgImage"
+              title="로그인 배경 이미지"
+              description="로그인 페이지 우측 배경 (권장: 세로형, 최소 800x1200px)"
+              imageUrl={settings.loginBgImageUrl}
+              inputRef={loginBgImageInputRef}
+              accept="image/png,image/jpeg,image/webp"
+              previewSize="lg"
+            />
+
+            <hr />
+
+            <ImageUploadCard
               assetType="ogImage"
               title="OG 이미지"
               description="소셜 미디어 공유 시 표시 (권장: 1200x630px)"
@@ -529,12 +548,39 @@ export default function SiteSettingsPage() {
               테마 설정
             </CardTitle>
             <CardDescription>
-              브라우저 테마 색상을 설정합니다.
+              브라우저 및 UI 색상을 설정합니다.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="themeColor">테마 색상</Label>
+              <Label htmlFor="primaryColor">Primary 색상 (버튼, 강조)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="primaryColor"
+                  type="color"
+                  value={settings.primaryColor}
+                  onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                  className="w-12 h-10 p-1 cursor-pointer"
+                />
+                <Input
+                  value={settings.primaryColor}
+                  onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
+                  placeholder="#f97316"
+                  className="max-w-[120px]"
+                />
+                <div
+                  className="px-4 py-2 rounded text-white text-sm font-medium"
+                  style={{ backgroundColor: settings.primaryColor }}
+                >
+                  버튼 미리보기
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                로그인 버튼, 강조 색상 등에 적용됩니다.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="themeColor">브라우저 테마 색상</Label>
               <div className="flex items-center gap-2">
                 <Input
                   id="themeColor"
