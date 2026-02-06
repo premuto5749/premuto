@@ -266,56 +266,50 @@ export default function UploadQuickPage() {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>AI 분석</CardTitle>
-          <CardDescription>
-            Claude AI가 검사지를 분석하여 항목별 결과를 추출합니다
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <Button
-              onClick={handleAnalyze}
-              disabled={selectedFiles.length === 0 || isProcessing || isLimitReached}
-              className="flex-1"
-              size="lg"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  AI 분석 중... ({selectedFiles.length}개 파일)
-                </>
-              ) : isLimitReached ? (
-                '오늘 분석 한도에 도달했습니다'
-              ) : (
-                <>
-                  {selectedFiles.length > 0
-                    ? `${selectedFiles.length}개 파일 분석 시작`
-                    : '분석 시작'}
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </>
-              )}
-            </Button>
+      <div className="space-y-3">
+        <Button
+          onClick={handleAnalyze}
+          disabled={selectedFiles.length === 0 || isProcessing || isLimitReached}
+          className="w-full"
+          size="lg"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              AI로 파일 읽는 중... ({selectedFiles.length}개)
+            </>
+          ) : isLimitReached ? (
+            '오늘 분석 한도에 도달했습니다'
+          ) : (
+            <>
+              AI로 파일 읽기
+              {selectedFiles.length > 0 && ` (${selectedFiles.length}개)`}
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </>
+          )}
+        </Button>
+
+        <p className="text-[11px] text-muted-foreground/70 leading-relaxed text-center">
+          본 서비스는 검사 결과를 기록·보관하는 도구이며, 어떠한 의료적 의견이나 진단을 제공하지 않습니다.
+          OCR 분석 결과의 정확성 확인은 사용자 본인의 책임이며, 의학적 판단은 반드시 수의사와 상의하세요.
+        </p>
+
+        {isProcessing && (
+          <div className="p-4 bg-muted rounded-lg">
+            <p className="text-sm text-center text-muted-foreground">
+              이미지를 분석하고 있습니다. 파일 수에 따라 10-60초 정도 소요됩니다...
+            </p>
           </div>
+        )}
 
-          {isProcessing && (
-            <div className="mt-4 p-4 bg-muted rounded-lg">
-              <p className="text-sm text-center text-muted-foreground">
-                이미지를 분석하고 있습니다. 파일 수에 따라 10-60초 정도 소요됩니다...
-              </p>
-            </div>
-          )}
-
-          {isLimitReached && (
-            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <p className="text-sm text-orange-800">
-                오늘 AI 분석 {ocrUsage?.limit}회를 모두 사용했습니다. 내일 다시 이용할 수 있습니다.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        {isLimitReached && (
+          <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <p className="text-sm text-orange-800">
+              오늘 AI 분석 {ocrUsage?.limit}회를 모두 사용했습니다. 내일 다시 이용할 수 있습니다.
+            </p>
+          </div>
+        )}
+      </div>
 
       <div className="mt-8 p-4 bg-muted rounded-lg">
         <h3 className="font-medium mb-2">안내</h3>
@@ -324,10 +318,6 @@ export default function UploadQuickPage() {
           <li>여러 날짜가 포함되어 있어도 AI가 자동으로 분리합니다</li>
           <li>분석 후 확인 화면에서 항목을 검수하고 저장합니다</li>
         </ul>
-        <p className="mt-3 pt-3 border-t text-[11px] text-muted-foreground/70 leading-relaxed">
-          본 서비스는 검사 결과를 기록·보관하는 도구이며, 어떠한 의료적 의견이나 진단을 제공하지 않습니다.
-          OCR 분석 결과의 정확성 확인은 사용자 본인의 책임이며, 의학적 판단은 반드시 수의사와 상의하세요.
-        </p>
       </div>
       </div>
 

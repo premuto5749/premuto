@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ArrowRight, AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, CalendarIcon, Sparkles } from 'lucide-react'
+import { AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, CalendarIcon, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
@@ -525,29 +525,44 @@ function PreviewContent() {
                 </div>
               )}
             </div>
-            <Button
-              onClick={handleAiMapping}
-              disabled={isMappingInProgress || isMapped}
-              size="lg"
-              className={isMapped ? 'bg-green-600 hover:bg-green-600' : ''}
-            >
-              {isMappingInProgress ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  AI 정리 중...
-                </>
-              ) : isMapped ? (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  정리 완료
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  AI 정리 시작
-                </>
-              )}
-            </Button>
+            {!isMapped ? (
+              <Button
+                onClick={handleAiMapping}
+                disabled={isMappingInProgress}
+                size="lg"
+              >
+                {isMappingInProgress ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    분류 중...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    AI로 자동 분류
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSaveAll}
+                disabled={isProcessing || allItems.length === 0}
+                size="lg"
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    저장 중...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    저장 ({dateGroups.length}개 날짜 그룹)
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -811,59 +826,12 @@ function PreviewContent() {
         })}
       </Tabs>
 
-      {/* 저장 버튼 */}
-      <Card className={!isMapped ? 'opacity-60' : ''}>
-        <CardHeader>
-          <CardTitle>검사 결과 저장</CardTitle>
-          <CardDescription>
-            {isMapped
-              ? '매핑 결과를 확인했다면 저장하세요. 매핑된 결과가 DB에 저장됩니다.'
-              : '먼저 위의 "AI 정리" 버튼을 눌러 매핑을 진행하세요.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            onClick={handleSaveAll}
-            disabled={isProcessing || allItems.length === 0 || !isMapped}
-            className="w-full"
-            size="lg"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                저장 중... ({dateGroups.length}개 날짜 그룹)
-              </>
-            ) : !isMapped ? (
-              <>
-                먼저 AI 정리를 실행하세요
-              </>
-            ) : (
-              <>
-                모두 저장 ({dateGroups.length}개 날짜 그룹)
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </>
-            )}
-          </Button>
-
-          {isProcessing && (
-            <div className="mt-4 p-4 bg-muted rounded-lg">
-              <p className="text-sm text-center text-muted-foreground">
-                저장 중... ({dateGroups.length}개 날짜 그룹)
-              </p>
-              <p className="text-xs text-center text-muted-foreground mt-2">
-                매칭되지 않은 항목은 자동으로 생성됩니다
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       <div className="mt-8 p-4 bg-muted rounded-lg">
         <h3 className="font-medium mb-2">💡 진행 순서</h3>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
           <li><strong>1단계:</strong> OCR 결과를 확인하고 잘못된 값은 수정하세요</li>
-          <li><strong>2단계:</strong> [AI 정리] 버튼을 눌러 표준 검사항목으로 매핑하세요</li>
-          <li><strong>3단계:</strong> 매핑 결과를 확인하고 [저장] 버튼을 누르세요</li>
+          <li><strong>2단계:</strong> [AI로 자동 분류] 버튼을 눌러 표준 검사항목으로 매핑하세요</li>
+          <li><strong>3단계:</strong> 분류 완료 후 [저장] 버튼을 눌러 저장하세요</li>
           <li>날짜/병원이 인식되지 않았다면 직접 선택해주세요</li>
           <li>매핑되지 않은 항목은 &apos;Unmapped&apos; 카테고리로 자동 생성됩니다</li>
         </ul>
