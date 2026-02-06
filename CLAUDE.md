@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **v3.1 추가**: 검사 기록 병합 기능 (중복 기록 통합)
 
 **v3.2 핵심 개선사항**:
-- 검사항목 마스터 데이터 v4 (120개 표준항목, 76개 별칭, description 완비)
+- 검사항목 마스터 데이터 v4.2 (120개 표준항목, 89개 별칭, description 완비)
 - 매핑 로직 개선: Step 0 가비지 필터 추가, fuzzy 제거 → Step 0~3 (가비지필터 → exact → alias → AI)
 - 대시보드 View 옵션 (검사유형별/장기별/임상우선순위별/패널별 정렬)
 - 표준항목 관리 페이지 (/standard-items)
@@ -60,7 +60,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **README.md**: 프로젝트 개요 및 Claude Code 설정 가이드
 
 ### 검사항목 데이터 (docs/)
-- **docs/standard_items_master.json**: 마스터 데이터 — 정규항목 120개 + alias 76개 + 정렬체계 4종
+- **docs/standard_items_master.json**: 마스터 데이터 — 정규항목 120개 + alias 89개 + 정렬체계 4종
 - **docs/mapping_logic.md**: 매핑 로직 — Step 0~3 플로우, AI 프롬프트, Unmapped 처리, 기록 저장 구조
 
 ### 재사용 가능한 Skills (.claude/skills/)
@@ -128,9 +128,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### A. 데이터 매핑 및 표준화
 
 > 📘 **상세 문서**: `docs/mapping_logic.md` — 전체 매핑 플로우, AI 프롬프트, Unmapped 처리
-> 📘 **마스터 데이터**: `docs/standard_items_master.json` — 정규항목 120개 + alias 76개 + 정렬체계 4종
+> 📘 **마스터 데이터**: `docs/standard_items_master.json` — 정규항목 120개 + alias 89개 + 정렬체계 4종
 
-**검사항목 마스터 v4 (120개 정규항목, 76개 alias = 196개 이름 인식)**
+**검사항목 마스터 v4.2 (120개 정규항목, 89개 alias = 209개 이름 인식)**
 
 병원/장비마다 같은 검사를 다르게 표기하는 문제를 해결:
 - 장비명 부착 (HCT vs Hct(ABL80F)), 약어 차이 (ALKP vs ALP), 이온 표기 (K+ vs Potassium)

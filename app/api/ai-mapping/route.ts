@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       }
 
       // 3-1. V3 하이브리드 매칭 (DB 기반: Step 0-2)
-      const v3Match: MatchResultV3 = await matchItemV3(itemName, { supabase })
+      const v3Match: MatchResultV3 = await matchItemV3(itemName, { supabase, userId })
 
       // Step 0: 가비지로 필터링된 경우
       if (v3Match.isGarbage) {
@@ -323,9 +323,6 @@ interface AiDecisionNew {
   unit: string
   exam_type: string
   organ_tags: string[]
-  description_common: string
-  description_high: string
-  description_low: string
   confidence: number
   reason: string
 }
@@ -404,9 +401,6 @@ ${canonicalListWithUnits}
     "unit": "단위",
     "exam_type": "Vital|CBC|Chemistry|Special|Blood Gas|Coagulation|뇨검사|안과검사|Echo|기타",
     "organ_tags": ["장기태그1", "장기태그2"],
-    "description_common": "항목 설명",
-    "description_high": "수치 높을 때 의미",
-    "description_low": "수치 낮을 때 의미",
     "confidence": 0.9,
     "reason": "판단 근거"
   }
@@ -554,9 +548,6 @@ ${canonicalListWithUnits}
           unit: newDecision.unit,
           examType: newDecision.exam_type,
           organTags: newDecision.organ_tags,
-          descriptionCommon: newDecision.description_common,
-          descriptionHigh: newDecision.description_high,
-          descriptionLow: newDecision.description_low,
         }, supabase, userId)
 
         if (newItemResult.success && newItemResult.id) {

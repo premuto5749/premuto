@@ -242,7 +242,20 @@
     {"alias": "ctCO2(P)(ABL80F)", "canonical": "ctCO2(P)", "source_hint": "ABL80F"},
     {"alias": "cCA++(7,40)(ABL80F)", "canonical": "cCa++(7.40)", "source_hint": "ABL80F"},
     {"alias": "cCa++(7,40)(ABL80F)", "canonical": "cCa++(7.40)", "source_hint": "ABL80F"},
-    {"alias": "Anion Gap(ABL80F)", "canonical": "Anion Gap", "source_hint": "ABL80F"}
+    {"alias": "Anion Gap(ABL80F)", "canonical": "Anion Gap", "source_hint": "ABL80F"},
+    {"alias": "AP", "canonical": "APTT", "source_hint": ""},
+    {"alias": "GPT", "canonical": "ALT", "source_hint": ""},
+    {"alias": "GOT", "canonical": "AST", "source_hint": ""},
+    {"alias": "SGPT", "canonical": "ALT", "source_hint": ""},
+    {"alias": "SGOT", "canonical": "AST", "source_hint": ""},
+    {"alias": "Bil", "canonical": "T.Bilirubin", "source_hint": ""},
+    {"alias": "Chol", "canonical": "T.Cholesterol", "source_hint": ""},
+    {"alias": "TCH", "canonical": "T.Cholesterol", "source_hint": ""},
+    {"alias": "Cr", "canonical": "Creatinine", "source_hint": ""},
+    {"alias": "Phos", "canonical": "Phosphorus", "source_hint": ""},
+    {"alias": "FIB", "canonical": "Fibrinogen", "source_hint": ""},
+    {"alias": "SAP", "canonical": "ALKP", "source_hint": ""},
+    {"alias": "tCa", "canonical": "Calcium", "source_hint": ""}
   ],
   "sort_orders": {
     "by_exam_type": {
