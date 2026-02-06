@@ -3,8 +3,8 @@
   "updated_at": "2026-02-06",
   "stats": {
     "test_items": 120,
-    "aliases": 90,
-    "total_recognizable_names": 210
+    "aliases": 89,
+    "total_recognizable_names": 209
   },
   "test_items": [
     {
@@ -2004,7 +2004,7 @@
     },
     {
       "alias": "AP",
-      "canonical": "ALKP",
+      "canonical": "APTT",
       "source_hint": ""
     },
     {
@@ -2048,11 +2048,6 @@
       "source_hint": ""
     },
     {
-      "alias": "iCa",
-      "canonical": "Calcium",
-      "source_hint": ""
-    },
-    {
       "alias": "Phos",
       "canonical": "Phosphorus",
       "source_hint": ""
@@ -2063,8 +2058,13 @@
       "source_hint": ""
     },
     {
-      "alias": "Fib",
-      "canonical": "Fibrinogen",
+      "alias": "SAP",
+      "canonical": "ALKP",
+      "source_hint": ""
+    },
+    {
+      "alias": "tCa",
+      "canonical": "Calcium",
       "source_hint": ""
     }
   ],
