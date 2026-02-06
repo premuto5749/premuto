@@ -637,11 +637,14 @@ function MedicinePresetSection({
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingPreset, setEditingPreset] = useState<MedicinePreset | null>(null)
   const [presetName, setPresetName] = useState('')
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(null)  // null = 모든 반려동물
   const [medicines, setMedicines] = useState<Medicine[]>([])
   const [saving, setSaving] = useState(false)
+  const { pets } = usePet()
 
   const resetForm = () => {
     setPresetName('')
+    setSelectedPetId(null)
     setMedicines([])
     setEditingPreset(null)
   }
@@ -668,8 +671,8 @@ function MedicinePresetSection({
       const url = '/api/medicine-presets'
       const method = editingPreset ? 'PATCH' : 'POST'
       const body = editingPreset
-        ? { id: editingPreset.id, preset_name: presetName, medicines }
-        : { preset_name: presetName, medicines }
+        ? { id: editingPreset.id, preset_name: presetName, pet_id: selectedPetId, medicines }
+        : { preset_name: presetName, pet_id: selectedPetId, medicines }
 
       const res = await fetch(url, {
         method,
@@ -709,6 +712,7 @@ function MedicinePresetSection({
   const openEditDialog = (preset: MedicinePreset) => {
     setEditingPreset(preset)
     setPresetName(preset.preset_name)
+    setSelectedPetId(preset.pet_id)
     setMedicines(preset.medicines)
     setIsDialogOpen(true)
   }
@@ -749,6 +753,29 @@ function MedicinePresetSection({
                     onChange={(e) => setPresetName(e.target.value)}
                     placeholder="예: 아침 약, 저녁 약"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>표시 대상</Label>
+                  <Select
+                    value={selectedPetId || 'all'}
+                    onValueChange={(value) => setSelectedPetId(value === 'all' ? null : value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="반려동물 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">모든 반려동물</SelectItem>
+                      {pets.map((pet) => (
+                        <SelectItem key={pet.id} value={pet.id}>
+                          {pet.name}만
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    특정 반려동물을 선택하면 해당 반려동물 선택 시에만 이 프리셋이 표시됩니다.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -846,10 +873,23 @@ function MedicinePresetSection({
           </p>
         ) : (
           <div className="space-y-3">
-            {presets.map((preset) => (
+            {presets.map((preset) => {
+              const targetPet = preset.pet_id ? pets.find(p => p.id === preset.pet_id) : null
+              return (
               <div key={preset.id} className="p-4 border rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium">{preset.preset_name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium">{preset.preset_name}</h4>
+                    {targetPet ? (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                        {targetPet.name}
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                        전체
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="sm" onClick={() => openEditDialog(preset)}>
                       <Edit2 className="w-3 h-3" />
@@ -890,7 +930,8 @@ function MedicinePresetSection({
                   ))}
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </CardContent>
