@@ -48,6 +48,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
 
   const navItems = [
     { href: '/daily-log', label: '일일 기록', icon: '📝' },
+    { href: '/daily-log-calendar', label: '일일 통계 캘린더', icon: '📅' },
     { href: '/upload-quick', label: '검사지 업로드', icon: '📄' },
     { href: '/dashboard', label: '검사 결과 대시보드', icon: '📊' },
     { href: '/hospital-contacts', label: '병원 연락처', icon: '🏥' },
@@ -82,18 +83,20 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
               <SheetContent side="left" className="overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle className="flex items-center justify-start">
-                    {siteSettings.headerLogoUrl ? (
-                      <Image
-                        src={siteSettings.headerLogoUrl}
-                        alt={siteSettings.siteName}
-                        width={280}
-                        height={68}
-                        className="h-14 w-auto object-contain"
-                        unoptimized
-                      />
-                    ) : (
-                      siteSettings.siteName
-                    )}
+                    <Link href="/daily-log">
+                      {siteSettings.headerLogoUrl ? (
+                        <Image
+                          src={siteSettings.headerLogoUrl}
+                          alt={siteSettings.siteName}
+                          width={280}
+                          height={68}
+                          className="h-14 w-auto object-contain"
+                          unoptimized
+                        />
+                      ) : (
+                        siteSettings.siteName
+                      )}
+                    </Link>
                   </SheetTitle>
                 </SheetHeader>
                 <nav className="mt-6 space-y-2">
