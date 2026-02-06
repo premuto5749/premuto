@@ -50,34 +50,6 @@ export default function DailyLogPage() {
     }
   }, [isPetsLoading, pets, currentPet, setCurrentPet])
 
-  // 로그 데이터에서 직접 통계 계산 (삭제된 항목이 포함되지 않도록 보장)
-  const computeStatsFromLogs = useCallback((logData: DailyLog[]): DailyStats | null => {
-    if (logData.length === 0) return null
-
-    return {
-      user_id: logData[0].user_id,
-      pet_id: logData[0].pet_id,
-      log_date: selectedDate,
-      total_meal_amount: logData
-        .filter(l => l.category === 'meal')
-        .reduce((sum, l) => sum + (l.amount || 0) - (l.leftover_amount || 0), 0),
-      meal_count: logData.filter(l => l.category === 'meal').length,
-      total_water_amount: logData
-        .filter(l => l.category === 'water')
-        .reduce((sum, l) => sum + (l.amount || 0), 0),
-      water_count: logData.filter(l => l.category === 'water').length,
-      medicine_count: logData.filter(l => l.category === 'medicine').length,
-      poop_count: logData.filter(l => l.category === 'poop').length,
-      pee_count: logData.filter(l => l.category === 'pee').length,
-      avg_breathing_rate: (() => {
-        const breathingLogs = logData.filter(l => l.category === 'breathing' && l.amount != null)
-        if (breathingLogs.length === 0) return null
-        return breathingLogs.reduce((sum, l) => sum + (l.amount || 0), 0) / breathingLogs.length
-      })(),
-      breathing_count: logData.filter(l => l.category === 'breathing').length,
-    }
-  }, [selectedDate])
-
   const fetchData = useCallback(async () => {
     // 반려동물 로딩 중이면 대기
     if (isPetsLoading) return
@@ -87,16 +59,23 @@ export default function DailyLogPage() {
       // pet_id 파라미터 추가
       const petParam = currentPet ? `&pet_id=${currentPet.id}` : ''
 
-      // 기록 조회
-      const logsRes = await fetch(`/api/daily-logs?date=${selectedDate}${petParam}`)
+      // 기록 + 통계 병렬 조회
+      const [logsRes, statsRes] = await Promise.all([
+        fetch(`/api/daily-logs?date=${selectedDate}${petParam}`),
+        fetch(`/api/daily-logs?date=${selectedDate}&stats=true${petParam}`),
+      ])
+
       if (logsRes.ok) {
         const logsData = await logsRes.json()
-        const fetchedLogs = logsData.data || []
-        setLogs(fetchedLogs)
-        // 로그 데이터에서 직접 통계 계산 (삭제된 항목 제외 보장)
-        setStats(computeStatsFromLogs(fetchedLogs))
+        setLogs(logsData.data || [])
       } else {
         setLogs([])
+      }
+
+      if (statsRes.ok) {
+        const statsData = await statsRes.json()
+        setStats(statsData.data?.[0] || null)
+      } else {
         setStats(null)
       }
     } catch (error) {
@@ -106,7 +85,7 @@ export default function DailyLogPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [selectedDate, currentPet, isPetsLoading, computeStatsFromLogs])
+  }, [selectedDate, currentPet, isPetsLoading])
 
   useEffect(() => {
     fetchData()
