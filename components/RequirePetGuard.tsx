@@ -20,6 +20,7 @@ const ALLOWED_PATHS = [
   '/login',
   '/auth',
   '/settings', // 설정 페이지는 반려동물 등록을 위해 허용
+  '/admin',    // 관리자 페이지는 반려동물 등록 불필요
 ]
 
 // 경로가 허용된 경로인지 확인
