@@ -415,7 +415,9 @@ export async function registerNewAlias(
 }
 
 /**
- * 신규 항목 등록 (사용자 확인 후, 사용자별 저장)
+ * 신규 항목 등록
+ * 항상 standard_items_master에 저장 (test_results FK가 참조하는 테이블)
+ * user_standard_items는 기존 항목의 사용자별 오버라이드 용도
  */
 export async function registerNewStandardItem(
   item: {
@@ -429,39 +431,23 @@ export async function registerNewStandardItem(
     descriptionLow?: string;
   },
   supabase?: SupabaseClientType,
-  userId?: string
+  _userId?: string
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const client = supabase || (await createServerClient());
 
-  // 사용자가 있으면 사용자 테이블에 저장
-  if (userId) {
-    const { data, error } = await client
-      .from('user_standard_items')
-      .insert({
-        user_id: userId,
-        master_item_id: null,
-        name: item.name,
-        display_name_ko: item.displayNameKo,
-        default_unit: item.unit,
-        category: item.examType,
-        exam_type: item.examType,
-        organ_tags: item.organTags,
-        description_common: item.descriptionCommon,
-        description_high: item.descriptionHigh,
-        description_low: item.descriptionLow,
-      })
-      .select('id')
-      .single();
+  // 동일 이름 항목이 이미 존재하는지 확인
+  const { data: existing } = await client
+    .from('standard_items_master')
+    .select('id')
+    .ilike('name', item.name)
+    .single();
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    clearCacheV3();
-    return { success: true, id: data.id };
+  if (existing) {
+    // 이미 존재하면 해당 id 반환
+    return { success: true, id: existing.id };
   }
 
-  // 사용자 없으면 마스터 테이블에 저장 (관리자용)
+  // standard_items_master에 저장 (test_results FK 호환)
   const { data, error } = await client
     .from('standard_items_master')
     .insert({

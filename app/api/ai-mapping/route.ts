@@ -422,7 +422,7 @@ ${canonicalListWithUnits}
 
   const message = await getAnthropicClient().messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 4000, // 신규 항목 생성 시 더 많은 토큰 필요
+    max_tokens: 8192, // 신규 항목 생성 시 더 많은 토큰 필요 (30개 배치)
     messages: [
       {
         role: 'user',
@@ -438,14 +438,40 @@ ${canonicalListWithUnits}
     throw new Error('No response from AI mapping service')
   }
 
-  // JSON 배열 파싱
+  // JSON 배열 파싱 (markdown fence 제거 + 잘린 JSON 복구)
   try {
-    const jsonMatch = content.match(/\[[\s\S]*\]/)
-    if (!jsonMatch) {
+    // 1. markdown fence 제거
+    let cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+
+    // 2. JSON 배열 추출
+    const arrayStart = cleaned.indexOf('[')
+    if (arrayStart === -1) {
       throw new Error('No JSON array found in AI response')
     }
+    cleaned = cleaned.substring(arrayStart)
 
-    const results: AiBatchResult[] = JSON.parse(jsonMatch[0])
+    // 3. 파싱 시도
+    let results: AiBatchResult[]
+    try {
+      results = JSON.parse(cleaned)
+    } catch {
+      // 4. 잘린 JSON 복구 시도: 마지막 완전한 객체까지만 사용
+      console.warn('⚠️ JSON truncated, attempting recovery...')
+      const lastCompleteObj = cleaned.lastIndexOf('},')
+      if (lastCompleteObj === -1) {
+        // 완전한 객체가 하나도 없으면 단일 객체로 시도
+        const singleObj = cleaned.lastIndexOf('}')
+        if (singleObj > 0) {
+          cleaned = cleaned.substring(0, singleObj + 1) + ']'
+        } else {
+          throw new Error('No recoverable JSON found in AI response')
+        }
+      } else {
+        cleaned = cleaned.substring(0, lastCompleteObj + 1) + ']'
+      }
+      results = JSON.parse(cleaned)
+      console.log(`✅ JSON recovery succeeded: ${results.length} items recovered`)
+    }
 
     // 결과를 원래 순서대로 매핑
     const suggestions: (AiMappingSuggestion | null)[] = new Array(ocrItems.length).fill(null)
