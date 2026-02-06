@@ -19,6 +19,7 @@ import { Loader2, PawPrint } from 'lucide-react'
 const ALLOWED_PATHS = [
   '/login',
   '/auth',
+  '/reset-password', // 비밀번호 재설정 페이지
   '/settings', // 설정 페이지는 반려동물 등록을 위해 허용
   '/admin',    // 관리자 페이지는 반려동물 등록 불필요
 ]
