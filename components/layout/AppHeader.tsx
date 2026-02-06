@@ -41,6 +41,7 @@ interface AppHeaderProps {
 export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: AppHeaderProps) {
   const pathname = usePathname()
   const [isDonateOpen, setIsDonateOpen] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { toast } = useToast()
   const { isAdmin } = useAuth()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
@@ -74,7 +75,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
               </Link>
             </Button>
           ) : (
-            <Sheet>
+            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
                   <Menu className="w-5 h-5" />
@@ -83,7 +84,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
               <SheetContent side="left" className="overflow-y-auto">
                 <SheetHeader>
                   <SheetTitle className="flex items-center justify-start">
-                    <Link href="/daily-log">
+                    <Link href="/daily-log" onClick={() => setIsMenuOpen(false)} className="block">
                       {siteSettings.headerLogoUrl ? (
                         <Image
                           src={siteSettings.headerLogoUrl}
@@ -104,6 +105,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={() => setIsMenuOpen(false)}
                       className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
                         pathname === item.href
                           ? 'bg-primary/10 text-primary font-medium'
@@ -122,6 +124,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                         <Link
                           key={item.href}
                           href={item.href}
+                          onClick={() => setIsMenuOpen(false)}
                           className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
                             pathname.startsWith(item.href)
                               ? 'bg-primary/10 text-primary font-medium'
