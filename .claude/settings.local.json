@@ -8,7 +8,9 @@
       "Bash(xargs kill:*)",
       "Bash(npx supabase --version)",
       "Bash(npx supabase db push:*)",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(curl:*)",
+      "Bash(start:*)"
     ]
   }
 }
