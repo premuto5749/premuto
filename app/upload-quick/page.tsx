@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import imageCompression from 'browser-image-compression'
@@ -14,14 +14,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, ArrowRight, AlertCircle, Zap } from 'lucide-react'
+import { Loader2, ArrowRight, AlertCircle, Info } from 'lucide-react'
 
 const FileUploader = dynamic(
   () => import('@/components/upload/FileUploader').then(mod => ({ default: mod.FileUploader })),
   { ssr: false, loading: () => <div className="p-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" /></div> }
 )
 
-// 압축 설정 (관리자가 DB에서 max_tokens만 조정, 클라이언트는 고정값 사용)
+// 압축 설정
 const COMPRESSION_SETTINGS = {
   maxSizeMB: 1,
   maxWidthOrHeight: 2400,
@@ -29,7 +29,25 @@ const COMPRESSION_SETTINGS = {
   useWebWorker: true,
 }
 
-const MAX_FILES = 5
+interface TierUsage {
+  used: number
+  limit: number
+  remaining: number
+}
+
+interface TierData {
+  tier: string
+  config: {
+    label: string
+    daily_ocr_limit: number
+    max_files_per_ocr: number
+    daily_log_max_photos: number
+    daily_log_max_photo_size_mb: number
+  }
+  usage: {
+    ocr_analysis: TierUsage
+  }
+}
 
 export default function UploadQuickPage() {
   const router = useRouter()
@@ -37,12 +55,34 @@ export default function UploadQuickPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rateLimitError, setRateLimitError] = useState(false)
+  const [tierLimitError, setTierLimitError] = useState(false)
+  const [tierData, setTierData] = useState<TierData | null>(null)
+  const [tierLoading, setTierLoading] = useState(true)
+
+  const fetchTierData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tier')
+      const result = await res.json()
+      if (result.success) {
+        setTierData(result.data)
+      }
+    } catch {
+      // tier 조회 실패 시 기본값으로 진행
+    } finally {
+      setTierLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTierData()
+  }, [fetchTierData])
+
+  const maxFiles = tierData?.config.max_files_per_ocr ?? 5
 
   const handleFilesSelect = (files: File[]) => {
-    // 파일 개수 제한
-    if (files.length > MAX_FILES) {
-      setError(`최대 ${MAX_FILES}개 파일만 업로드 가능합니다. 여러 날짜의 검사는 '일괄 업로드' 메뉴를 이용해주세요.`)
-      setSelectedFiles(files.slice(0, MAX_FILES))
+    if (files.length > maxFiles) {
+      setError(`최대 ${maxFiles}개 파일만 업로드 가능합니다.`)
+      setSelectedFiles(files.slice(0, maxFiles))
       return
     }
     setSelectedFiles(files)
@@ -53,6 +93,9 @@ export default function UploadQuickPage() {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index))
     setError(null)
   }
+
+  const ocrUsage = tierData?.usage.ocr_analysis
+  const isLimitReached = ocrUsage ? (ocrUsage.limit !== -1 && ocrUsage.remaining <= 0) : false
 
   const handleAnalyze = async () => {
     if (selectedFiles.length === 0) return
@@ -100,12 +143,18 @@ export default function UploadQuickPage() {
       }
 
       if (!response.ok) {
-        // AI 사용량 제한 에러 처리
+        // AI 사용량 제한 에러 처리 (Anthropic Rate Limit)
         if (response.status === 429 || result.error === 'AI_RATE_LIMIT') {
           setRateLimitError(true)
           return
         }
-        throw new Error(result.error || 'OCR 처리 중 오류가 발생했습니다')
+        // Tier 일일 제한 초과
+        if (result.error === 'TIER_LIMIT_EXCEEDED') {
+          setTierLimitError(true)
+          await fetchTierData()
+          return
+        }
+        throw new Error(result.error || result.message || 'OCR 처리 중 오류가 발생했습니다')
       }
 
       if (!result.success) {
@@ -114,6 +163,9 @@ export default function UploadQuickPage() {
 
       // 배치 OCR 결과를 세션 스토리지에 저장
       sessionStorage.setItem('ocrBatchResult', JSON.stringify(result.data))
+
+      // 사용량 갱신
+      await fetchTierData()
 
       // Preview 페이지로 이동
       router.push('/preview')
@@ -128,20 +180,41 @@ export default function UploadQuickPage() {
 
   return (
     <div className="min-h-screen bg-muted">
-      <AppHeader title="간편 업로드" />
+      <AppHeader title="검사지 업로드" />
 
       <div className="container max-w-4xl mx-auto py-10 px-4">
+
+      {/* 사용량 배지 */}
+      {!tierLoading && tierData && ocrUsage && (
+        <div className="mb-6 flex items-center justify-between p-3 bg-background border rounded-lg">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-medium rounded">
+              {tierData.config.label}
+            </span>
+            <span className="text-muted-foreground">오늘 AI 분석</span>
+          </div>
+          <div className="text-sm font-medium">
+            {ocrUsage.limit === -1 ? (
+              <span className="text-green-600">{ocrUsage.used}회 사용 (무제한)</span>
+            ) : (
+              <span className={ocrUsage.remaining <= 0 ? 'text-destructive' : ''}>
+                {ocrUsage.used} / {ocrUsage.limit}회
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 안내 배너 */}
       <Card className="mb-6 border-blue-200 bg-blue-50">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
-            <Zap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium text-blue-900">단일 검사일 전용</p>
+              <p className="font-medium text-blue-900">AI가 날짜와 병원을 자동 분류합니다</p>
               <p className="text-sm text-blue-700 mt-1">
-                같은 날짜의 검사지만 업로드하세요 (예: CBC + Chemistry).
-                여러 날짜를 한번에 올리려면 <a href="/upload" className="underline font-medium">일괄 업로드</a>를 이용하세요.
+                여러 날짜의 검사지를 올려도 자동으로 날짜별로 분리됩니다.
+                분석 후 확인 화면에서 날짜와 병원을 수정할 수 있습니다.
               </p>
             </div>
           </div>
@@ -152,7 +225,7 @@ export default function UploadQuickPage() {
         <CardHeader>
           <CardTitle>파일 선택</CardTitle>
           <CardDescription>
-            같은 날짜의 검사지를 선택하세요 (최대 {MAX_FILES}개, 각 10MB 이하)
+            검사지를 선택하세요 (최대 {maxFiles}개, 각 10MB 이하)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -161,7 +234,7 @@ export default function UploadQuickPage() {
             onFileRemove={handleFileRemove}
             selectedFiles={selectedFiles}
             isProcessing={isProcessing}
-            maxFiles={MAX_FILES}
+            maxFiles={maxFiles}
           />
         </CardContent>
       </Card>
@@ -191,7 +264,7 @@ export default function UploadQuickPage() {
           <div className="flex gap-4">
             <Button
               onClick={handleAnalyze}
-              disabled={selectedFiles.length === 0 || isProcessing}
+              disabled={selectedFiles.length === 0 || isProcessing || isLimitReached}
               className="flex-1"
               size="lg"
             >
@@ -200,6 +273,8 @@ export default function UploadQuickPage() {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   AI 분석 중... ({selectedFiles.length}개 파일)
                 </>
+              ) : isLimitReached ? (
+                '오늘 분석 한도에 도달했습니다'
               ) : (
                 <>
                   {selectedFiles.length > 0
@@ -214,7 +289,15 @@ export default function UploadQuickPage() {
           {isProcessing && (
             <div className="mt-4 p-4 bg-muted rounded-lg">
               <p className="text-sm text-center text-muted-foreground">
-                고품질 이미지로 분석 중입니다. 10-30초 정도 소요됩니다...
+                이미지를 분석하고 있습니다. 파일 수에 따라 10-60초 정도 소요됩니다...
+              </p>
+            </div>
+          )}
+
+          {isLimitReached && (
+            <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <p className="text-sm text-orange-800">
+                오늘 AI 분석 {ocrUsage?.limit}회를 모두 사용했습니다. 내일 다시 이용할 수 있습니다.
               </p>
             </div>
           )}
@@ -222,29 +305,50 @@ export default function UploadQuickPage() {
       </Card>
 
       <div className="mt-8 p-4 bg-muted rounded-lg">
-        <h3 className="font-medium mb-2">이 모드의 장점</h3>
+        <h3 className="font-medium mb-2">안내</h3>
         <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-          <li>고품질 이미지 분석으로 인식률 향상</li>
-          <li>파일 수 제한으로 타임아웃 방지</li>
-          <li>같은 날짜 검사지 집중 처리</li>
+          <li>검사지 전체가 선명하게 촬영된 이미지를 사용하세요</li>
+          <li>여러 날짜가 포함되어 있어도 AI가 자동으로 분리합니다</li>
+          <li>분석 후 확인 화면에서 항목을 검수하고 저장합니다</li>
         </ul>
       </div>
       </div>
 
-      {/* AI 사용량 제한 에러 모달 */}
+      {/* AI Rate Limit 에러 모달 */}
       <Dialog open={rateLimitError} onOpenChange={setRateLimitError}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-orange-500" />
-              AI 사용량 제한
+              AI 서비스 일시 제한
             </DialogTitle>
             <DialogDescription className="pt-2">
-              AI 사용량 제한에 도달하였습니다. 잠시 후 다시 시도해주세요.
+              AI 서비스 사용량 제한에 도달하였습니다. 잠시 후 다시 시도해주세요.
             </DialogDescription>
           </DialogHeader>
           <div className="pt-4">
             <Button className="w-full" onClick={() => setRateLimitError(false)}>
+              확인
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tier 일일 제한 에러 모달 */}
+      <Dialog open={tierLimitError} onOpenChange={setTierLimitError}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-orange-500" />
+              일일 분석 한도 초과
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              오늘 AI 분석 {ocrUsage?.limit}회를 모두 사용했습니다.
+              내일 다시 이용할 수 있습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="pt-4">
+            <Button className="w-full" onClick={() => setTierLimitError(false)}>
               확인
             </Button>
           </div>

@@ -49,7 +49,6 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
   const navItems = [
     { href: '/daily-log', label: '일일 기록', icon: '📝' },
     { href: '/upload-quick', label: '검사지 업로드', icon: '📄' },
-    { href: '/upload', label: '검사지 일괄 업로드', icon: '📑' },
     { href: '/dashboard', label: '검사 결과 대시보드', icon: '📊' },
     { href: '/hospital-contacts', label: '병원 연락처', icon: '🏥' },
     { href: '/records-management', label: '검사 기록 관리', icon: '🗑️' },
