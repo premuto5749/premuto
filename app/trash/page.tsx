@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, RotateCcw, Trash2, FlaskConical, ClipboardList } from 'lucide-react'
+import { Loader2, RotateCcw, Trash2, FlaskConical, ClipboardList, X } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,13 +59,19 @@ function formatDate(dateStr: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+type ConfirmAction = {
+  action: 'restore' | 'delete'
+  type: 'test' | 'daily'
+  id: string
+}
+
 export default function TrashPage() {
   const [testRecords, setTestRecords] = useState<DeletedTestRecord[]>([])
   const [dailyLogs, setDailyLogs] = useState<DeletedDailyLog[]>([])
   const [loading, setLoading] = useState(true)
-  const [restoring, setRestoring] = useState<string | null>(null)
+  const [processing, setProcessing] = useState<string | null>(null)
   const [tab, setTab] = useState<'test' | 'daily'>('test')
-  const [confirmRestore, setConfirmRestore] = useState<{ type: 'test' | 'daily'; id: string } | null>(null)
+  const [confirm, setConfirm] = useState<ConfirmAction | null>(null)
   const { toast } = useToast()
   const { currentPet } = usePet()
 
@@ -100,7 +106,7 @@ export default function TrashPage() {
   }, [currentPet?.id])
 
   const handleRestore = async (type: 'test' | 'daily', id: string) => {
-    setRestoring(id)
+    setProcessing(id)
     try {
       const url = type === 'test' ? '/api/test-results' : '/api/daily-logs'
       const res = await fetch(url, {
@@ -128,8 +134,49 @@ export default function TrashPage() {
         variant: 'destructive',
       })
     } finally {
-      setRestoring(null)
-      setConfirmRestore(null)
+      setProcessing(null)
+      setConfirm(null)
+    }
+  }
+
+  const handlePermanentDelete = async (type: 'test' | 'daily', id: string) => {
+    setProcessing(id)
+    try {
+      const url = type === 'test'
+        ? `/api/test-results?id=${id}&permanent=true`
+        : `/api/daily-logs?id=${id}&permanent=true`
+      const res = await fetch(url, { method: 'DELETE' })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || '삭제에 실패했습니다')
+      }
+
+      toast({ title: '영구 삭제 완료' })
+
+      if (type === 'test') {
+        setTestRecords(prev => prev.filter(r => r.id !== id))
+      } else {
+        setDailyLogs(prev => prev.filter(r => r.id !== id))
+      }
+    } catch (err) {
+      toast({
+        title: '삭제 실패',
+        description: err instanceof Error ? err.message : '알 수 없는 오류',
+        variant: 'destructive',
+      })
+    } finally {
+      setProcessing(null)
+      setConfirm(null)
+    }
+  }
+
+  const handleConfirmAction = () => {
+    if (!confirm) return
+    if (confirm.action === 'restore') {
+      handleRestore(confirm.type, confirm.id)
+    } else {
+      handlePermanentDelete(confirm.type, confirm.id)
     }
   }
 
@@ -140,9 +187,8 @@ export default function TrashPage() {
       <AppHeader title="휴지통" />
 
       <main className="max-w-2xl mx-auto px-4 py-6">
-        {/* 안내 문구 */}
         <p className="text-sm text-muted-foreground mb-4">
-          삭제된 기록은 7일간 보관 후 영구 삭제됩니다.
+          삭제된 기록은 7일간 보관 후 자동 영구 삭제됩니다.
         </p>
 
         {/* 탭 */}
@@ -179,7 +225,6 @@ export default function TrashPage() {
             </CardContent>
           </Card>
         ) : tab === 'test' ? (
-          /* 검사 기록 */
           testRecords.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
@@ -190,9 +235,10 @@ export default function TrashPage() {
             <div className="space-y-2">
               {testRecords.map(record => {
                 const daysLeft = getDaysUntilPermanentDelete(record.deleted_at)
+                const isProcessing = processing === record.id
                 return (
                   <Card key={record.id}>
-                    <CardContent className="py-3 px-4 flex items-center justify-between">
+                    <CardContent className="py-3 px-4 flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-sm">
                           {record.test_date}
@@ -210,20 +256,27 @@ export default function TrashPage() {
                           </span>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={restoring === record.id}
-                        onClick={() => setConfirmRestore({ type: 'test', id: record.id })}
-                        className="ml-3 gap-1"
-                      >
-                        {restoring === record.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <RotateCcw className="w-3.5 h-3.5" />
-                        )}
-                        복원
-                      </Button>
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isProcessing}
+                          onClick={() => setConfirm({ action: 'restore', type: 'test', id: record.id })}
+                          className="gap-1 h-8 px-2"
+                        >
+                          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                          복원
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isProcessing}
+                          onClick={() => setConfirm({ action: 'delete', type: 'test', id: record.id })}
+                          className="gap-1 h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 )
@@ -231,7 +284,6 @@ export default function TrashPage() {
             </div>
           )
         ) : (
-          /* 일일 기록 */
           dailyLogs.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
@@ -243,9 +295,10 @@ export default function TrashPage() {
               {dailyLogs.map(log => {
                 const daysLeft = getDaysUntilPermanentDelete(log.deleted_at)
                 const cat = CATEGORY_LABELS[log.category] || { label: log.category, icon: '📌' }
+                const isProcessing = processing === log.id
                 return (
                   <Card key={log.id}>
-                    <CardContent className="py-3 px-4 flex items-center justify-between">
+                    <CardContent className="py-3 px-4 flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="font-medium text-sm">
                           {cat.icon} {cat.label}
@@ -269,20 +322,27 @@ export default function TrashPage() {
                           </span>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={restoring === log.id}
-                        onClick={() => setConfirmRestore({ type: 'daily', id: log.id })}
-                        className="ml-3 gap-1"
-                      >
-                        {restoring === log.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <RotateCcw className="w-3.5 h-3.5" />
-                        )}
-                        복원
-                      </Button>
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isProcessing}
+                          onClick={() => setConfirm({ action: 'restore', type: 'daily', id: log.id })}
+                          className="gap-1 h-8 px-2"
+                        >
+                          {isProcessing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                          복원
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isProcessing}
+                          onClick={() => setConfirm({ action: 'delete', type: 'daily', id: log.id })}
+                          className="gap-1 h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 )
@@ -292,21 +352,26 @@ export default function TrashPage() {
         )}
       </main>
 
-      {/* 복원 확인 다이얼로그 */}
-      <AlertDialog open={!!confirmRestore} onOpenChange={(open) => !open && setConfirmRestore(null)}>
+      {/* 확인 다이얼로그 */}
+      <AlertDialog open={!!confirm} onOpenChange={(open) => !open && setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>기록을 복원하시겠습니까?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirm?.action === 'restore' ? '기록을 복원하시겠습니까?' : '영구 삭제하시겠습니까?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              복원된 기록은 다시 목록에 표시됩니다.
+              {confirm?.action === 'restore'
+                ? '복원된 기록은 다시 목록에 표시됩니다.'
+                : '영구 삭제된 기록은 복구할 수 없습니다.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => confirmRestore && handleRestore(confirmRestore.type, confirmRestore.id)}
+              onClick={handleConfirmAction}
+              className={confirm?.action === 'delete' ? 'bg-red-600 hover:bg-red-700' : ''}
             >
-              복원
+              {confirm?.action === 'restore' ? '복원' : '영구 삭제'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

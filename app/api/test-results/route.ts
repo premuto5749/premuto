@@ -359,6 +359,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const recordId = searchParams.get('id')
+    const permanent = searchParams.get('permanent') === 'true'
 
     if (!recordId) {
       return NextResponse.json(
@@ -375,13 +376,36 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
+    if (permanent) {
+      // 영구 삭제 (이미 소프트 삭제된 레코드만, cascade로 test_results도 삭제)
+      const { error } = await supabase
+        .from('test_records')
+        .delete()
+        .eq('id', recordId)
+        .eq('user_id', user.id)
+        .not('deleted_at', 'is', null)
+
+      if (error) {
+        console.error('Failed to permanently delete test record:', error)
+        return NextResponse.json(
+          { error: '검사 기록 영구 삭제에 실패했습니다', details: error.message },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: '검사 기록이 영구 삭제되었습니다'
+      })
+    }
+
     // 소프트 삭제: deleted_at 설정 (7일 후 영구 삭제)
     const { error } = await supabase
       .from('test_records')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', recordId)
       .eq('user_id', user.id)
-      .is('deleted_at', null) // 이미 삭제된 레코드는 무시
+      .is('deleted_at', null)
 
     if (error) {
       console.error('Failed to soft-delete test record:', error)
