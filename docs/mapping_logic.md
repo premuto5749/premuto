@@ -5,7 +5,7 @@
 1. **OCR 직후** — 검사 결과지 인식 후 자동 매핑
 2. **Unmapped 정리** — 매핑 실패 항목을 나중에 수동/반자동 처리
 
-참조 데이터: `standard_items_master.json` (test_items, aliases)
+참조 데이터: `standard_items_master.json` v4.2 (정규항목 120개, alias 89개 = 209개 이름 인식)
 
 ---
 
@@ -50,17 +50,34 @@ OCR에서 항목이 아닌 값이 잘못 인식되는 패턴. 매핑 시도 전�
 
 4. 항목명 잘림 감지
    "CBASE(ECF,ST)(ABL80" → 끝이 잘린 경우
-   → 닫히지 않은 괄호 감지 시 fuzzy match 시도
+   → 닫히지 않은 괄호 감지 시 AI 판단(Step 3)에 정보 전달
 ```
+
+---
+
+## 문자열 정규화 (normalizeForMatching)
+
+Step 1, 2에서 비교 전 입력명과 캐시 키 모두에 적용:
+
+```
+1. NFKC 유니코드 정규화 (전각→반각: Ｋ＋ → K+)
+2. 스마트 따옴표 → 일반 따옴표 (' ' → ')
+3. 제로폭 문자 제거 (ZWSP, ZWNJ, ZWJ, BOM)
+4. 대시/하이픈 통일 (en-dash, em-dash, 수학 마이너스 → -)
+5. 소문자 변환
+```
+
+OCR 출력의 특수문자 변형 (인코딩 차이, 장비별 출력 차이)을 통일하여
+alias에 등록된 문자열과 정확히 매칭되도록 함.
 
 ---
 
 ## Step 1: 정규 항목 매칭
 
 ```
-입력: input_name
-비교: standard_items_master.json → test_items[].name
-방법: case-insensitive exact match
+입력: normalizeForMatching(input_name)
+비교: standard_items_master.json → test_items[].name (정규화됨)
+방법: 정규화 후 exact match
 
 if match:
     item_id = matched_item.item_id
@@ -75,9 +92,9 @@ else:
 ## Step 2: Alias 매칭
 
 ```
-입력: input_name
-비교: standard_items_master.json → aliases[].alias
-방법: case-insensitive exact match
+입력: normalizeForMatching(input_name)
+비교: standard_items_master.json → aliases[].alias (정규화됨)
+방법: 정규화 후 exact match
 
 if match:
     canonical_name = matched_alias.canonical
@@ -134,12 +151,12 @@ Step 1, 2 모두 실패한 항목을 AI에게 판단 요청.
   "unit": "단위",
   "exam_type": "Vital|CBC|Chemistry|Special|Blood Gas|Coagulation|뇨검사|안과검사|Echo|기타",
   "organ_tags": ["장기태그1", "장기태그2"],
-  "description_common": "항목 설명",
-  "description_high": "수치 높을 때",
-  "description_low": "수치 낮을 때",
   "confidence": 0.9,
   "reason": "판단 근거"
 }
+
+※ description_common/high/low는 매핑 단계에서 생성하지 않음 (비용/속도 절감).
+   관리자가 표준항목 관리 페이지(/standard-items)에서 별도 입력.
 ```
 
 ### AI 판단 후 처리
@@ -209,8 +226,8 @@ OCR 시점에 매핑 실패한 항목 + AI confidence 낮은 항목이 Unmapped�
    
    B) 신규 정규 항목으로 등록
       - name, display_name_ko, unit, exam_type, organ_tags 입력
-      - description_common/high/low 입력 (AI 추천 가능)
       - test_items에 추가 + sort_orders에 배치
+      - description은 나중에 관리 페이지에서 별도 입력
    
    C) 가비지로 삭제
       - 항목이 아닌 OCR 오류 (범위값, 라벨 등)
