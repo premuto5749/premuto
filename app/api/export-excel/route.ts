@@ -8,14 +8,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import {
-
-export const dynamic = 'force-dynamic'
   createExcelWorkbook,
   workbookToBuffer,
   generateFilename,
   ExportTestResult,
   ExportOptions
 } from '@/lib/export/excel-exporter'
+
+export const dynamic = 'force-dynamic'
 
 interface ExportRequest {
   record_ids?: string[]      // 특정 검사 기록만 내보내기 (선택)

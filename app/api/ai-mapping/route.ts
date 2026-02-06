@@ -3,14 +3,14 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
 import {
-
-export const dynamic = 'force-dynamic'
   matchItemV3,
   type MatchResultV3,
   registerNewAlias,
   registerNewStandardItem,
   correctTruncatedUnit,
 } from '@/lib/ocr/item-matcher-v3'
+
+export const dynamic = 'force-dynamic'
 
 // 최대 실행 시간 설정 (120초)
 export const maxDuration = 120
