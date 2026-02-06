@@ -254,24 +254,25 @@ export default function AdminPage() {
             </Card>
           </Link>
 
-          <Card className="opacity-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Users className="w-5 h-5" />
-                사용자 관리
-                <span className="text-xs bg-muted px-2 py-0.5 rounded ml-auto">예정</span>
-              </CardTitle>
-              <CardDescription>
-                등록된 사용자 목록과 Tier 설정을 관리합니다.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2">
-                <span className="text-xs bg-muted px-2 py-1 rounded">전체 {stats?.users.total || 0}명</span>
-                <span className="text-xs bg-muted px-2 py-1 rounded">커스텀 데이터 {stats?.users.withCustomData || 0}명</span>
-              </div>
-            </CardContent>
-          </Card>
+          <Link href="/admin/users">
+            <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Users className="w-5 h-5" />
+                  사용자 관리
+                </CardTitle>
+                <CardDescription>
+                  등록된 사용자 목록과 Tier 설정을 관리합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <span className="text-xs bg-muted px-2 py-1 rounded">전체 {stats?.users.total || 0}명</span>
+                  <span className="text-xs bg-muted px-2 py-1 rounded">커스텀 데이터 {stats?.users.withCustomData || 0}명</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
 
           <Card className="opacity-50">
             <CardHeader>
