@@ -7,9 +7,12 @@ export interface SiteSettings {
   siteDescription: string
   faviconUrl: string | null
   logoUrl: string | null
+  headerLogoUrl: string | null
+  loginBgImageUrl: string | null
   ogImageUrl: string | null
   keywords: string[]
   themeColor: string
+  primaryColor: string
   language: string
 }
 
@@ -18,9 +21,12 @@ const DEFAULT_SETTINGS: SiteSettings = {
   siteDescription: '미모 건강 기록',
   faviconUrl: null,
   logoUrl: null,
+  headerLogoUrl: null,
+  loginBgImageUrl: null,
   ogImageUrl: null,
   keywords: ['반려동물', '건강기록', '혈액검사', '일일기록'],
   themeColor: '#ffffff',
+  primaryColor: '#f97316',
   language: 'ko'
 }
 

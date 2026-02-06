@@ -6,10 +6,13 @@ export interface SiteSettings {
   siteName: string
   siteDescription: string
   faviconUrl: string | null
-  logoUrl: string | null
+  logoUrl: string | null           // 로그인 페이지용 정방형 로고
+  headerLogoUrl: string | null     // 헤더 메뉴용 가로형 로고
+  loginBgImageUrl: string | null   // 로그인 페이지 배경 이미지
   ogImageUrl: string | null
   keywords: string[]
   themeColor: string
+  primaryColor: string             // 버튼, 강조 색상
   language: string
 }
 
@@ -19,9 +22,12 @@ const DEFAULT_SETTINGS: SiteSettings = {
   siteDescription: '미모 건강 기록',
   faviconUrl: null,
   logoUrl: null,
+  headerLogoUrl: null,
+  loginBgImageUrl: null,
   ogImageUrl: null,
   keywords: ['반려동물', '건강기록', '혈액검사', '일일기록'],
   themeColor: '#ffffff',
+  primaryColor: '#f97316',         // orange-500
   language: 'ko'
 }
 

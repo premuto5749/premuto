@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,7 +28,6 @@ export default function LoginPage() {
       const supabase = createClient()
 
       if (isSignUp) {
-        // 회원가입
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -45,7 +43,6 @@ export default function LoginPage() {
         alert('회원가입이 완료되었습니다! 이메일을 확인하여 인증해주세요.')
         setIsSignUp(false)
       } else {
-        // 로그인
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password
@@ -67,30 +64,34 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+    <div className="flex min-h-screen">
+      {/* 왼쪽: 로그인 폼 */}
+      <div className="flex-1 flex flex-col justify-center px-8 sm:px-12 lg:px-16 xl:px-24 py-12">
+        <div className="w-full max-w-md mx-auto">
+          {/* 로고 */}
           {siteSettings.logoUrl && (
-            <div className="flex justify-center mb-4">
+            <div className="mb-8">
               <Image
                 src={siteSettings.logoUrl}
                 alt="Logo"
-                width={200}
-                height={200}
-                className="w-[200px] h-[200px] object-contain"
+                width={80}
+                height={80}
+                className="w-20 h-20 object-contain"
                 unoptimized
               />
             </div>
           )}
-          <CardTitle className="text-2xl font-bold text-center">
+
+          {/* 타이틀 */}
+          <h1 className="text-3xl font-bold mb-2">
             {isSignUp ? '가입하기' : '들어가기'}
-          </CardTitle>
-          <CardDescription className="text-center">
-            {siteSettings.siteName}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          </h1>
+          <p className="text-muted-foreground mb-8">
+            {isSignUp ? '새 계정을 만들어주세요.' : '계정 정보를 입력해주세요.'}
+          </p>
+
+          {/* 폼 */}
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">이메일</Label>
               <Input
@@ -101,6 +102,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
+                className="h-12 rounded-full px-5"
               />
             </div>
             <div className="space-y-2">
@@ -114,6 +116,7 @@ export default function LoginPage() {
                 required
                 disabled={isLoading}
                 minLength={6}
+                className="h-12 rounded-full px-5"
               />
               {isSignUp && (
                 <p className="text-xs text-muted-foreground">
@@ -123,15 +126,16 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 rounded-md">
+              <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
                 {error}
               </div>
             )}
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-12 rounded-full text-base font-medium"
               disabled={isLoading}
+              style={{ backgroundColor: siteSettings.primaryColor }}
             >
               {isLoading ? (
                 <>
@@ -143,22 +147,40 @@ export default function LoginPage() {
               )}
             </Button>
 
-            <div className="text-center">
+            <div className="text-center pt-2">
+              <span className="text-sm text-muted-foreground">
+                {isSignUp ? '이미 계정이 있으신가요? ' : '계정이 없으신가요? '}
+              </span>
               <button
                 type="button"
                 onClick={() => {
                   setIsSignUp(!isSignUp)
                   setError(null)
                 }}
-                className="text-sm text-muted-foreground hover:text-primary underline"
+                className="text-sm font-medium underline hover:no-underline"
+                style={{ color: siteSettings.primaryColor }}
                 disabled={isLoading}
               >
-                {isSignUp ? '이미 계정이 있으신가요? 들어가기' : '계정이 없으신가요? 가입하기'}
+                {isSignUp ? '들어가기' : '가입하기'}
               </button>
             </div>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* 오른쪽: 배경 이미지 (데스크탑에서만 표시) */}
+      {siteSettings.loginBgImageUrl && (
+        <div className="hidden lg:block lg:w-1/2 xl:w-[55%] relative">
+          <Image
+            src={siteSettings.loginBgImageUrl}
+            alt="Login background"
+            fill
+            className="object-cover"
+            unoptimized
+            priority
+          />
+        </div>
+      )}
     </div>
   )
 }
