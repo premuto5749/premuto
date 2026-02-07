@@ -1,5 +1,4 @@
 {
-  "model": "claude-opus-4-6",
   "permissions": {
     "allow": [
       "Edit",
@@ -29,7 +28,13 @@
       "Bash(git reset:*)",
       "Bash(git checkout:*)",
       "Bash(gh pr create:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr create --title \"feat: 검사항목 AI 설명 자동 생성 기능\" --body \"$\\(cat <<''EOF''\n## Summary\n- 표준 검사항목 페이지\\(`/standard-items`\\)에 AI 설명 자동 생성 기능 추가\n- 설명이 없는 항목에 대해 Claude API로 설명\\(공통/높을때/낮을때\\)을 일괄 생성\n- 티어 게이팅 적용: Free 잠금, Basic 하루 30개, Premium 무제한\n\n## 변경 내용\n- `lib/tier.ts`: `daily_description_gen_limit` 티어 설정 추가\n- `app/api/tier/route.ts`: `description_generation` 사용량 응답 추가\n- `app/api/generate-descriptions/route.ts`: AI 설명 생성 API 엔드포인트 신규 생성\n- `app/standard-items/page.tsx`: 버튼 + 확인/진행/완료 다이얼로그 UI\n- `components/ui/progress.tsx`: shadcn Progress 컴포넌트 설치\n\n## Test plan\n- [ ] Free 계정으로 버튼 클릭 → 토스트 \"Basic 요금제부터 이용 가능합니다\" 확인\n- [ ] Basic 계정으로 생성 실행 → 진행 표시 → 완료 후 설명 채워짐 확인\n- [ ] 이미 설명 있는 항목은 스킵되는지 확인\n- [ ] `npm run build` 빌드 에러 없음 확인\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\nEOF\n\\)\")",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr merge 138 --repo premuto5749/premuto --squash --delete-branch)",
+      "Bash(npm ls:*)",
+      "Bash(git status:*)"
     ]
-  }
+  },
+  "model": "claude-opus-4-6"
 }
