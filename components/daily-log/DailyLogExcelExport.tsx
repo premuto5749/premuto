@@ -1,8 +1,18 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { Download, FileSpreadsheet, Loader2 } from 'lucide-react'
+import { FileSpreadsheet, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useToast } from '@/hooks/use-toast'
 import * as XLSX from 'xlsx'
 import type { DailyStats, DailyLog } from '@/types'
@@ -16,69 +26,16 @@ interface DailyLogExcelExportProps {
   petId: string | null
 }
 
-const CATEGORY_LABEL: Record<string, string> = {
-  meal: '식사',
-  water: '음수',
-  medicine: '약',
-  poop: '배변',
-  pee: '배뇨',
-  breathing: '호흡수',
-}
-
 export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: DailyLogExcelExportProps) {
   const { toast } = useToast()
   const [isExporting, setIsExporting] = useState(false)
+  const [isChecking, setIsChecking] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
-  // 기존: 기본 내보내기 (요약만)
-  const handleExport = useCallback(() => {
-    const entries = Object.entries(statsMap)
-      .filter(([dateKey]) => {
-        const d = new Date(dateKey)
-        return d.getFullYear() === year && d.getMonth() === month
-      })
-      .sort(([a], [b]) => a.localeCompare(b))
+  const monthLabel = month + 1
 
-    if (entries.length === 0) return
-
-    const headers = ['날짜', '식사(g)', '음수(ml)', '약(회)', '배변(회)', '배뇨(회)', '호흡수(평균)']
-    const rows: (string | number | null)[][] = [headers]
-
-    for (const [dateKey, stats] of entries) {
-      rows.push([
-        dateKey,
-        stats.meal_count > 0 ? stats.total_meal_amount : null,
-        stats.water_count > 0 ? stats.total_water_amount : null,
-        stats.medicine_count > 0 ? stats.medicine_count : null,
-        stats.poop_count > 0 ? stats.poop_count : null,
-        stats.pee_count > 0 ? stats.pee_count : null,
-        stats.breathing_count > 0 && stats.avg_breathing_rate
-          ? Math.round(stats.avg_breathing_rate)
-          : null,
-      ])
-    }
-
-    const workbook = XLSX.utils.book_new()
-    const sheet = XLSX.utils.aoa_to_sheet(rows)
-
-    sheet['!cols'] = [
-      { wch: 12 }, // 날짜
-      { wch: 10 }, // 식사
-      { wch: 10 }, // 음수
-      { wch: 8 },  // 약
-      { wch: 8 },  // 배변
-      { wch: 8 },  // 배뇨
-      { wch: 12 }, // 호흡수
-    ]
-
-    XLSX.utils.book_append_sheet(workbook, sheet, `${month + 1}월 건강기록`)
-
-    const monthStr = String(month + 1).padStart(2, '0')
-    const filename = `${petName}_${year}년${monthStr}월_건강기록.xlsx`
-    XLSX.writeFile(workbook, filename)
-  }, [year, month, statsMap, petName])
-
-  // 신규: 상세 내보내기 (요약 + 개별 기록)
-  const handleDetailedExport = useCallback(async () => {
+  // Excel 생성 및 다운로드 실행
+  const executeExport = useCallback(async () => {
     setIsExporting(true)
     try {
       const res = await fetch('/api/daily-logs/export-detailed', {
@@ -99,7 +56,7 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
         }
         toast({
           title: '오류',
-          description: result.error || '상세 데이터를 가져오지 못했습니다',
+          description: result.error || '데이터를 가져오지 못했습니다',
           variant: 'destructive',
         })
         return
@@ -112,7 +69,7 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
       if (logs.length === 0) {
         toast({
           title: '데이터 없음',
-          description: `${month + 1}월에 기록된 데이터가 없습니다`,
+          description: `${monthLabel}월에 기록된 데이터가 없습니다`,
           variant: 'destructive',
         })
         return
@@ -121,135 +78,323 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
       // 멀티시트 Excel 생성
       const workbook = XLSX.utils.book_new()
 
-      // Sheet 1: 월간 요약
-      const summaryEntries = Object.entries(statsMap)
+      // ==============================
+      // Sheet 1: 개요
+      // ==============================
+      const overviewRows: (string | number | null)[][] = []
+
+      overviewRows.push([`${petName} 건강기록`])
+      overviewRows.push([`${year}년 ${monthLabel}월`])
+      overviewRows.push([])
+
+      // 기록일수 계산
+      const monthEntries = Object.entries(statsMap)
         .filter(([dateKey]) => {
           const d = new Date(dateKey)
           return d.getFullYear() === year && d.getMonth() === month
         })
         .sort(([a], [b]) => a.localeCompare(b))
 
-      const summaryHeaders = ['날짜', '식사(g)', '음수(ml)', '약(회)', '배변(회)', '배뇨(회)', '호흡수(평균)']
-      const summaryRows: (string | number | null)[][] = [summaryHeaders]
+      overviewRows.push(['기록일수', `${monthEntries.length}일`])
+      overviewRows.push([])
+      overviewRows.push(['카테고리별 월간 통계'])
+      overviewRows.push([])
 
-      for (const [dateKey, stats] of summaryEntries) {
-        summaryRows.push([
-          dateKey,
-          stats.meal_count > 0 ? stats.total_meal_amount : null,
-          stats.water_count > 0 ? stats.total_water_amount : null,
-          stats.medicine_count > 0 ? stats.medicine_count : null,
-          stats.poop_count > 0 ? stats.poop_count : null,
-          stats.pee_count > 0 ? stats.pee_count : null,
-          stats.breathing_count > 0 && stats.avg_breathing_rate
-            ? Math.round(stats.avg_breathing_rate)
-            : null,
-        ])
+      // 카테고리별 통계 집계
+      const totalMealAmount = monthEntries.reduce((sum, [, s]) => sum + s.total_meal_amount, 0)
+      const totalMealCount = monthEntries.reduce((sum, [, s]) => sum + s.meal_count, 0)
+      const mealDays = monthEntries.filter(([, s]) => s.meal_count > 0).length
+
+      const totalWaterAmount = monthEntries.reduce((sum, [, s]) => sum + s.total_water_amount, 0)
+      const totalWaterCount = monthEntries.reduce((sum, [, s]) => sum + s.water_count, 0)
+      const waterDays = monthEntries.filter(([, s]) => s.water_count > 0).length
+
+      const totalMedicineCount = monthEntries.reduce((sum, [, s]) => sum + s.medicine_count, 0)
+      const totalPoopCount = monthEntries.reduce((sum, [, s]) => sum + s.poop_count, 0)
+      const totalPeeCount = monthEntries.reduce((sum, [, s]) => sum + s.pee_count, 0)
+
+      const breathingEntries = monthEntries.filter(([, s]) => s.breathing_count > 0 && s.avg_breathing_rate != null)
+      const totalBreathingCount = monthEntries.reduce((sum, [, s]) => sum + s.breathing_count, 0)
+      const breathingRates = breathingEntries.map(([, s]) => s.avg_breathing_rate!)
+      const avgBreathing = breathingRates.length > 0
+        ? Math.round(breathingRates.reduce((a, b) => a + b, 0) / breathingRates.length)
+        : null
+      const maxBreathing = breathingRates.length > 0 ? Math.round(Math.max(...breathingRates)) : null
+      const minBreathing = breathingRates.length > 0 ? Math.round(Math.min(...breathingRates)) : null
+
+      // 식사
+      overviewRows.push(['[ 식사 ]'])
+      overviewRows.push(['총 섭취량', `${totalMealAmount}g`])
+      overviewRows.push(['일평균', mealDays > 0 ? `${Math.round(totalMealAmount / mealDays)}g` : '-'])
+      overviewRows.push(['기록 횟수', `${totalMealCount}회`])
+      overviewRows.push([])
+
+      // 음수
+      overviewRows.push(['[ 음수 ]'])
+      overviewRows.push(['총 음수량', `${totalWaterAmount}ml`])
+      overviewRows.push(['일평균', waterDays > 0 ? `${Math.round(totalWaterAmount / waterDays)}ml` : '-'])
+      overviewRows.push(['기록 횟수', `${totalWaterCount}회`])
+      overviewRows.push([])
+
+      // 약
+      overviewRows.push(['[ 약 ]'])
+      overviewRows.push(['총 복용 횟수', `${totalMedicineCount}회`])
+      overviewRows.push([])
+
+      // 배변
+      overviewRows.push(['[ 배변 ]'])
+      overviewRows.push(['총 횟수', `${totalPoopCount}회`])
+      overviewRows.push([])
+
+      // 배뇨
+      overviewRows.push(['[ 배뇨 ]'])
+      overviewRows.push(['총 횟수', `${totalPeeCount}회`])
+      overviewRows.push([])
+
+      // 호흡수
+      overviewRows.push(['[ 호흡수 ]'])
+      overviewRows.push(['평균', avgBreathing != null ? `${avgBreathing}회/분` : '-'])
+      overviewRows.push(['최대', maxBreathing != null ? `${maxBreathing}회/분` : '-'])
+      overviewRows.push(['최소', minBreathing != null ? `${minBreathing}회/분` : '-'])
+      overviewRows.push(['측정 횟수', `${totalBreathingCount}회`])
+
+      const overviewSheet = XLSX.utils.aoa_to_sheet(overviewRows)
+      overviewSheet['!cols'] = [{ wch: 16 }, { wch: 20 }]
+      XLSX.utils.book_append_sheet(workbook, overviewSheet, '개요')
+
+      // ==============================
+      // 카테고리별 시트 생성
+      // ==============================
+      const logsByCategory: Record<string, DailyLog[]> = {}
+      for (const log of logs) {
+        if (!logsByCategory[log.category]) {
+          logsByCategory[log.category] = []
+        }
+        logsByCategory[log.category].push(log)
       }
 
-      const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows)
-      summarySheet['!cols'] = [
-        { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 12 },
-      ]
-      XLSX.utils.book_append_sheet(workbook, summarySheet, '월간 요약')
-
-      // Sheet 2: 상세 기록
-      const detailHeaders = ['날짜', '시간', '카테고리', '양', '단위', '남긴 양', '약 이름', '메모']
-      const detailRows: (string | number | null)[][] = [detailHeaders]
-
-      for (const log of logs) {
-        const loggedAt = new Date(log.logged_at)
-        const dateStr = loggedAt.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
-        const timeStr = loggedAt.toLocaleTimeString('ko-KR', {
+      const formatDateTime = (loggedAt: string) => {
+        const dt = new Date(loggedAt)
+        const dateStr = dt.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+        const timeStr = dt.toLocaleTimeString('ko-KR', {
           timeZone: 'Asia/Seoul',
           hour: '2-digit',
           minute: '2-digit',
           hour12: false,
         })
-
-        const categoryLabel = CATEGORY_LABEL[log.category] || log.category
-        const actualAmount = log.category === 'meal' && log.amount != null && log.leftover_amount != null
-          ? log.amount - log.leftover_amount
-          : log.amount
-
-        detailRows.push([
-          dateStr,
-          timeStr,
-          categoryLabel,
-          actualAmount ?? null,
-          log.unit || (LOG_CATEGORY_CONFIG[log.category]?.unit ?? null),
-          log.category === 'meal' ? (log.leftover_amount ?? null) : null,
-          log.medicine_name || null,
-          log.memo || null,
-        ])
+        return { dateStr, timeStr }
       }
 
-      const detailSheet = XLSX.utils.aoa_to_sheet(detailRows)
-      detailSheet['!cols'] = [
-        { wch: 12 }, // 날짜
-        { wch: 8 },  // 시간
-        { wch: 8 },  // 카테고리
-        { wch: 10 }, // 양
-        { wch: 8 },  // 단위
-        { wch: 10 }, // 남긴 양
-        { wch: 15 }, // 약 이름
-        { wch: 25 }, // 메모
-      ]
-      XLSX.utils.book_append_sheet(workbook, detailSheet, '상세 기록')
+      // 식사 시트
+      if (logsByCategory['meal']) {
+        const rows: (string | number | null)[][] = [['날짜', '시간', '급여량(g)', '남긴 양(g)', '실제 섭취량(g)', '메모']]
+        for (const log of logsByCategory['meal']) {
+          const { dateStr, timeStr } = formatDateTime(log.logged_at)
+          const actual = log.amount != null && log.leftover_amount != null
+            ? log.amount - log.leftover_amount
+            : log.amount
+          rows.push([
+            dateStr,
+            timeStr,
+            log.amount ?? null,
+            log.leftover_amount ?? null,
+            actual ?? null,
+            log.memo || null,
+          ])
+        }
+        const sheet = XLSX.utils.aoa_to_sheet(rows)
+        sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 25 }]
+        XLSX.utils.book_append_sheet(workbook, sheet, '식사')
+      }
 
-      const monthStr = String(month + 1).padStart(2, '0')
-      const filename = `${petName}_${year}년${monthStr}월_상세_건강기록.xlsx`
+      // 음수 시트
+      if (logsByCategory['water']) {
+        const rows: (string | number | null)[][] = [['날짜', '시간', '음수량(ml)', '메모']]
+        for (const log of logsByCategory['water']) {
+          const { dateStr, timeStr } = formatDateTime(log.logged_at)
+          rows.push([
+            dateStr,
+            timeStr,
+            log.amount ?? null,
+            log.memo || null,
+          ])
+        }
+        const sheet = XLSX.utils.aoa_to_sheet(rows)
+        sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 25 }]
+        XLSX.utils.book_append_sheet(workbook, sheet, '음수')
+      }
+
+      // 약 시트
+      if (logsByCategory['medicine']) {
+        const rows: (string | number | null)[][] = [['날짜', '시간', '약 이름', '복용량', '단위', '메모']]
+        for (const log of logsByCategory['medicine']) {
+          const { dateStr, timeStr } = formatDateTime(log.logged_at)
+          rows.push([
+            dateStr,
+            timeStr,
+            log.medicine_name || null,
+            log.amount ?? null,
+            log.unit || (LOG_CATEGORY_CONFIG[log.category]?.unit ?? null),
+            log.memo || null,
+          ])
+        }
+        const sheet = XLSX.utils.aoa_to_sheet(rows)
+        sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 15 }, { wch: 10 }, { wch: 8 }, { wch: 25 }]
+        XLSX.utils.book_append_sheet(workbook, sheet, '약')
+      }
+
+      // 배변 시트
+      if (logsByCategory['poop']) {
+        const rows: (string | number | null)[][] = [['날짜', '시간', '메모']]
+        for (const log of logsByCategory['poop']) {
+          const { dateStr, timeStr } = formatDateTime(log.logged_at)
+          rows.push([dateStr, timeStr, log.memo || null])
+        }
+        const sheet = XLSX.utils.aoa_to_sheet(rows)
+        sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 25 }]
+        XLSX.utils.book_append_sheet(workbook, sheet, '배변')
+      }
+
+      // 배뇨 시트
+      if (logsByCategory['pee']) {
+        const rows: (string | number | null)[][] = [['날짜', '시간', '메모']]
+        for (const log of logsByCategory['pee']) {
+          const { dateStr, timeStr } = formatDateTime(log.logged_at)
+          rows.push([dateStr, timeStr, log.memo || null])
+        }
+        const sheet = XLSX.utils.aoa_to_sheet(rows)
+        sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 25 }]
+        XLSX.utils.book_append_sheet(workbook, sheet, '배뇨')
+      }
+
+      // 호흡수 시트
+      if (logsByCategory['breathing']) {
+        const rows: (string | number | null)[][] = [['날짜', '시간', '호흡수(회/분)', '메모']]
+        for (const log of logsByCategory['breathing']) {
+          const { dateStr, timeStr } = formatDateTime(log.logged_at)
+          rows.push([
+            dateStr,
+            timeStr,
+            log.amount ?? null,
+            log.memo || null,
+          ])
+        }
+        const sheet = XLSX.utils.aoa_to_sheet(rows)
+        sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 25 }]
+        XLSX.utils.book_append_sheet(workbook, sheet, '호흡수')
+      }
+
+      const monthStr = String(monthLabel).padStart(2, '0')
+      const filename = `${petName}_${year}년${monthStr}월_건강기록.xlsx`
       XLSX.writeFile(workbook, filename)
 
       // 토스트 안내
       if (usage.limit !== -1) {
         toast({
           title: '다운로드 완료',
-          description: `상세 데이터가 다운로드되었습니다. 이번 달 무료 내보내기 ${usage.used}/${usage.limit}회 사용`,
+          description: `건강기록이 다운로드되었습니다. 이번 달 무료 내보내기 ${usage.used}/${usage.limit}회 사용`,
         })
       } else {
         toast({
           title: '다운로드 완료',
-          description: '상세 데이터가 다운로드되었습니다',
+          description: '건강기록이 다운로드되었습니다',
         })
       }
     } catch (error) {
-      console.error('Detailed export error:', error)
+      console.error('Export error:', error)
       toast({
         title: '오류',
-        description: '상세 내보내기 중 오류가 발생했습니다',
+        description: '내보내기 중 오류가 발생했습니다',
         variant: 'destructive',
       })
     } finally {
       setIsExporting(false)
     }
-  }, [year, month, statsMap, petName, petId, toast])
+  }, [year, month, monthLabel, statsMap, petName, petId, toast])
+
+  // 버튼 클릭: tier 확인 후 분기
+  const handleExportClick = useCallback(async () => {
+    setIsChecking(true)
+    try {
+      const res = await fetch('/api/daily-logs/export-detailed')
+      if (!res.ok) {
+        toast({
+          title: '오류',
+          description: '사용량 확인 중 오류가 발생했습니다',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      const data = await res.json() as { tier: string; used: number; limit: number; remaining: number }
+
+      if (data.tier === 'free') {
+        if (data.remaining > 0) {
+          // Free tier + 사용 가능 → 확인 다이얼로그
+          setShowConfirmDialog(true)
+        } else {
+          // Free tier + 소진 → 토스트 차단
+          toast({
+            title: '내보내기 제한',
+            description: '이번 달 무료 상세 내보내기를 모두 사용했습니다. Basic 요금제부터 무제한 이용 가능합니다.',
+            variant: 'destructive',
+          })
+        }
+      } else {
+        // Basic/Premium → 바로 다운로드
+        await executeExport()
+      }
+    } catch (error) {
+      console.error('Usage check error:', error)
+      toast({
+        title: '오류',
+        description: '사용량 확인 중 오류가 발생했습니다',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsChecking(false)
+    }
+  }, [executeExport, toast])
+
+  // 다이얼로그 확인 → 다운로드 실행
+  const handleConfirmExport = useCallback(async () => {
+    setShowConfirmDialog(false)
+    await executeExport()
+  }, [executeExport])
 
   const hasData = Object.keys(statsMap).length > 0
+  const isLoading = isChecking || isExporting
 
   return (
-    <div className="space-y-2">
+    <>
       <Button
         variant="outline"
         className="w-full"
-        onClick={handleExport}
-        disabled={!hasData}
+        onClick={handleExportClick}
+        disabled={!hasData || isLoading}
       >
-        <Download className="h-4 w-4 mr-2" />
-        {month + 1}월 데이터 내보내기 (Excel)
-      </Button>
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={handleDetailedExport}
-        disabled={!hasData || isExporting}
-      >
-        {isExporting ? (
+        {isLoading ? (
           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
         ) : (
           <FileSpreadsheet className="h-4 w-4 mr-2" />
         )}
-        {month + 1}월 상세 내보내기
+        {monthLabel}월 건강기록 내보내기
       </Button>
-    </div>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>월 1회 제공 기능</AlertDialogTitle>
+            <AlertDialogDescription>
+              무료 요금제에서는 월 1회 상세 내보내기가 제공됩니다. 이번 달 내보내기 기회를 사용하시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmExport}>다운로드</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

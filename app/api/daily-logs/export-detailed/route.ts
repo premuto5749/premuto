@@ -4,6 +4,35 @@ import { checkMonthlyUsageLimit, logUsage } from '@/lib/tier'
 
 export const dynamic = 'force-dynamic'
 
+export async function GET() {
+  try {
+    const supabase = await createClient()
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      )
+    }
+
+    const usageCheck = await checkMonthlyUsageLimit(user.id, 'detailed_export')
+
+    return NextResponse.json({
+      tier: usageCheck.tier,
+      used: usageCheck.used,
+      limit: usageCheck.limit,
+      remaining: usageCheck.remaining,
+    })
+  } catch (error) {
+    console.error('Export detailed usage check error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
