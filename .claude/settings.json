@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" add app/admin/master-data/page.tsx app/api/admin/stats/route.ts)",
+      "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" commit -m \"$\\(cat <<''EOF''\nfix: 미사용 import 제거 \\(빌드 에러 수정\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" log --oneline -3)"
+    ]
+  }
+}

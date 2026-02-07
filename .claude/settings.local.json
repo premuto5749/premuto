@@ -13,7 +13,13 @@
       "Bash(xargs kill:*)",
       "Bash(curl:*)",
       "Bash(start:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" push -u origin fix/admin-pages-improvements)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr create --repo premuto5749/premuto --base main --head fix/admin-pages-improvements --title \"fix: 관리자 페이지 개선 - 유저관리, 통계, 별칭 통합\" --body \"$\\(cat <<''EOF''\n## Summary\n- 유저 관리 페이지 접근 오류 수정 \\(SUPABASE_SERVICE_ROLE_KEY 미설정 시 실제 에러 표시\\)\n- 관리자 대시보드 통계를 createServiceClient로 변경하여 전체 사용자 수 정확히 표시\n- 마스터 표준항목/별칭 탭 분리 → Collapsible 통합 UI로 변경 \\(항목별 별칭 관리\\)\n\n## Test plan\n- [ ] /admin/users 접근 확인 \\(service role key 설정 상태\\)\n- [ ] /admin 대시보드 사용자 수 통계 확인\n- [ ] /admin/master-data에서 항목 클릭 → 별칭 목록 확인, 추가/삭제\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\nEOF\n\\)\")",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr merge 125 --repo premuto5749/premuto --rebase --delete-branch)",
+      "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" checkout main)",
+      "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" pull)",
+      "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" push origin main)"
     ]
   }
 }
