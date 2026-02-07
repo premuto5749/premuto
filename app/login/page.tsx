@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<AuthMode>('login')
   const [resetEmailSent, setResetEmailSent] = useState(false)
+  const [showEmailForm, setShowEmailForm] = useState(false)
   const { settings: siteSettings } = useSiteSettings()
 
   const switchMode = (newMode: AuthMode) => {
@@ -188,9 +189,9 @@ export default function LoginPage() {
             </div>
           ) : (
             <>
-              {/* 소셜 로그인 (로그인/가입 모드에서만) */}
+              {/* 카카오 로그인 (로그인/가입 모드에서만) */}
               {mode !== 'forgot-password' && (
-                <div className="space-y-3 mb-6">
+                <div className="space-y-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -204,108 +205,127 @@ export default function LoginPage() {
                     카카오로 계속하기
                   </Button>
 
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-border" />
+                  {!showEmailForm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowEmailForm(true)}
+                      className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-3"
+                    >
+                      또는 이메일로 {mode === 'signup' ? '가입하기' : '로그인'}
+                    </button>
+                  ) : (
+                    <div className="relative my-4">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-border" />
+                      </div>
+                      <div className="relative flex justify-center text-xs">
+                        <span className="bg-background px-3 text-muted-foreground">또는 이메일로</span>
+                      </div>
                     </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="bg-background px-3 text-muted-foreground">또는 이메일로</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
 
-              {/* 폼 */}
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="email">이메일</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    disabled={isLoading}
-                    className="h-12 rounded-full px-5"
-                  />
-                </div>
-                {mode !== 'forgot-password' && (
+              {/* 이메일 폼 (클릭 시 또는 비밀번호 찾기 모드에서 표시) */}
+              {(showEmailForm || mode === 'forgot-password') && (
+                <form onSubmit={handleSubmit} className="space-y-5">
                   <div className="space-y-2">
-                    <Label htmlFor="password">비밀번호</Label>
+                    <Label htmlFor="email">이메일</Label>
                     <Input
-                      id="password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
                       disabled={isLoading}
-                      minLength={6}
                       className="h-12 rounded-full px-5"
                     />
-                    {mode === 'signup' && (
-                      <p className="text-xs text-muted-foreground">
-                        최소 6자 이상
-                      </p>
-                    )}
-                    {mode === 'login' && (
-                      <div className="text-right">
-                        <button
-                          type="button"
-                          onClick={() => switchMode('forgot-password')}
-                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          비밀번호를 잊으셨나요?
-                        </button>
-                      </div>
-                    )}
                   </div>
-                )}
-
-                {error && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
-                    {error}
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  className="w-full h-12 rounded-full text-base font-medium"
-                  disabled={isLoading}
-                  style={{ backgroundColor: siteSettings.primaryColor }}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      처리 중...
-                    </>
-                  ) : mode === 'forgot-password' ? (
-                    '재설정 링크 보내기'
-                  ) : mode === 'signup' ? (
-                    '가입하기'
-                  ) : (
-                    '들어가기'
+                  {mode !== 'forgot-password' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="password">비밀번호</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        disabled={isLoading}
+                        minLength={6}
+                        className="h-12 rounded-full px-5"
+                      />
+                      {mode === 'signup' && (
+                        <p className="text-xs text-muted-foreground">
+                          최소 6자 이상
+                        </p>
+                      )}
+                      {mode === 'login' && (
+                        <div className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => switchMode('forgot-password')}
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            비밀번호를 잊으셨나요?
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
-                </Button>
 
-                {mode !== 'forgot-password' && (
-                  <div className="text-center pt-2">
-                    <span className="text-sm text-muted-foreground">
-                      {mode === 'signup' ? '이미 계정이 있으신가요? ' : '계정이 없으신가요? '}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => switchMode(mode === 'signup' ? 'login' : 'signup')}
-                      className="text-sm font-medium underline hover:no-underline"
-                      style={{ color: siteSettings.primaryColor }}
-                      disabled={isLoading}
-                    >
-                      {mode === 'signup' ? '들어가기' : '가입하기'}
-                    </button>
-                  </div>
-                )}
-              </form>
+                  {error && (
+                    <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
+                      {error}
+                    </div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 rounded-full text-base font-medium"
+                    disabled={isLoading}
+                    style={{ backgroundColor: siteSettings.primaryColor }}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        처리 중...
+                      </>
+                    ) : mode === 'forgot-password' ? (
+                      '재설정 링크 보내기'
+                    ) : mode === 'signup' ? (
+                      '가입하기'
+                    ) : (
+                      '들어가기'
+                    )}
+                  </Button>
+
+                  {mode !== 'forgot-password' && (
+                    <div className="text-center pt-2">
+                      <span className="text-sm text-muted-foreground">
+                        {mode === 'signup' ? '이미 계정이 있으신가요? ' : '계정이 없으신가요? '}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => switchMode(mode === 'signup' ? 'login' : 'signup')}
+                        className="text-sm font-medium underline hover:no-underline"
+                        style={{ color: siteSettings.primaryColor }}
+                        disabled={isLoading}
+                      >
+                        {mode === 'signup' ? '들어가기' : '가입하기'}
+                      </button>
+                    </div>
+                  )}
+                </form>
+              )}
+
+              {/* 에러 (이메일 폼 숨겨진 상태에서도 표시) */}
+              {!showEmailForm && mode !== 'forgot-password' && error && (
+                <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
+                  {error}
+                </div>
+              )}
             </>
           )}
 
