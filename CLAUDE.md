@@ -328,7 +328,37 @@ npx supabase db push # DB 마이그레이션
 - 기능 개발: `feat/기능명` (예: `feat/user-auth`)
 - 버그 수정: `fix/이슈번호-설명` (예: `fix/123-login-error`)
 
-### Workflow
+### 작업 순서 (반드시 준수)
 
-- 모든 작업은 `main` 브랜치에서 파생된 새 브랜치에서 진행할 것.
+```
+1. main 최신화        git checkout main && git pull
+2. 새 브랜치 생성      git checkout -b feat/기능명
+3. 코드 작업           (파일 수정)
+4. 커밋               git add <파일들> && git commit -m "..."
+5. 푸시               git push -u origin feat/기능명
+6. PR 생성            gh pr create ...
+7. 머지               gh pr merge ... --squash --delete-branch
+8. main 복귀          git checkout main && git pull
+```
+
+- **항상 main에서 새 브랜치를 생성**할 것. 다른 브랜치에서 분기하지 않는다.
 - 작업 완료 후에는 반드시 PR을 생성할 것.
+- 머지 시 `--squash`로 커밋을 정리하고 `--delete-branch`로 원격 브랜치를 삭제한다.
+
+### 여러 기능 동시 작업
+
+```bash
+# 기능1 작업 중 → 기능2를 시작해야 할 때
+git stash                          # 현재 작업 임시 보관
+git checkout main && git pull      # main 최신화
+git checkout -b feat/기능2          # 새 브랜치 생성
+# ... 기능2 작업 ...
+
+# 다시 기능1로 돌아올 때
+git checkout feat/기능1
+git stash pop                      # 임시 보관한 작업 복원
+```
+
+- 각 브랜치는 독립적이므로 여러 개 동시 진행 가능
+- `git stash`로 미완성 작업을 임시 보관 후 브랜치 전환
+- 전환 후 `git stash pop`으로 복원
