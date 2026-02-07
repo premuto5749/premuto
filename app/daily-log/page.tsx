@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
@@ -9,7 +9,7 @@ import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
 import { Timeline } from '@/components/daily-log/Timeline'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { useToast } from '@/hooks/use-toast'
-import type { DailyLog, DailyStats } from '@/types'
+import type { DailyLog, DailyStats, LogCategory } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { formatNumber } from '@/lib/utils'
 import {
@@ -37,6 +37,7 @@ export default function DailyLogPage() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const { toast } = useToast()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
 
@@ -143,16 +144,19 @@ export default function DailyLogPage() {
     const d = new Date(selectedDate)
     d.setDate(d.getDate() - 1)
     setSelectedDate(d.toISOString().split('T')[0])
+    setSelectedCategory(null) // 날짜 변경 시 필터 해제
   }
 
   const goToNextDay = () => {
     const d = new Date(selectedDate)
     d.setDate(d.getDate() + 1)
     setSelectedDate(d.toISOString().split('T')[0])
+    setSelectedCategory(null) // 날짜 변경 시 필터 해제
   }
 
   const goToToday = () => {
     setSelectedDate(getKSTToday())
+    setSelectedCategory(null) // 날짜 변경 시 필터 해제
   }
 
   const formatDateHeader = (dateStr: string) => {
@@ -181,6 +185,7 @@ export default function DailyLogPage() {
   const handleCalendarSelect = (date: Date) => {
     setSelectedDate(date.toISOString().split('T')[0])
     setIsCalendarOpen(false)
+    setSelectedCategory(null) // 날짜 변경 시 필터 해제
   }
 
   const exportLogsToText = () => {
@@ -278,6 +283,19 @@ export default function DailyLogPage() {
     })
   }
 
+  // 카테고리 필터링 토글 핸들러
+  const handleCategoryClick = (category: LogCategory) => {
+    setSelectedCategory(prev => prev === category ? null : category)
+  }
+
+  // 필터링된 로그 계산
+  const filteredLogs = useMemo(() => {
+    if (!selectedCategory) {
+      return logs
+    }
+    return logs.filter(log => log.category === selectedCategory)
+  }, [logs, selectedCategory])
+
   return (
     <div className="min-h-screen bg-background">
       {/* 헤더 - AppHeader 사용 */}
@@ -343,12 +361,24 @@ export default function DailyLogPage() {
         ) : (
           <div className="space-y-4">
             {/* 일일 통계 */}
-            <DailyStatsCard stats={stats} date={selectedDate} />
+            <DailyStatsCard
+              stats={stats}
+              date={selectedDate}
+              selectedCategory={selectedCategory}
+              onCategoryClick={handleCategoryClick}
+            />
 
             {/* 타임라인 */}
             <div>
-              <h2 className="font-medium mb-3">기록 목록</h2>
-              <Timeline logs={logs} onDelete={handleDelete} onUpdate={handleUpdate} />
+              <h2 className="font-medium mb-3">
+                기록 목록
+                {selectedCategory && (
+                  <span className="text-sm text-muted-foreground ml-2">
+                    ({LOG_CATEGORY_CONFIG[selectedCategory].icon} {LOG_CATEGORY_CONFIG[selectedCategory].label} {filteredLogs.length}건)
+                  </span>
+                )}
+              </h2>
+              <Timeline logs={filteredLogs} onDelete={handleDelete} onUpdate={handleUpdate} />
             </div>
           </div>
         )}
