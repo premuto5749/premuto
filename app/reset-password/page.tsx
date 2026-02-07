@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,48 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(true)
   const { settings: siteSettings } = useSiteSettings()
+
+  // URL hash에서 토큰을 추출하고 세션 설정
+  useEffect(() => {
+    const handleHashChange = async () => {
+      const hash = window.location.hash
+
+      if (hash && hash.includes('access_token')) {
+        try {
+          const supabase = createClient()
+
+          // Hash fragment를 파싱하여 파라미터 추출
+          const hashParams = new URLSearchParams(hash.substring(1))
+          const accessToken = hashParams.get('access_token')
+          const refreshToken = hashParams.get('refresh_token')
+
+          if (accessToken && refreshToken) {
+            // 세션 설정
+            const { error: sessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            })
+
+            if (sessionError) {
+              throw sessionError
+            }
+          }
+        } catch (err) {
+          console.error('Session setup error:', err)
+          setError('인증에 실패했습니다. 비밀번호 재설정 링크를 다시 요청해주세요.')
+        } finally {
+          setIsVerifying(false)
+        }
+      } else {
+        // hash가 없으면 로그인 페이지로
+        router.push('/login')
+      }
+    }
+
+    handleHashChange()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,7 +115,12 @@ export default function ResetPasswordPage() {
 
           <h1 className="text-3xl font-bold mb-2">비밀번호 재설정</h1>
 
-          {success ? (
+          {isVerifying ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">인증 확인 중...</p>
+            </div>
+          ) : success ? (
             <div className="space-y-5 mt-6">
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-start gap-3">

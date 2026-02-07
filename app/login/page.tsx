@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,15 @@ export default function LoginPage() {
   const [resetEmailSent, setResetEmailSent] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
   const { settings: siteSettings } = useSiteSettings()
+
+  // 비밀번호 재설정 토큰 감지
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash && hash.includes('type=recovery')) {
+      // 비밀번호 재설정 페이지로 리다이렉트
+      router.push(`/reset-password${hash}`)
+    }
+  }, [])
 
   const switchMode = (newMode: AuthMode) => {
     setMode(newMode)
