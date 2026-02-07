@@ -5,11 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Project: Premuto - Pet Health Log (반려동물 건강 기록)
 
 ## 1. 프로젝트 목표
+
 반려동물의 건강을 종합적으로 관리하는 **다중 사용자 애플리케이션**.
 
 > **중요**: 이 앱은 다중 사용자가 회원가입하여 사용하는 서비스입니다. 각 사용자는 본인의 반려동물 데이터만 접근할 수 있습니다.
 
 ### 1-1. 일일 건강 기록 (v3 신규)
+
 - 식사, 음수, 약, 배변, 배뇨, 호흡수를 빠르게 기록
 - 날짜별 타임라인으로 기록 확인
 - 일일 통계로 섭취량, 횟수, 평균 호흡수 추적
@@ -17,6 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **v3.1 추가**: 클립보드 내보내기 (오늘 요약 + 상세 기록)
 
 ### 1-2. 혈액검사 아카이브
+
 - 다년간 누적된 혈액검사지(PDF/이미지)를 OCR로 판독하여 DB화
 - 병원/장비마다 다른 참고치(Reference Range)와 항목명(Alias)을 표준화
 - 시계열 트렌드 분석
@@ -24,6 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **v3.1 추가**: 검사 기록 병합 기능 (중복 기록 통합)
 
 **v3.2 핵심 개선사항**:
+
 - 검사항목 마스터 데이터 v4.2 (120개 표준항목, 89개 별칭, description 완비)
 - 매핑 로직 개선: Step 0 가비지 필터 추가, fuzzy 제거 → Step 0~3 (가비지필터 → exact → alias → AI)
 - 대시보드 View 옵션 (검사유형별/장기별/임상우선순위별/패널별 정렬)
@@ -31,6 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - item_aliases 테이블 (장비별 source_hint 지원)
 
 **v3.1 핵심 개선사항**:
+
 - 일일 기록 클립보드 내보내기 (오늘 요약 + 상세 기록 포맷)
 - 일일 기록 인라인 수정 기능 (양, 약 이름, 메모)
 - 캘린더 UI로 날짜 선택 (한국어 요일, 오늘 이동 버튼)
@@ -38,11 +43,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 검사 기록 병합 기능 (충돌 감지 및 해결 UI)
 
 **v3 핵심 개선사항**:
+
 - 일일 건강 기록 서비스 추가 (메인 페이지)
 - OCR 엔진 Claude API로 변경 (PDF 구조 이해 향상)
 - 햄버거 메뉴로 서비스 간 이동
 
 **v2 핵심 개선사항**:
+
 - 여러 날짜의 검사를 한 번에 업로드하고 자동으로 날짜별 그룹화
 - 날짜별 탭 UI로 각 검사를 독립적으로 확인 및 저장
 - GPT-4o 기반 지능형 매칭으로 사용자 개입 최소화
@@ -54,26 +61,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 이 프로젝트는 다음 문서들로 구성되어 있습니다:
 
 ### 핵심 문서
+
 - **CLAUDE.md** (이 파일): 개발 가이드라인 및 프로젝트 특화 규칙
 - **PRD.md**: 제품 요구사항 명세서 - 사용자 워크플로우와 UI 요구사항
 - **SCHEMA.md**: 데이터베이스 스키마 - 7개 핵심 테이블
 - **README.md**: 프로젝트 개요 및 Claude Code 설정 가이드
 
 ### 검사항목 데이터 (docs/)
+
 - **docs/standard_items_master.json**: 마스터 데이터 — 정규항목 120개 + alias 89개 + 정렬체계 4종
 - **docs/mapping_logic.md**: 매핑 로직 — Step 0~3 플로우, AI 프롬프트, Unmapped 처리, 기록 저장 구조
 
 ### 재사용 가능한 Skills (.claude/skills/)
+
 범용적으로 활용 가능한 설계 패턴들:
 
-| Skill | 설명 | 이 프로젝트 적용 |
-|-------|------|-----------------|
-| [reference-snapshot-pattern.md](.claude/skills/reference-snapshot-pattern.md) | 시계열 데이터의 기준값 스냅샷 저장 | 혈액검사 참고치 |
-| [confidence-based-ux.md](.claude/skills/confidence-based-ux.md) | AI 신뢰도 기반 사용자 개입 UX | OCR → 표준항목 매핑 검수 |
-| [hybrid-mapping-logic.md](.claude/skills/hybrid-mapping-logic.md) | N단계 하이브리드 매핑 로직 | 검사항목 표준화 |
-| [multi-user-rls-isolation.md](.claude/skills/multi-user-rls-isolation.md) | Supabase RLS 기반 사용자 격리 | 다중 사용자 데이터 보호 |
-| [multi-file-batch-processing.md](.claude/skills/multi-file-batch-processing.md) | 다중 파일 배치 처리 패턴 | 검사지 일괄 업로드 |
-| [daily-log-timeline.md](.claude/skills/daily-log-timeline.md) | 일일 기록 타임라인 패턴 | 일일 건강 기록 |
+| Skill                                                                           | 설명                               | 이 프로젝트 적용         |
+| ------------------------------------------------------------------------------- | ---------------------------------- | ------------------------ |
+| [reference-snapshot-pattern.md](.claude/skills/reference-snapshot-pattern.md)   | 시계열 데이터의 기준값 스냅샷 저장 | 혈액검사 참고치          |
+| [confidence-based-ux.md](.claude/skills/confidence-based-ux.md)                 | AI 신뢰도 기반 사용자 개입 UX      | OCR → 표준항목 매핑 검수 |
+| [hybrid-mapping-logic.md](.claude/skills/hybrid-mapping-logic.md)               | N단계 하이브리드 매핑 로직         | 검사항목 표준화          |
+| [multi-user-rls-isolation.md](.claude/skills/multi-user-rls-isolation.md)       | Supabase RLS 기반 사용자 격리      | 다중 사용자 데이터 보호  |
+| [multi-file-batch-processing.md](.claude/skills/multi-file-batch-processing.md) | 다중 파일 배치 처리 패턴           | 검사지 일괄 업로드       |
+| [daily-log-timeline.md](.claude/skills/daily-log-timeline.md)                   | 일일 기록 타임라인 패턴            | 일일 건강 기록           |
 
 ## 3. 아키텍처 개요
 
@@ -92,6 +102,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | breathing (호흡수) | 🫁 | 회/분 | 분당 호흡수 |
 
 **API 엔드포인트**: `/api/daily-logs`
+
 - GET: 날짜별 기록 조회, 통계 조회 (`?stats=true`)
 - POST: 새 기록 추가
 - PATCH: 기록 수정
@@ -102,17 +113,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 혈액검사 데이터 흐름 (Data Flow)
 
 > 📘 **패턴 참조**:
+>
 > - [multi-file-batch-processing.md](.claude/skills/multi-file-batch-processing.md) - 다중 파일 처리
 > - [hybrid-mapping-logic.md](.claude/skills/hybrid-mapping-logic.md) - 항목 매핑
 > - [confidence-based-ux.md](.claude/skills/confidence-based-ux.md) - 검수 UX
 
 #### Phase 1-2: 다중 파일 업로드 및 OCR
+
 - 최대 10개 파일 동시 업로드
 - 병렬 OCR 처리 (Claude API)
 - 날짜+병원 기준 자동 그룹화
 - OCR 결과 미리보기 (Preview Before Mapping)
 
 #### Phase 3-4: 매핑 및 검수
+
 - Step 0: 가비지 필터링 (OCR 쓰레기 자동 제거)
 - Step 1~2: 정규항목/Alias exact match (자동)
 - Step 3: AI 판단 → match(alias 자동 등록) 또는 new(신규 항목)
@@ -120,6 +134,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 학습 피드백 루프 (승인/수정 → item_aliases 저장)
 
 #### Phase 5-6: 저장 및 시각화
+
 - 날짜 그룹별 독립 트랜잭션
 - 피벗 테이블 + 시계열 그래프
 
@@ -133,17 +148,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **검사항목 마스터 v4.2 (120개 정규항목, 89개 alias = 209개 이름 인식)**
 
 병원/장비마다 같은 검사를 다르게 표기하는 문제를 해결:
+
 - 장비명 부착 (HCT vs Hct(ABL80F)), 약어 차이 (ALKP vs ALP), 이온 표기 (K+ vs Potassium)
 - 판단 기준: ①측정 대상 동일? ②단위 호환? ③같은 트렌드? → 3개 모두 Yes면 합침
 
-**매핑 Step 0~3**:
-0. **가비지 필터** — OCR 쓰레기 버림 ("< 0.25", "기타", 단위 잘림 보정)
+**매핑 Step 0~3**: 0. **가비지 필터** — OCR 쓰레기 버림 ("< 0.25", "기타", 단위 잘림 보정)
+
 1. **정규 항목 Exact Match** (100%) — `standard_items.name` case-insensitive
 2. **Alias Exact Match** (95%) — `item_aliases.alias` + `source_hint` 기록
 3. **AI 판단** — Claude API. match → alias 자동 등록 / new → 신규 항목 생성
    - confidence < 0.7 → Unmapped로 저장, 사용자가 매핑 메뉴에서 처리
 
 **사용 컨텍스트**:
+
 - OCR 직후: Step 0→1→2→3 자동 실행, 사용자 개입 없음
 - Unmapped 정리: 매핑 메뉴에서 수동 매핑/신규등록/삭제
 
@@ -156,6 +173,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > 📘 **패턴 참조**: [reference-snapshot-pattern.md](.claude/skills/reference-snapshot-pattern.md)
 
 **Premuto 특화 적용**:
+
 - `test_results` 테이블의 각 레코드는 `ref_min`, `ref_max`, `ref_text` 보유
 - 장비별 참고치 차이 예시:
   - Hitachi: Creatinine 0~10
@@ -164,6 +182,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - UI에서 참고치 변경 시 ⚠️ 아이콘 표시
 
 **판정 로직**:
+
 - 🔴 High: Value > Ref_Max
 - 🔵 Low: Value < Ref_Min
 - 🟢 Normal: Ref_Min ≤ Value ≤ Ref_Max
@@ -176,6 +195,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > 📘 **패턴 참조**: [multi-file-batch-processing.md](.claude/skills/multi-file-batch-processing.md)
 
 **Premuto 그룹화 기준**: `검사 날짜` + `병원명`
+
 - 탭 제목: `2025-12-08 (병원명)` 또는 `(2)` 순번
 - 중복 항목: 값 동일 → 자동 병합, 값 다름 → 사용자 선택
 - 파일 추적: `test_results.source_filename`
@@ -185,6 +205,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### D. 검사 기록 병합 규칙 (v3.1)
 
 **충돌 유형**:
+
 - 날짜 충돌 → 사용자가 최종 날짜 선택
 - 병원 충돌 → 사용자가 최종 병원 선택
 - 항목 값 충돌 → 사용자가 유지할 값 선택
@@ -196,6 +217,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### E. 미모 주요 관리 항목 (Priority Items)
 
 UI에서 강조 표시할 항목:
+
 - **췌장**: `Lipase`, `cPL` (그래프 시각화 필수)
 - **신장**: `BUN`, `Creatinine`, `SDMA`, `Phosphorus`
 - **간**: `ALT`, `ALKP`, `GGT`
@@ -224,11 +246,11 @@ UI에서 강조 표시할 항목:
 </AuthProvider>
 ```
 
-| Context | 파일 | 역할 |
-|---------|------|------|
-| `AuthContext` | `contexts/AuthContext.tsx` | 관리자 상태 (`isAdmin`) 전역 관리. 앱 초기화 시 1회만 `/api/auth/check-admin` 호출 |
-| `PetContext` | `contexts/PetContext.tsx` | 반려동물 목록, 현재 선택된 pet, localStorage 동기화 |
-| `RequirePetGuard` | `components/RequirePetGuard.tsx` | 반려동물 미등록 시 등록 모달 표시 |
+| Context           | 파일                             | 역할                                                                               |
+| ----------------- | -------------------------------- | ---------------------------------------------------------------------------------- |
+| `AuthContext`     | `contexts/AuthContext.tsx`       | 관리자 상태 (`isAdmin`) 전역 관리. 앱 초기화 시 1회만 `/api/auth/check-admin` 호출 |
+| `PetContext`      | `contexts/PetContext.tsx`        | 반려동물 목록, 현재 선택된 pet, localStorage 동기화                                |
+| `RequirePetGuard` | `components/RequirePetGuard.tsx` | 반려동물 미등록 시 등록 모달 표시                                                  |
 
 **주의**: `RequirePetGuard`는 `initialLoadDone` 플래그를 사용하여 초기 로딩 시에만 스피너를 표시합니다.
 이후 auth 상태 변경으로 인한 re-fetch 시에는 children을 언마운트하지 않습니다.
@@ -237,11 +259,13 @@ UI에서 강조 표시할 항목:
 ## 6. 코딩 컨벤션
 
 ### 상태 판정 시각화
+
 - 🔴 High (수치 > Max)
 - 🔵 Low (수치 < Min)
 - 🟢 Normal (Min ≤ 수치 ≤ Max)
 
 ### 신뢰도 배지
+
 > 📘 **패턴 참조**: [confidence-based-ux.md](.claude/skills/confidence-based-ux.md)
 
 - 🟢 ≥90%: "높음" (녹색)
@@ -249,6 +273,7 @@ UI에서 강조 표시할 항목:
 - 🔴 <70%: "낮음" (빨간색)
 
 ### 매칭 소스 아이콘
+
 - 🤖 AI 자동 매핑
 - ✓ 사용자 승인
 - ✏️ 사용자 수동 입력
@@ -256,15 +281,18 @@ UI에서 강조 표시할 항목:
 ## 7. API 엔드포인트 명세
 
 ### 일일 기록
+
 - `GET/POST/PATCH/DELETE /api/daily-logs`
 
 ### 혈액검사
+
 - `POST /api/ocr-batch` - 다중 파일 OCR
 - `POST /api/ai-mapping` - AI 매핑
 - `POST /api/test-results-batch` - 일괄 저장
 - `GET/POST /api/test-results/merge` - 기록 병합
 
 ### 관리
+
 - `GET/POST /api/admin/sync-master-data` - 마스터 데이터 동기화
 - `GET/POST/DELETE /api/item-aliases` - 별칭 관리
 - `PATCH /api/standard-items/[id]` - 표준 항목 수정
@@ -283,21 +311,24 @@ npx supabase db push # DB 마이그레이션
 > 📘 **패턴 참조**: [multi-user-rls-isolation.md](.claude/skills/multi-user-rls-isolation.md)
 
 ### Premuto 적용
+
 - 모든 테이블에 `user_id` 컬럼 + RLS 정책
 - 스토리지: `uploads/{user_id}/` 폴더 격리
 - Signed URL: 7일 유효, API 응답 시 동적 생성
 
 **구현 위치**:
+
 - `app/api/daily-logs/upload/route.ts`: 파일 경로만 저장
 - `app/api/daily-logs/route.ts`: GET 시 Signed URL 변환
 
 ## 10. Git 워크플로우
 
 ### Branch Naming
+
 - 기능 개발: `feat/기능명` (예: `feat/user-auth`)
 - 버그 수정: `fix/이슈번호-설명` (예: `fix/123-login-error`)
 
 ### Workflow
+
 - 모든 작업은 `main` 브랜치에서 파생된 새 브랜치에서 진행할 것.
 - 작업 완료 후에는 반드시 PR을 생성할 것.
-- **절대 main에 직접 push하지 말 것.**
