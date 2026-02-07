@@ -12,10 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff, Crown, User } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/hooks/use-toast'
 
 // 투약 빈도 옵션
 const FREQUENCY_OPTIONS = [
@@ -166,6 +168,7 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
           {/* 계정 관리 */}
           <TabsContent value="account">
             <div className="space-y-6">
+              <AccountInfoSection />
               <KakaoLinkSection />
               <PasswordChangeSection />
             </div>
@@ -1338,6 +1341,130 @@ function DataManagementSection() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// 계정 정보 및 구독 섹션
+function AccountInfoSection() {
+  const [loading, setLoading] = useState(true)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [tierData, setTierData] = useState<{
+    tier: string
+    config: { label: string; daily_ocr_limit: number; daily_log_max_photos: number; daily_description_gen_limit: number }
+    usage: {
+      ocr_analysis: { used: number; limit: number; remaining: number }
+      daily_log_photo: { used: number; limit: number; remaining: number }
+      description_generation: { used: number; limit: number; remaining: number }
+    }
+  } | null>(null)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    const loadAccountInfo = async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setUserEmail(user.email || null)
+        }
+
+        const res = await fetch('/api/tier')
+        const data = await res.json()
+        if (data.success) {
+          setTierData(data.data)
+        }
+      } catch (error) {
+        console.error('Failed to load account info:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadAccountInfo()
+  }, [])
+
+  const handleUpgrade = () => {
+    toast({
+      title: '준비 중입니다',
+      description: '의견주기를 통해서 궁금한 점은 여쭤보실 수 있습니다.',
+    })
+  }
+
+  const formatUsage = (used: number, limit: number) => {
+    if (limit === 0) return '잠금'
+    if (limit === -1) return '무제한'
+    return `${used} / ${limit}`
+  }
+
+  const tierBadgeStyle = (tier: string) => {
+    switch (tier) {
+      case 'premium':
+        return 'bg-purple-100 text-purple-700 border-purple-200'
+      case 'basic':
+        return 'bg-blue-100 text-blue-700 border-blue-200'
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200'
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-8 flex justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <User className="w-5 h-5" />
+          계정 정보
+        </CardTitle>
+        <CardDescription>계정 및 구독 정보를 확인하세요</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="p-4 bg-muted rounded-lg space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">이메일</span>
+            <span className="font-medium">{userEmail || '-'}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">현재 플랜</span>
+            <Badge variant="outline" className={tierBadgeStyle(tierData?.tier || 'free')}>
+              {tierData?.config?.label || '무료'}
+            </Badge>
+          </div>
+        </div>
+
+        {tierData && (
+          <div className="p-4 border rounded-lg space-y-2">
+            <p className="text-sm font-medium mb-2">오늘 사용량</p>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">OCR 분석</span>
+              <span className="font-medium">{formatUsage(tierData.usage.ocr_analysis.used, tierData.usage.ocr_analysis.limit)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">사진 업로드</span>
+              <span className="font-medium">{formatUsage(tierData.usage.daily_log_photo.used, tierData.usage.daily_log_photo.limit)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">AI 설명 생성</span>
+              <span className="font-medium">{formatUsage(tierData.usage.description_generation.used, tierData.usage.description_generation.limit)}</span>
+            </div>
+          </div>
+        )}
+
+        {tierData && tierData.tier !== 'premium' && (
+          <Button onClick={handleUpgrade} className="w-full" variant="outline">
+            <Crown className="w-4 h-4 mr-2" />
+            플랜 업그레이드
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
