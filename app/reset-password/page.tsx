@@ -20,45 +20,34 @@ export default function ResetPasswordPage() {
   const [isVerifying, setIsVerifying] = useState(true)
   const { settings: siteSettings } = useSiteSettings()
 
-  // URL hash에서 토큰을 추출하고 세션 설정
+  // 세션 확인 (PKCE flow를 통해 이미 세션이 설정되어 있어야 함)
   useEffect(() => {
-    const handleHashChange = async () => {
-      const hash = window.location.hash
+    const checkSession = async () => {
+      try {
+        const supabase = createClient()
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-      if (hash && hash.includes('access_token')) {
-        try {
-          const supabase = createClient()
-
-          // Hash fragment를 파싱하여 파라미터 추출
-          const hashParams = new URLSearchParams(hash.substring(1))
-          const accessToken = hashParams.get('access_token')
-          const refreshToken = hashParams.get('refresh_token')
-
-          if (accessToken && refreshToken) {
-            // 세션 설정
-            const { error: sessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken
-            })
-
-            if (sessionError) {
-              throw sessionError
-            }
-          }
-        } catch (err) {
-          console.error('Session setup error:', err)
-          setError('인증에 실패했습니다. 비밀번호 재설정 링크를 다시 요청해주세요.')
-        } finally {
-          setIsVerifying(false)
+        if (sessionError) {
+          throw sessionError
         }
-      } else {
-        // hash가 없으면 로그인 페이지로
-        router.push('/login')
+
+        if (!session) {
+          // 세션이 없으면 로그인 페이지로
+          router.push('/login')
+          return
+        }
+
+        // 세션이 있으면 비밀번호 변경 폼 표시
+        setIsVerifying(false)
+      } catch (err) {
+        console.error('Session check error:', err)
+        setError('인증에 실패했습니다. 비밀번호 재설정 링크를 다시 요청해주세요.')
+        setIsVerifying(false)
       }
     }
 
-    handleHashChange()
-  }, [])
+    checkSession()
+  }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
