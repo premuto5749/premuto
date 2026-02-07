@@ -335,6 +335,17 @@ export default function LoginPage() {
             데이터의 정확성 확인은 사용자 본인의 책임이며, 의학적 치료 관련 판단은 반드시 수의사와 상의하세요.
             본 서비스는 기록된 데이터에 대한 법적 책임을 지지 않습니다.
           </p>
+
+          {/* 푸터 */}
+          <footer className="mt-10 pt-6 border-t border-border/50 text-[11px] text-muted-foreground/60 leading-relaxed space-y-1">
+            <p>프리무토 | 대표자 : 김민수</p>
+            <p>사업자 등록번호 : 480-57-00855</p>
+            <p>소재지 : 경기도 수원시 장안구 송죽로 9-1, 2층</p>
+            <p>이메일 : minsook1@withpremuto.com</p>
+            <p className="pt-2 text-[10px] text-muted-foreground/50">
+              COPYRIGHT &copy;Premuto. ALL RIGHTS RESERVED. DESIGNED BY PREMUTO.
+            </p>
+          </footer>
         </div>
       </div>
 
