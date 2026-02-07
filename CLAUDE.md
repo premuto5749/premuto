@@ -17,6 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 일일 통계로 섭취량, 횟수, 평균 호흡수 추적
 - **v3.1 추가**: 기록 수정 기능 (양, 약 이름, 메모 인라인 편집)
 - **v3.1 추가**: 클립보드 내보내기 (오늘 요약 + 상세 기록)
+- **v3.2 추가**: 상세 Excel 내보내기 (요약 + 개별 기록, tier 월간 제한)
+- **v3.2 추가**: 카테고리 필터링
 
 ### 1-2. 혈액검사 아카이브
 
@@ -33,6 +35,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 대시보드 View 옵션 (검사유형별/장기별/임상우선순위별/패널별 정렬)
 - 표준항목 관리 페이지 (/standard-items)
 - item_aliases 테이블 (장비별 source_hint 지원)
+- AI 설명 자동 생성 (`description_common`/`high`/`low`, tier 제한)
+- 티어 시스템 (Free/Basic/Premium, 사용량 제한)
+- 관리자 대시보드 및 설정 페이지 6종
+
+> 📘 **상세 문서**: [docs/tier-system.md](docs/tier-system.md) — 티어별 제한, 사용량 추적
+> 📘 **상세 문서**: [docs/admin-features.md](docs/admin-features.md) — 관리자 기능 명세
 
 **v3.1 핵심 개선사항**:
 
@@ -71,6 +79,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **docs/standard_items_master.json**: 마스터 데이터 — 정규항목 120개 + alias 89개 + 정렬체계 4종
 - **docs/mapping_logic.md**: 매핑 로직 — Step 0~3 플로우, AI 프롬프트, Unmapped 처리, 기록 저장 구조
+
+### 운영 문서 (docs/)
+
+- **docs/tier-system.md**: 티어 시스템 — Free/Basic/Premium 제한값, 사용량 추적, `lib/tier.ts`
+- **docs/admin-features.md**: 관리자 기능 — 6개 관리 페이지 명세
 
 ### 재사용 가능한 Skills (.claude/skills/)
 
@@ -228,9 +241,12 @@ UI에서 강조 표시할 항목:
 - **Frontend**: Next.js 14, Tailwind CSS, Shadcn/ui
   - react-dropzone (다중 파일 업로드)
   - date-fns (날짜 처리)
+  - Pretendard (한국어 웹 폰트)
 - **Backend/DB**: Supabase (PostgreSQL)
   - RLS 기반 사용자 격리
+- **Auth**: Supabase Auth (이메일/비밀번호 + Kakao OAuth)
 - **AI/OCR**: Claude API, GPT-4o
+- **Tier 관리**: `lib/tier.ts`, `usage_logs` 테이블 기반 사용량 추적
 
 ### Context 구조 및 Provider 계층
 
@@ -283,6 +299,8 @@ UI에서 강조 표시할 항목:
 ### 일일 기록
 
 - `GET/POST/PATCH/DELETE /api/daily-logs`
+- `POST /api/daily-logs/upload` - 사진 업로드
+- `POST /api/daily-logs/export-detailed` - 상세 Excel 내보내기 (tier 월간 제한)
 
 ### 혈액검사
 
@@ -290,12 +308,29 @@ UI에서 강조 표시할 항목:
 - `POST /api/ai-mapping` - AI 매핑
 - `POST /api/test-results-batch` - 일괄 저장
 - `GET/POST /api/test-results/merge` - 기록 병합
+- `GET /api/export-excel` - 검사 결과 Excel 내보내기
 
-### 관리
+### AI 기능
+
+- `POST /api/generate-descriptions` - 표준항목 AI 설명 생성 (tier 일일 제한)
+
+### Tier 및 사용자
+
+- `GET /api/tier` - 사용자 티어 및 사용량 조회
+- `POST /api/user/reset-master-data` - 커스텀 데이터 초기화
+- `POST /api/auth/change-password` - 비밀번호 변경
+
+### 관리자 (Admin)
 
 - `GET/POST /api/admin/sync-master-data` - 마스터 데이터 동기화
-- `GET/POST/DELETE /api/item-aliases` - 별칭 관리
-- `PATCH /api/standard-items/[id]` - 표준 항목 수정
+- `GET/POST/DELETE /api/admin/item-aliases` - 별칭 관리
+- `GET/POST /api/admin/standard-items` - 표준 항목 관리
+- `PATCH /api/admin/standard-items/[id]` - 표준 항목 수정
+- `GET/PUT /api/admin/tier-config` - 티어 설정 관리
+- `GET/POST /api/admin/users` - 사용자 관리
+- `GET/PUT /api/admin/site-settings` - 사이트 설정
+- `GET/PUT /api/admin/ocr-settings` - OCR 설정
+- `GET /api/admin/stats` - 관리자 통계
 
 ## 8. 개발 명령어
 

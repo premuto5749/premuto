@@ -1,6 +1,6 @@
-# Mimo Health Log (미모 건강 기록)
+# Premuto - Pet Health Log (반려동물 건강 기록)
 
-반려동물 '미모'의 건강을 종합적으로 관리하는 웹 애플리케이션입니다.
+반려동물의 건강을 종합적으로 관리하는 다중 사용자 웹 애플리케이션입니다.
 
 ## 🌟 주요 기능
 
@@ -16,9 +16,15 @@
 - **OCR 분석**: 검사지(PDF/이미지)를 Claude AI로 자동 판독
 - **다중 날짜 지원**: 한 번에 여러 날짜의 검사지를 업로드하고 자동 분류
 - **AI 매칭**: 병원/장비마다 다른 항목명을 표준화하여 매핑
+- **AI 설명 생성**: 표준항목별 해석 가이드 자동 생성 (v3.2)
 - **시계열 트렌드**: 피벗 테이블과 그래프로 건강 변화 추적
 - **날짜/병원 수정**: OCR 결과에서 날짜와 병원을 수동 선택 (v3.1)
 - **기록 병합**: 중복 검사 기록을 통합하여 관리 (v3.1)
+
+### 3. 티어 시스템
+- **3단계 티어**: Free / Basic / Premium
+- **사용량 관리**: OCR 분석, AI 설명 생성, 상세 내보내기 제한
+- **관리자 설정**: 티어별 제한값 동적 변경
 
 ## 📚 프로젝트 문서
 
@@ -75,8 +81,9 @@
 
 ## 🚀 기술 스택
 
-- **Frontend**: Next.js 14, Tailwind CSS, Shadcn/ui
-- **Backend/DB**: Supabase (PostgreSQL)
+- **Frontend**: Next.js 14, Tailwind CSS, Shadcn/ui, Pretendard
+- **Backend/DB**: Supabase (PostgreSQL + RLS)
+- **Auth**: Supabase Auth (이메일/비밀번호 + Kakao OAuth)
 - **AI/OCR**: Claude API (Anthropic) - PDF/이미지 판독
 - **AI Mapping**: GPT-4o (OpenAI) - 검사항목 자동 매핑
 ## 🚀 빠른 시작
@@ -137,7 +144,7 @@ npm run lint
 ## 🗂️ 프로젝트 구조
 
 ```
-mimo-health-log/
+premuto/
 ├── app/                  # Next.js 페이지 (App Router)
 │   ├── daily-log/       # 일일 건강 기록 페이지 (메인)
 │   ├── upload/          # 검사지 업로드

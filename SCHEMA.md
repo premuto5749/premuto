@@ -9,7 +9,7 @@
 
 **v2 업데이트**: 다중 파일 업로드 지원 및 AI 기반 매칭 신뢰도 저장 기능 추가
 **v3 업데이트**: 일일 건강 기록 기능 추가
-**v3.2 업데이트**: 마스터 데이터 v3 스키마 확장 (exam_type, organ_tags, item_aliases, sort_order_configs)
+**v3.2 업데이트**: 마스터 데이터 v3 스키마 확장 (exam_type, organ_tags, item_aliases, sort_order_configs), 티어 시스템 (user_profiles, usage_logs)
 **v4 업데이트**: 관리자/사용자 데이터 분리 (마스터 + 오버라이드 구조)
 
 ---
@@ -430,6 +430,37 @@ INSERT INTO test_results VALUES (
   ...
 );
 ```
+
+### 8. 사용자 프로필 및 사용량 추적 (Tier System) - **v3.2 추가**
+
+> 📘 **상세 문서**: [docs/tier-system.md](docs/tier-system.md)
+
+```sql
+CREATE TABLE user_profiles (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id),
+  tier VARCHAR DEFAULT 'free',  -- 'free' | 'basic' | 'premium'
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE usage_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id),
+  action VARCHAR NOT NULL,       -- 'ocr_analysis', 'description_generation', 'detailed_export'
+  file_count INTEGER DEFAULT 1,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**action 종류 및 제한 주기**:
+| action | 설명 | 제한 주기 |
+|--------|------|----------|
+| `ocr_analysis` | OCR 분석 실행 | 일일 |
+| `description_generation` | AI 설명 생성 | 일일 |
+| `detailed_export` | 상세 Excel 내보내기 | 월간 |
+
+---
 
 ## Design Principles
 
