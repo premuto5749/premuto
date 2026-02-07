@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Building2, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff } from 'lucide-react'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
@@ -117,7 +117,7 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
         )}
 
         <Tabs defaultValue={defaultTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="pet" className="text-xs sm:text-sm">
               <PawPrint className="w-4 h-4 mr-1 hidden sm:inline" />
               반려동물
@@ -125,10 +125,6 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
             <TabsTrigger value="medicine" className="text-xs sm:text-sm">
               <Pill className="w-4 h-4 mr-1 hidden sm:inline" />
               약 프리셋
-            </TabsTrigger>
-            <TabsTrigger value="hospital" className="text-xs sm:text-sm">
-              <Building2 className="w-4 h-4 mr-1 hidden sm:inline" />
-              병원
             </TabsTrigger>
             <TabsTrigger value="theme" className="text-xs sm:text-sm">
               <Palette className="w-4 h-4 mr-1 hidden sm:inline" />
@@ -155,24 +151,6 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
               presets={presets}
               setPresets={setPresets}
             />
-          </TabsContent>
-
-          {/* 병원 관리 - 병원 연락처 페이지로 이동 */}
-          <TabsContent value="hospital">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5" />
-                  병원 관리
-                </CardTitle>
-                <CardDescription>병원 연락처 페이지에서 관리할 수 있습니다</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild>
-                  <a href="/hospital-contacts">병원 연락처 페이지로 이동</a>
-                </Button>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* 테마 설정 */}
