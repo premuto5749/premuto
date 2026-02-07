@@ -8,6 +8,7 @@ export interface TierConfig {
   max_files_per_ocr: number
   daily_log_max_photos: number
   daily_log_max_photo_size_mb: number
+  daily_description_gen_limit: number  // -1 = 무제한, 0 = 잠금
 }
 
 export type TierConfigMap = Record<TierName, TierConfig>
@@ -20,6 +21,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     max_files_per_ocr: 3,
     daily_log_max_photos: 3,
     daily_log_max_photo_size_mb: 5,
+    daily_description_gen_limit: 0,
   },
   basic: {
     label: '기본',
@@ -27,6 +29,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     max_files_per_ocr: 5,
     daily_log_max_photos: 5,
     daily_log_max_photo_size_mb: 10,
+    daily_description_gen_limit: 30,
   },
   premium: {
     label: '프리미엄',
@@ -34,6 +37,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     max_files_per_ocr: 10,
     daily_log_max_photos: 10,
     daily_log_max_photo_size_mb: 10,
+    daily_description_gen_limit: -1,
   },
 }
 
@@ -165,6 +169,8 @@ export async function checkUsageLimit(
   let limit: number
   if (action === 'ocr_analysis') {
     limit = tierConfig.daily_ocr_limit
+  } else if (action === 'description_generation') {
+    limit = tierConfig.daily_description_gen_limit
   } else {
     limit = tierConfig.daily_log_max_photos
   }
