@@ -1380,7 +1380,7 @@ function KakaoLinkSection() {
 
     try {
       const supabase = createClient()
-      const { error } = await supabase.auth.linkIdentity({
+      const { data, error } = await supabase.auth.linkIdentity({
         provider: 'kakao',
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/settings?tab=account')}`
@@ -1389,6 +1389,11 @@ function KakaoLinkSection() {
 
       if (error) {
         throw error
+      }
+
+      // linkIdentity는 URL을 반환하므로 수동으로 리다이렉트해야 함
+      if (data?.url) {
+        window.location.href = data.url
       }
     } catch (err) {
       console.error('Kakao link error:', err)

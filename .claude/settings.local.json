@@ -1,4 +1,5 @@
 {
+  "model": "claude-opus-4-6",
   "permissions": {
     "allow": [
       "Edit",
@@ -19,7 +20,16 @@
       "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" pr merge 125 --repo premuto5749/premuto --rebase --delete-branch)",
       "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" checkout main)",
       "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" pull)",
-      "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" push origin main)"
+      "Bash(git -C \"C:\\\\Dev\\\\premuto-1\" push origin main)",
+      "Bash(dir:*)",
+      "Bash(file:*)",
+      "Bash(identify:*)",
+      "Bash(git push:*)",
+      "Bash(timeout:*)",
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(gh pr create:*)",
+      "Bash(git branch:*)"
     ]
   }
 }
