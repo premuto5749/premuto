@@ -5,11 +5,6 @@ import { Toaster } from "sonner";
 import { Providers } from "@/components/Providers";
 import { getSiteSettings } from "@/lib/site-settings";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
   variable: "--font-geist-mono",
@@ -50,7 +45,7 @@ export default async function RootLayout({
   return (
     <html lang={settings.language}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistMono.variable} antialiased`}
       >
         <Providers>
           {children}
