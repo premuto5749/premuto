@@ -40,7 +40,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Loader2, Plus, Pencil, Search, RefreshCw, ChevronDown, ChevronRight, Trash2, Tag, FileText, Info } from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
+import { Loader2, Plus, Pencil, Search, RefreshCw, ChevronDown, ChevronRight, Trash2, Tag, FileText, Info, Sparkles, Lock } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 
 interface StandardItem {
   id: string
@@ -113,8 +115,18 @@ function StandardItemsContent() {
   const [newAlias, setNewAlias] = useState({ alias: '', source_hint: '' })
   const [savingAlias, setSavingAlias] = useState(false)
 
+  // AI 설명 생성 상태
+  const [tierInfo, setTierInfo] = useState<{ tier: string; limit: number } | null>(null)
+  const [isGenConfirmOpen, setIsGenConfirmOpen] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [genProgress, setGenProgress] = useState({ completed: 0, total: 0 })
+  const [genResult, setGenResult] = useState<{ generated: number; failed: number } | null>(null)
+  const [isGenResultOpen, setIsGenResultOpen] = useState(false)
+  const { toast } = useToast()
+
   useEffect(() => {
     fetchData()
+    fetchTierInfo()
   }, [])
 
   const fetchData = async () => {
@@ -135,6 +147,91 @@ function StandardItemsContent() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchTierInfo = async () => {
+    try {
+      const res = await fetch('/api/tier')
+      const data = await res.json()
+      if (data.success) {
+        setTierInfo({
+          tier: data.data.tier,
+          limit: data.data.config.daily_description_gen_limit ?? 0,
+        })
+      }
+    } catch (error) {
+      console.error('Failed to fetch tier info:', error)
+    }
+  }
+
+  // 설명 없는 항목 목록
+  const itemsWithoutDescription = items.filter(
+    item => !item.description_common && !item.description_high && !item.description_low
+  )
+
+  const handleGenerateDescriptions = async () => {
+    setIsGenConfirmOpen(false)
+    setIsGenerating(true)
+
+    const targetItems = itemsWithoutDescription
+    const total = targetItems.length
+    setGenProgress({ completed: 0, total })
+
+    let totalGenerated = 0
+    let totalFailed = 0
+    const BATCH_SIZE = 10
+
+    for (let i = 0; i < total; i += BATCH_SIZE) {
+      const batch = targetItems.slice(i, i + BATCH_SIZE)
+      const batchIds = batch.map(item => item.id)
+
+      try {
+        const res = await fetch('/api/generate-descriptions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ item_ids: batchIds }),
+        })
+
+        if (res.status === 403) {
+          const data = await res.json()
+          toast({
+            title: '한도 도달',
+            description: data.message || '오늘의 AI 설명 생성 한도에 도달했습니다',
+            variant: 'destructive',
+          })
+          totalFailed += total - i
+          break
+        }
+
+        if (res.status === 429) {
+          toast({
+            title: 'AI 사용량 제한',
+            description: '잠시 후 다시 시도해주세요',
+            variant: 'destructive',
+          })
+          totalFailed += total - i
+          break
+        }
+
+        if (!res.ok) {
+          totalFailed += batch.length
+        } else {
+          const data = await res.json()
+          totalGenerated += data.generated || 0
+          totalFailed += data.failed || 0
+        }
+      } catch {
+        totalFailed += batch.length
+      }
+
+      setGenProgress({ completed: Math.min(i + BATCH_SIZE, total), total })
+    }
+
+    setIsGenerating(false)
+    setGenResult({ generated: totalGenerated, failed: totalFailed })
+    setIsGenResultOpen(true)
+    fetchData()
+    fetchTierInfo()
   }
 
   const handleEditItem = (item: StandardItem) => {
@@ -388,10 +485,37 @@ function StandardItemsContent() {
                 <CardTitle>내 검사항목 목록</CardTitle>
                 <CardDescription>마스터 데이터 + 내가 추가/수정한 항목이 표시됩니다</CardDescription>
               </div>
-              <Button onClick={() => setIsAddModalOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                내 항목 추가
-              </Button>
+              <div className="flex gap-2">
+                {tierInfo && tierInfo.limit === 0 ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => toast({
+                      title: '업그레이드 필요',
+                      description: 'Basic 요금제부터 이용 가능합니다',
+                      variant: 'destructive',
+                    })}
+                  >
+                    <Lock className="w-4 h-4 mr-2" />
+                    AI 설명 생성
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsGenConfirmOpen(true)}
+                    disabled={itemsWithoutDescription.length === 0}
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    AI 설명 생성
+                    {itemsWithoutDescription.length > 0 && (
+                      <Badge variant="secondary" className="ml-2">{itemsWithoutDescription.length}</Badge>
+                    )}
+                  </Button>
+                )}
+                <Button onClick={() => setIsAddModalOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  내 항목 추가
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -909,6 +1033,73 @@ function StandardItemsContent() {
                   '추가'
                 )}
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* AI 설명 생성 확인 다이얼로그 */}
+        <AlertDialog open={isGenConfirmOpen} onOpenChange={setIsGenConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>AI 설명 생성</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2">
+                  <p>설명이 없는 <strong>{itemsWithoutDescription.length}개</strong> 항목에 대해 AI가 설명을 생성합니다.</p>
+                  <p className="text-xs text-muted-foreground">생성된 설명은 수정 가능하며, 나에게만 적용됩니다.</p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>취소</AlertDialogCancel>
+              <AlertDialogAction onClick={handleGenerateDescriptions}>
+                <Sparkles className="w-4 h-4 mr-2" />
+                생성 시작
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* AI 설명 생성 진행 다이얼로그 */}
+        <Dialog open={isGenerating} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle>AI 설명 생성 중</DialogTitle>
+              <DialogDescription>
+                잠시만 기다려주세요...
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <Progress value={genProgress.total > 0 ? (genProgress.completed / genProgress.total) * 100 : 0} />
+              <p className="text-sm text-center text-muted-foreground">
+                {genProgress.completed}/{genProgress.total}개 처리 중...
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* AI 설명 생성 완료 다이얼로그 */}
+        <Dialog open={isGenResultOpen} onOpenChange={setIsGenResultOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>생성 완료</DialogTitle>
+              <DialogDescription>
+                AI 설명 생성이 완료되었습니다.
+              </DialogDescription>
+            </DialogHeader>
+            {genResult && (
+              <div className="space-y-2 py-4">
+                <p className="text-sm">
+                  <span className="font-medium text-green-600">{genResult.generated}개</span> 항목 설명 생성 완료
+                </p>
+                {genResult.failed > 0 && (
+                  <p className="text-sm">
+                    <span className="font-medium text-red-600">{genResult.failed}개</span> 실패
+                  </p>
+                )}
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={() => setIsGenResultOpen(false)}>확인</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
