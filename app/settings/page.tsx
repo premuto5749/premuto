@@ -187,7 +187,10 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
 
           {/* 계정 관리 */}
           <TabsContent value="account">
-            <PasswordChangeSection />
+            <div className="space-y-6">
+              <KakaoLinkSection />
+              <PasswordChangeSection />
+            </div>
           </TabsContent>
 
           {/* 데이터 관리 */}
@@ -1357,6 +1360,197 @@ function DataManagementSection() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// 카카오 계정 연동 섹션
+function KakaoLinkSection() {
+  const [isLinked, setIsLinked] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [kakaoEmail, setKakaoEmail] = useState<string | null>(null)
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  useEffect(() => {
+    const checkKakaoLink = async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setUserEmail(user.email || null)
+          const kakaoIdentity = user.identities?.find(
+            (identity) => identity.provider === 'kakao'
+          )
+          setIsLinked(!!kakaoIdentity)
+          if (kakaoIdentity?.identity_data?.email) {
+            setKakaoEmail(kakaoIdentity.identity_data.email as string)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check Kakao link:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    checkKakaoLink()
+  }, [])
+
+  const handleLinkKakao = async () => {
+    setActionLoading(true)
+    setResult(null)
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.linkIdentity({
+        provider: 'kakao',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/settings?tab=account`
+        }
+      })
+
+      if (error) {
+        throw error
+      }
+    } catch (err) {
+      console.error('Kakao link error:', err)
+      setResult({
+        success: false,
+        message: err instanceof Error ? err.message : '카카오 연동에 실패했습니다'
+      })
+      setActionLoading(false)
+    }
+  }
+
+  const handleUnlinkKakao = async () => {
+    setActionLoading(true)
+    setResult(null)
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      const kakaoIdentity = user?.identities?.find(
+        (identity) => identity.provider === 'kakao'
+      )
+
+      if (!kakaoIdentity) {
+        throw new Error('카카오 연동 정보를 찾을 수 없습니다')
+      }
+
+      const { error } = await supabase.auth.unlinkIdentity(kakaoIdentity)
+
+      if (error) {
+        throw error
+      }
+
+      setIsLinked(false)
+      setKakaoEmail(null)
+      setResult({ success: true, message: '카카오 연동이 해제되었습니다' })
+    } catch (err) {
+      console.error('Kakao unlink error:', err)
+      setResult({
+        success: false,
+        message: err instanceof Error ? err.message : '카카오 연동 해제에 실패했습니다'
+      })
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-8 flex justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
+            <path d="M12 3C6.48 3 2 6.48 2 10.8c0 2.76 1.84 5.18 4.6 6.56-.2.72-.74 2.6-.84 3-.14.48.17.47.36.34.15-.1 2.4-1.63 3.36-2.3.5.07 1.01.1 1.52.1 5.52 0 10-3.48 10-7.8S17.52 3 12 3z" fill="#FEE500"/>
+          </svg>
+          카카오 계정 연동
+        </CardTitle>
+        <CardDescription>
+          카카오 계정을 연동하면 카카오로 간편 로그인할 수 있습니다
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="p-4 bg-muted rounded-lg space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span>이메일 계정</span>
+            <span className="font-medium">{userEmail || '-'}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span>카카오 연동</span>
+            {isLinked ? (
+              <span className="flex items-center gap-1.5 text-green-600 font-medium">
+                <CheckCircle className="w-4 h-4" />
+                연동됨{kakaoEmail ? ` (${kakaoEmail})` : ''}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">미연동</span>
+            )}
+          </div>
+        </div>
+
+        {result && (
+          <div className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
+            result.success
+              ? 'bg-green-50 text-green-700 border border-green-200'
+              : 'bg-red-50 text-red-700 border border-red-200'
+          }`}>
+            {result.success ? (
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            )}
+            {result.message}
+          </div>
+        )}
+
+        {isLinked ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" className="w-full" disabled={actionLoading}>
+                {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                카카오 연동 해제
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>카카오 연동 해제</AlertDialogTitle>
+                <AlertDialogDescription>
+                  카카오 연동을 해제하면 카카오로 로그인할 수 없게 됩니다.
+                  이메일/비밀번호로는 계속 로그인할 수 있습니다.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={handleUnlinkKakao}>연동 해제</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ) : (
+          <Button
+            className="w-full bg-[#FEE500] hover:bg-[#FDD835] text-[#3C1E1E]"
+            onClick={handleLinkKakao}
+            disabled={actionLoading}
+          >
+            {actionLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            <svg viewBox="0 0 24 24" className="w-5 h-5 mr-2" aria-hidden="true">
+              <path d="M12 3C6.48 3 2 6.48 2 10.8c0 2.76 1.84 5.18 4.6 6.56-.2.72-.74 2.6-.84 3-.14.48.17.47.36.34.15-.1 2.4-1.63 3.36-2.3.5.07 1.01.1 1.52.1 5.52 0 10-3.48 10-7.8S17.52 3 12 3z" fill="#3C1E1E"/>
+            </svg>
+            카카오 계정 연동하기
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
