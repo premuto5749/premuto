@@ -145,7 +145,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
                     후원하기
                   </button>
                   <a
-                    href="https://open.kakao.com/o/sI87b9ei"
+                    href="http://pf.kakao.com/_gqxkRX"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-muted transition-colors text-left"
