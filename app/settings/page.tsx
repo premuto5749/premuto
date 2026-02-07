@@ -1563,6 +1563,64 @@ function PasswordChangeSection() {
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null)
+
+  // 이메일/비밀번호 identity 존재 여부 확인
+  useEffect(() => {
+    const checkIdentity = async () => {
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const emailIdentity = user.identities?.find(
+            (identity) => identity.provider === 'email'
+          )
+          setHasPassword(!!emailIdentity)
+        }
+      } catch (error) {
+        console.error('Failed to check identity:', error)
+        setHasPassword(true) // 에러 시 기본값
+      }
+    }
+    checkIdentity()
+  }, [])
+
+  const handleSetPassword = async () => {
+    setResult(null)
+
+    if (!newPassword || !confirmPassword) {
+      setResult({ success: false, message: '모든 필드를 입력해주세요' })
+      return
+    }
+
+    if (newPassword.length < 6) {
+      setResult({ success: false, message: '비밀번호는 6자 이상이어야 합니다' })
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      setResult({ success: false, message: '비밀번호가 일치하지 않습니다' })
+      return
+    }
+
+    setSaving(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+      if (error) throw error
+
+      setResult({ success: true, message: '비밀번호가 설정되었습니다. 이제 이메일로도 로그인할 수 있습니다.' })
+      setNewPassword('')
+      setConfirmPassword('')
+      setHasPassword(true)
+    } catch (error) {
+      console.error('Failed to set password:', error)
+      setResult({ success: false, message: error instanceof Error ? error.message : '비밀번호 설정에 실패했습니다' })
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handleChangePassword = async () => {
     setResult(null)
@@ -1608,6 +1666,104 @@ function PasswordChangeSection() {
     }
   }
 
+  if (hasPassword === null) {
+    return (
+      <Card>
+        <CardContent className="py-8 flex justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // 카카오로만 가입한 사용자: 비밀번호 최초 설정
+  if (!hasPassword) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="w-5 h-5" />
+            비밀번호 설정
+          </CardTitle>
+          <CardDescription>
+            비밀번호를 설정하면 이메일로도 로그인할 수 있습니다
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-700 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>소셜 로그인으로 가입하여 비밀번호가 설정되지 않았습니다. 비밀번호를 설정하면 이메일과 비밀번호로도 로그인할 수 있습니다.</span>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new_password">비밀번호</Label>
+            <div className="relative">
+              <Input
+                id="new_password"
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="비밀번호 입력"
+                disabled={saving}
+                minLength={6}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+              >
+                {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">최소 6자 이상</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm_password">비밀번호 확인</Label>
+            <Input
+              id="confirm_password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="비밀번호 다시 입력"
+              disabled={saving}
+            />
+          </div>
+
+          {result && (
+            <div className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
+              result.success
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
+              {result.success ? (
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              )}
+              {result.message}
+            </div>
+          )}
+
+          <Button
+            onClick={handleSetPassword}
+            disabled={saving || !newPassword || !confirmPassword}
+            className="w-full"
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <KeyRound className="w-4 h-4 mr-2" />
+            )}
+            비밀번호 설정
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // 기존 비밀번호가 있는 사용자: 비밀번호 변경
   return (
     <Card>
       <CardHeader>
