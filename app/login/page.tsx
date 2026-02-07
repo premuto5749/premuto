@@ -77,7 +77,18 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error('Auth error:', err)
-      setError(err instanceof Error ? err.message : '인증에 실패했습니다')
+      const message = err instanceof Error ? err.message : ''
+      if (message === 'Invalid login credentials') {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다')
+      } else if (message === 'Email not confirmed') {
+        setError('이메일 인증이 완료되지 않았습니다. 메일함을 확인해주세요')
+      } else if (message.includes('Email rate limit exceeded')) {
+        setError('너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요')
+      } else if (message.includes('Error sending recovery email')) {
+        setError('비밀번호 재설정 이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요')
+      } else {
+        setError(message || '인증에 실패했습니다')
+      }
     } finally {
       setIsLoading(false)
     }
