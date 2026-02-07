@@ -152,6 +152,7 @@ export default function DailyLogCalendarPage() {
               month={viewMonth}
               statsMap={statsMap}
               petName={currentPet?.name || '반려동물'}
+              petId={currentPet?.id || null}
             />
           </>
         )}

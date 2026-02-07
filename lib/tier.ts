@@ -9,6 +9,7 @@ export interface TierConfig {
   daily_log_max_photos: number
   daily_log_max_photo_size_mb: number
   daily_description_gen_limit: number  // -1 = 무제한, 0 = 잠금
+  monthly_detailed_export_limit: number  // -1 = 무제한
 }
 
 export type TierConfigMap = Record<TierName, TierConfig>
@@ -22,6 +23,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     daily_log_max_photos: 3,
     daily_log_max_photo_size_mb: 5,
     daily_description_gen_limit: 0,
+    monthly_detailed_export_limit: 1,
   },
   basic: {
     label: '기본',
@@ -30,6 +32,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     daily_log_max_photos: 5,
     daily_log_max_photo_size_mb: 10,
     daily_description_gen_limit: 30,
+    monthly_detailed_export_limit: -1,
   },
   premium: {
     label: '프리미엄',
@@ -38,6 +41,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     daily_log_max_photos: 10,
     daily_log_max_photo_size_mb: 10,
     daily_description_gen_limit: -1,
+    monthly_detailed_export_limit: -1,
   },
 }
 
@@ -144,6 +148,74 @@ export async function logUsage(
 
   console.log(`[Tier] Usage logged: user=${userId.substring(0, 8)}... action=${action} files=${fileCount}`)
   return true
+}
+
+/** 이번 달 사용량 조회 (KST 기준) */
+export async function getMonthlyUsage(
+  userId: string,
+  action: string
+): Promise<number> {
+  const supabase = await createClient()
+
+  const now = new Date()
+  const kstOffset = 9 * 60 * 60 * 1000
+  const kstNow = new Date(now.getTime() + kstOffset)
+  const monthStart = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), 1) - kstOffset)
+
+  const { count, error } = await supabase
+    .from('usage_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('action', action)
+    .gte('created_at', monthStart.toISOString())
+
+  if (error) {
+    console.error(`[Tier] getMonthlyUsage error (${action}):`, error.message, error.code)
+    return 0
+  }
+  return count || 0
+}
+
+/** 월간 사용 가능 여부 체크 (tier + 월간 사용량) */
+export async function checkMonthlyUsageLimit(
+  userId: string,
+  action: string
+): Promise<{
+  allowed: boolean
+  tier: TierName
+  tierConfig: TierConfig
+  used: number
+  limit: number
+  remaining: number
+}> {
+  const [tierName, tierConfigMap, used] = await Promise.all([
+    getUserTier(userId),
+    getTierConfig(),
+    getMonthlyUsage(userId, action),
+  ])
+
+  const tierConfig = tierConfigMap[tierName] || tierConfigMap.free
+
+  let limit: number
+  if (action === 'detailed_export') {
+    limit = tierConfig.monthly_detailed_export_limit ?? -1
+  } else {
+    limit = -1
+  }
+
+  const allowed = limit === -1 || used < limit
+  const remaining = limit === -1 ? -1 : Math.max(0, limit - used)
+
+  console.log(`[Tier] Monthly check: user=${userId.substring(0, 8)}... tier=${tierName} action=${action} used=${used}/${limit} allowed=${allowed}`)
+
+  return {
+    allowed,
+    tier: tierName,
+    tierConfig,
+    used,
+    limit,
+    remaining,
+  }
 }
 
 /** 사용 가능 여부 체크 (tier + 사용량) */
