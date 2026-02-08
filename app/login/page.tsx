@@ -221,13 +221,33 @@ export default function LoginPage() {
                   </Button>
 
                   {!showEmailForm ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowEmailForm(true)}
-                      className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-3"
-                    >
-                      또는 이메일로 {mode === 'signup' ? '가입하기' : '로그인'}
-                    </button>
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowEmailForm(true)}
+                        className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-3"
+                      >
+                        또는 이메일로 {mode === 'signup' ? '가입하기' : '로그인'}
+                      </button>
+                      {mode === 'login' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            switchMode('signup')
+                            setShowEmailForm(true)
+                          }}
+                          className="w-full text-center text-sm py-2"
+                        >
+                          <span className="text-muted-foreground">계정이 없으신가요? </span>
+                          <span
+                            className="font-medium underline hover:no-underline"
+                            style={{ color: siteSettings.primaryColor }}
+                          >
+                            회원 가입하기
+                          </span>
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <div className="relative my-4">
                       <div className="absolute inset-0 flex items-center">
