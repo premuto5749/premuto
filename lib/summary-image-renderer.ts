@@ -70,8 +70,9 @@ function buildStatItems(stats: DailyStats): StatItem[] {
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
+    img.crossOrigin = 'anonymous'
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('Failed to load image'))
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`))
     img.src = src
   })
 }
@@ -140,7 +141,10 @@ export async function renderSummaryImage(options: RenderOptions): Promise<Blob> 
   const canvas = document.createElement('canvas')
   canvas.width = outputWidth
   canvas.height = canvasHeight
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    throw new Error('Unable to get canvas 2D context')
+  }
 
   // 사진 그리기 (중앙 크롭)
   const srcAspect = photoImg.naturalHeight / photoImg.naturalWidth
