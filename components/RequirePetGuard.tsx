@@ -24,9 +24,17 @@ const ALLOWED_PATHS = [
   '/admin',    // 관리자 페이지는 반려동물 등록 불필요
 ]
 
+// 로딩 스피너 없이 바로 렌더링할 공개 경로 (SSR/크롤러 대응)
+const PUBLIC_PATHS = ['/', '/login', '/auth', '/reset-password', '/privacy', '/terms']
+
 // 경로가 허용된 경로인지 확인
 function isAllowedPath(pathname: string): boolean {
   return ALLOWED_PATHS.some(path => pathname.startsWith(path))
+}
+
+// 공개 경로인지 확인 (로딩 스피너 건너뛰기)
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path + '/'))
 }
 
 interface RequirePetGuardProps {
@@ -83,7 +91,11 @@ export function RequirePetGuard({ children }: RequirePetGuardProps) {
   }
 
   // 초기 로딩 중에만 로딩 스피너 표시 (이후 리로드 시에는 children 유지)
+  // 공개 경로에서는 스피너 없이 바로 렌더링 (Google 봇 등 크롤러가 콘텐츠를 볼 수 있도록)
   if (!initialLoadDone && (isLoading || isAuthenticated === null)) {
+    if (isPublicPath(pathname)) {
+      return <>{children}</>
+    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
