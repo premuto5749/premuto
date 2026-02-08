@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Upload, Loader2, CheckCircle2, Filter, X } from 'lucide-react'
+import { Upload, Loader2, CheckCircle2, Filter, X, Download } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
 import { PivotTable } from '@/components/dashboard/PivotTable'
 import { TrendChart } from '@/components/dashboard/TrendChart'
@@ -67,6 +68,10 @@ function DashboardContent() {
   const [sortType, setSortType] = useState<SortType>('by_exam_type')
   const [organFilter, setOrganFilter] = useState<string | null>(null)
   const [panelFilter, setPanelFilter] = useState<string | null>(null)
+
+  // 내보내기 상태
+  const [exporting, setExporting] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchTestRecords()
@@ -185,6 +190,50 @@ function DashboardContent() {
     setSelectedItems(new Set())
   }
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const response = await fetch('/api/export-excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          options: { format: 'pivot', includeReference: true, includeStatus: true }
+        })
+      })
+
+      if (response.status === 403) {
+        const data = await response.json()
+        if (data.error === 'TIER_LIMIT_EXCEEDED') {
+          toast({
+            title: '내보내기 제한',
+            description: '이번 달 내보내기 횟수를 모두 사용했습니다.',
+            variant: 'destructive',
+          })
+          return
+        }
+      }
+
+      if (!response.ok) throw new Error('Export failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `mimo-test-results-${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({ title: '내보내기 완료', description: '검사 결과가 다운로드되었습니다.' })
+    } catch (error) {
+      console.error('Export failed:', error)
+      toast({ title: '내보내기 실패', description: '다시 시도해주세요.', variant: 'destructive' })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const isFiltering = selectedItems.size > 0
 
   if (loading) {
@@ -259,17 +308,14 @@ function DashboardContent() {
               )}
             </p>
             <div className="flex items-center gap-2">
-              {isFiltering ? (
-                <Button variant="outline" onClick={handleClearFilter}>
-                  <X className="w-4 h-4 mr-2" />
-                  선택 해제
-                </Button>
-              ) : (
-                <Button variant="outline" onClick={openFilterModal}>
-                  <Filter className="w-4 h-4 mr-2" />
-                  특정항목 모아보기
-                </Button>
-              )}
+              <Button variant="outline" onClick={handleExport} disabled={exporting}>
+                {exporting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                내보내기
+              </Button>
               <Button asChild>
                 <Link href="/upload">
                   <Upload className="w-4 h-4 mr-2" />
@@ -280,14 +326,27 @@ function DashboardContent() {
           </div>
 
           {/* View 옵션 (v3) */}
-          <ViewOptions
-            sortType={sortType}
-            onSortTypeChange={setSortType}
-            organFilter={organFilter}
-            onOrganFilterChange={setOrganFilter}
-            panelFilter={panelFilter}
-            onPanelFilterChange={setPanelFilter}
-          />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <ViewOptions
+              sortType={sortType}
+              onSortTypeChange={setSortType}
+              organFilter={organFilter}
+              onOrganFilterChange={setOrganFilter}
+              panelFilter={panelFilter}
+              onPanelFilterChange={setPanelFilter}
+            />
+            {isFiltering ? (
+              <Button variant="outline" size="sm" onClick={handleClearFilter}>
+                <X className="w-4 h-4 mr-2" />
+                선택 해제
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={openFilterModal}>
+                <Filter className="w-4 h-4 mr-2" />
+                특정항목 모아보기
+              </Button>
+            )}
+          </div>
 
           <PivotTable
             records={filteredRecords}
