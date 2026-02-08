@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Camera, Image as ImageIcon, Loader2, Sun, Moon, RefreshCw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import { renderSummaryImage, type SummaryTheme } from '@/lib/summary-image-renderer'
 import type { DailyStats } from '@/types'
 
@@ -26,14 +27,15 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
   const galleryInputRef = useRef<HTMLInputElement>(null)
   const logoImgRef = useRef<HTMLImageElement | null>(null)
   const { toast } = useToast()
+  const { settings } = useSiteSettings()
 
   // 로고 프리로드
   useEffect(() => {
     if (!open) return
     const img = new Image()
     img.onload = () => { logoImgRef.current = img }
-    img.src = '/email/logo.png'
-  }, [open])
+    img.src = settings.shareLogoUrl || '/email/logo.png'
+  }, [open, settings.shareLogoUrl])
 
   // 사진 선택 시 렌더링
   const renderPreview = useCallback(async (file: File, t: SummaryTheme) => {
