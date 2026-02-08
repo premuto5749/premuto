@@ -39,6 +39,13 @@ function getIsDismissed(): boolean {
   }
 }
 
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false
+  const ua = navigator.userAgent
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+}
+
 function detectPlatform(): Platform {
   if (typeof window === 'undefined') return null
   const ua = navigator.userAgent
@@ -56,7 +63,7 @@ export function InstallPrompt() {
   const isExcluded = EXCLUDED_PATHS.some(p => pathname?.startsWith(p))
 
   useEffect(() => {
-    if (isExcluded || getIsStandalone() || getIsDismissed()) return
+    if (isExcluded || !isMobileDevice() || getIsStandalone() || getIsDismissed()) return
 
     // Listen for beforeinstallprompt (Chrome/Edge/Samsung Internet)
     const handleBeforeInstallPrompt = (e: Event) => {
