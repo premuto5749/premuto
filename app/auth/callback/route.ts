@@ -9,9 +9,22 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
+      // 비밀번호 재설정 플로우 감지:
+      // Supabase PKCE 리다이렉트 시 next 파라미터가 유실될 수 있으므로
+      // recovery_sent_at 타임스탬프로 비밀번호 재설정 플로우를 판별
+      const user = data?.user
+      if (user?.recovery_sent_at) {
+        const recoverySentAt = new Date(user.recovery_sent_at)
+        const minutesSinceRecovery = (Date.now() - recoverySentAt.getTime()) / (1000 * 60)
+
+        if (minutesSinceRecovery < 60) {
+          return NextResponse.redirect(new URL('/reset-password', request.url))
+        }
+      }
+
       return NextResponse.redirect(new URL(next, request.url))
     }
   }
