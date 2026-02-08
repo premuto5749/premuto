@@ -1,13 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import LoginPage from './login/page'
 
 export default async function Home() {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
-  // 로그인되지 않은 경우 로그인 페이지로
+  // 로그인되지 않은 경우 로그인 페이지를 직접 렌더링
+  // (redirect 대신 렌더링하여 Google OAuth 브랜딩 인증 시 홈페이지에서 개인정보처리방침 링크를 찾을 수 있도록)
   if (!session) {
-    redirect('/login')
+    return <LoginPage />
   }
 
   // 반려동물 등록 여부 확인
