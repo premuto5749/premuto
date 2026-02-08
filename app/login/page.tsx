@@ -52,7 +52,7 @@ export default function LoginPage() {
 
         setResetEmailSent(true)
       } else if (mode === 'signup') {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -64,7 +64,14 @@ export default function LoginPage() {
           throw signUpError
         }
 
-        alert('회원가입이 완료되었습니다! 이메일을 확인하여 인증해주세요.')
+        // 이미 가입된 이메일: identities가 빈 배열로 반환됨
+        if (signUpData.user && signUpData.user.identities?.length === 0) {
+          setError('이미 가입된 이메일입니다. 로그인해주세요.')
+          setIsLoading(false)
+          return
+        }
+
+        alert('인증 메일을 발송했습니다. 이메일에서 인증 링크를 클릭하면 가입이 완료됩니다.')
         switchMode('login')
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
