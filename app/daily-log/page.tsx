@@ -357,7 +357,16 @@ export default function DailyLogPage() {
                   <Copy className="w-4 h-4 mr-2" />
                   텍스트 복사
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsSummaryOverlayOpen(true)}>
+                <DropdownMenuItem onClick={() => {
+                  if (!stats || logs.length === 0) {
+                    toast({
+                      title: '데이터가 아직 없습니다',
+                      description: '기록을 추가한 후 사진 공유를 이용해 주세요.',
+                    })
+                    return
+                  }
+                  setIsSummaryOverlayOpen(true)
+                }}>
                   <ImagePlus className="w-4 h-4 mr-2" />
                   사진으로 공유
                 </DropdownMenuItem>

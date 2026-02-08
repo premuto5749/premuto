@@ -170,6 +170,13 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
     })
   }
 
+  // stats가 없으면 열려있던 모달 닫기 (날짜 변경 시 방어)
+  useEffect(() => {
+    if (open && !stats) {
+      onOpenChange(false)
+    }
+  }, [open, stats, onOpenChange])
+
   if (!stats) return null
 
   return (
