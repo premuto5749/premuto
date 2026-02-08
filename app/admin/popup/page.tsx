@@ -419,7 +419,7 @@ export default function PopupManagementPage() {
                   <div className="mt-3 p-4 border rounded-lg bg-white">
                     <h3 className="font-semibold text-lg mb-2">{form.title || '(제목 없음)'}</h3>
                     <div
-                      className="prose prose-sm max-w-none"
+                      className="prose prose-sm max-w-none max-h-[400px] overflow-y-auto"
                       dangerouslySetInnerHTML={{ __html: form.content || '<span class="text-muted-foreground">(내용 없음)</span>' }}
                     />
                   </div>

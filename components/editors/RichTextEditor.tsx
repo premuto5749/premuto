@@ -1,6 +1,7 @@
 'use client'
 
 import { useEditor, EditorContent } from '@tiptap/react'
+import { BubbleMenu } from '@tiptap/react/menus'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
@@ -15,6 +16,43 @@ import {
   AlignLeft, AlignCenter, AlignRight,
   Link as LinkIcon, ImageIcon, Undo2, Redo2, Loader2,
 } from 'lucide-react'
+
+const CustomImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+        parseHTML: (element) => element.style.width || element.getAttribute('width') || null,
+        renderHTML: () => {
+          // Style is rendered by data-align's renderHTML to avoid conflicts
+          return {}
+        },
+      },
+      'data-align': {
+        default: 'center',
+        parseHTML: (element) => element.getAttribute('data-align') || 'center',
+        renderHTML: (attributes) => {
+          const align = attributes['data-align'] || 'center'
+          const styles: string[] = []
+          if (attributes.width) styles.push(`width: ${attributes.width}`)
+          styles.push('display: block')
+          if (align === 'center') {
+            styles.push('margin-left: auto', 'margin-right: auto')
+          } else if (align === 'right') {
+            styles.push('margin-left: auto', 'margin-right: 0')
+          } else {
+            styles.push('margin-left: 0', 'margin-right: auto')
+          }
+          return {
+            'data-align': align,
+            style: styles.join('; '),
+          }
+        },
+      },
+    }
+  },
+})
 
 interface RichTextEditorProps {
   content: string
@@ -31,7 +69,7 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
       StarterKit.configure({
         heading: { levels: [2, 3] },
       }),
-      Image.configure({
+      CustomImage.configure({
         HTMLAttributes: { class: 'max-w-full h-auto rounded' },
       }),
       Link.configure({
@@ -242,6 +280,69 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
 
       {/* Editor */}
       <EditorContent editor={editor} />
+
+      {/* Image BubbleMenu */}
+      {editor && (
+        <BubbleMenu
+          editor={editor}
+          shouldShow={({ editor }) => editor.isActive('image')}
+        >
+          <div className="flex items-center gap-1 bg-background border rounded-lg shadow-lg p-1.5">
+            {/* Size controls */}
+            <span className="text-xs text-muted-foreground px-1">크기</span>
+            {[
+              { label: '25%', value: '25%' },
+              { label: '50%', value: '50%' },
+              { label: '75%', value: '75%' },
+              { label: '100%', value: '100%' },
+            ].map(({ label, value }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => editor.chain().focus().updateAttributes('image', { width: value }).run()}
+                className={`px-2 py-1 text-xs rounded hover:bg-muted transition-colors ${
+                  editor.getAttributes('image').width === value ? 'bg-muted font-semibold' : ''
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <div className="w-px h-5 bg-border mx-1" />
+            {/* Align controls */}
+            <span className="text-xs text-muted-foreground px-1">위치</span>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().updateAttributes('image', { 'data-align': 'left' }).run()}
+              className={`p-1 rounded hover:bg-muted transition-colors ${
+                editor.getAttributes('image')['data-align'] === 'left' ? 'bg-muted' : ''
+              }`}
+              title="왼쪽"
+            >
+              <AlignLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().updateAttributes('image', { 'data-align': 'center' }).run()}
+              className={`p-1 rounded hover:bg-muted transition-colors ${
+                (!editor.getAttributes('image')['data-align'] || editor.getAttributes('image')['data-align'] === 'center') ? 'bg-muted' : ''
+              }`}
+              title="가운데"
+            >
+              <AlignCenter className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => editor.chain().focus().updateAttributes('image', { 'data-align': 'right' }).run()}
+              className={`p-1 rounded hover:bg-muted transition-colors ${
+                editor.getAttributes('image')['data-align'] === 'right' ? 'bg-muted' : ''
+              }`}
+              title="오른쪽"
+            >
+              <AlignRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </BubbleMenu>
+      )}
 
       {/* Hidden file input */}
       <input
