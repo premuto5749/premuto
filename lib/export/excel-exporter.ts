@@ -75,7 +75,27 @@ function createPivotSheet(
 ): XLSX.WorkSheet {
   // 고유한 날짜와 항목 추출
   const dates = [...new Set(results.map(r => r.test_date))].sort()
-  const items = [...new Set(results.map(r => r.item_name))]
+
+  // 날짜별 병원명 매핑 (각 날짜의 첫 번째 result에서 병원명 추출)
+  const dateHospitalMap = new Map<string, string>()
+  for (const date of dates) {
+    const firstResult = results.find(r => r.test_date === date && r.hospital_name)
+    dateHospitalMap.set(date, firstResult?.hospital_name || '')
+  }
+
+  // 항목을 카테고리별로 그룹 정렬
+  const itemCategoryMap = new Map<string, string>()
+  for (const result of results) {
+    if (!itemCategoryMap.has(result.item_name)) {
+      itemCategoryMap.set(result.item_name, result.category || '')
+    }
+  }
+  const items = [...new Set(results.map(r => r.item_name))].sort((a, b) => {
+    const catA = itemCategoryMap.get(a) || ''
+    const catB = itemCategoryMap.get(b) || ''
+    if (catA !== catB) return catA.localeCompare(catB)
+    return a.localeCompare(b)
+  })
 
   // 결과를 맵으로 변환 (빠른 조회용)
   const resultMap = new Map<string, ExportTestResult>()
@@ -85,14 +105,22 @@ function createPivotSheet(
   }
 
   // 헤더 행 생성
-  const headers = ['항목', '한글명', '단위']
+  const headers: (string | null)[] = ['검사유형', '항목', '한글명', '단위']
   if (options.includeReference) {
     headers.push('참조범위')
   }
   headers.push(...dates)
 
+  // 병원 행 생성 (헤더 바로 아래)
+  const fixedColCount = options.includeReference ? 5 : 4
+  const hospitalRow: (string | null)[] = Array(fixedColCount).fill(null)
+  hospitalRow[0] = '병원'
+  for (const date of dates) {
+    hospitalRow.push(dateHospitalMap.get(date) || '')
+  }
+
   // 데이터 행 생성
-  const rows: (string | number | null)[][] = [headers]
+  const rows: (string | number | null)[][] = [headers, hospitalRow]
 
   for (const itemName of items) {
     // 해당 항목의 첫 번째 결과에서 메타데이터 가져오기
@@ -100,6 +128,7 @@ function createPivotSheet(
     if (!firstResult) continue
 
     const row: (string | number | null)[] = [
+      firstResult.category || '',
       itemName,
       firstResult.display_name_ko || '',
       firstResult.unit
@@ -139,6 +168,7 @@ function createPivotSheet(
 
   // 열 너비 설정
   const colWidths = [
+    { wch: 12 },  // 검사유형
     { wch: 15 },  // 항목명
     { wch: 15 },  // 한글명
     { wch: 10 },  // 단위

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Upload, Loader2, CheckCircle2, Filter, X, Download } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -71,6 +72,9 @@ function DashboardContent() {
 
   // 내보내기 상태
   const [exporting, setExporting] = useState(false)
+  const [isCheckingExport, setIsCheckingExport] = useState(false)
+  const [showExportConfirm, setShowExportConfirm] = useState(false)
+  const [exportRemaining, setExportRemaining] = useState(0)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -190,7 +194,39 @@ function DashboardContent() {
     setSelectedItems(new Set())
   }
 
-  const handleExport = async () => {
+  const handleExportClick = async () => {
+    setIsCheckingExport(true)
+    try {
+      const res = await fetch('/api/export-excel')
+      const data = await res.json()
+      const { limit, remaining } = data
+
+      if (limit === -1) {
+        // unlimited (basic/premium)
+        executeExport()
+        return
+      }
+
+      if (remaining <= 0) {
+        toast({
+          title: '내보내기 제한',
+          description: '이번 달 내보내기 횟수를 모두 사용했습니다.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      setExportRemaining(remaining)
+      setShowExportConfirm(true)
+    } catch (error) {
+      console.error('Export check failed:', error)
+      toast({ title: '확인 실패', description: '다시 시도해주세요.', variant: 'destructive' })
+    } finally {
+      setIsCheckingExport(false)
+    }
+  }
+
+  const executeExport = async () => {
     setExporting(true)
     try {
       const response = await fetch('/api/export-excel', {
@@ -308,8 +344,8 @@ function DashboardContent() {
               )}
             </p>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleExport} disabled={exporting}>
-                {exporting ? (
+              <Button variant="outline" onClick={handleExportClick} disabled={exporting || isCheckingExport}>
+                {exporting || isCheckingExport ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Download className="w-4 h-4 mr-2" />
@@ -362,6 +398,22 @@ function DashboardContent() {
             open={isChartOpen}
             onOpenChange={handleChartClose}
           />
+
+          {/* 내보내기 확인 다이얼로그 */}
+          <AlertDialog open={showExportConfirm} onOpenChange={setShowExportConfirm}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>검사 결과 내보내기</AlertDialogTitle>
+                <AlertDialogDescription>
+                  이번 달 내보내기 횟수가 {exportRemaining}회 남았습니다. 내보내기를 진행하시겠습니까?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={() => executeExport()}>내보내기</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* 항목 선택 모달 */}
           <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>

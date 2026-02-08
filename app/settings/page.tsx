@@ -1041,6 +1041,9 @@ function DataManagementSection() {
   const [exporting, setExporting] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [isCheckingExport, setIsCheckingExport] = useState(false)
+  const [showExportConfirm, setShowExportConfirm] = useState(false)
+  const [exportRemaining, setExportRemaining] = useState(0)
   const { toast } = useToast()
 
   // 사용자 커스텀 데이터 초기화 관련 상태
@@ -1088,7 +1091,38 @@ function DataManagementSection() {
     }
   }
 
-  const handleExport = async () => {
+  const handleExportClick = async () => {
+    setIsCheckingExport(true)
+    try {
+      const res = await fetch('/api/export-excel')
+      const data = await res.json()
+      const { limit, remaining } = data
+
+      if (limit === -1) {
+        executeExport()
+        return
+      }
+
+      if (remaining <= 0) {
+        toast({
+          title: '내보내기 제한',
+          description: '이번 달 내보내기 횟수를 모두 사용했습니다.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      setExportRemaining(remaining)
+      setShowExportConfirm(true)
+    } catch (error) {
+      console.error('Export check failed:', error)
+      toast({ title: '확인 실패', description: '다시 시도해주세요.', variant: 'destructive' })
+    } finally {
+      setIsCheckingExport(false)
+    }
+  }
+
+  const executeExport = async () => {
     setExporting('test-results')
     try {
       const response = await fetch('/api/export-excel', {
@@ -1270,16 +1304,31 @@ function DataManagementSection() {
           <Button
             variant="outline"
             className="w-full justify-start"
-            onClick={handleExport}
-            disabled={exporting !== null}
+            onClick={handleExportClick}
+            disabled={exporting !== null || isCheckingExport}
           >
-            {exporting === 'test-results' ? (
+            {exporting === 'test-results' || isCheckingExport ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               <Download className="w-4 h-4 mr-2" />
             )}
             검사 결과 내보내기 (Excel)
           </Button>
+
+          <AlertDialog open={showExportConfirm} onOpenChange={setShowExportConfirm}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>검사 결과 내보내기</AlertDialogTitle>
+                <AlertDialogDescription>
+                  이번 달 내보내기 횟수가 {exportRemaining}회 남았습니다. 내보내기를 진행하시겠습니까?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={() => executeExport()}>내보내기</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
 
