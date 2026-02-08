@@ -195,33 +195,32 @@ export async function renderSummaryImage(options: RenderOptions): Promise<Blob> 
 
   const padding = outputWidth * 0.06 // 양쪽 패딩
 
-  // 우상단 로고
-  const logoSize = outputWidth * 0.12
+  // 우상단 로고 (텍스트 없이 로고만, 약간 큰 사이즈)
+  const logoSize = outputWidth * 0.15
   const tintedLogo = tintLogo(logoImg, textColor, logoSize)
   setShadow(8)
   ctx.drawImage(tintedLogo, outputWidth - padding - logoSize, padding)
-  clearShadow()
-
-  // 우상단 로고 아래 "미모의" + "하루" 텍스트
-  const brandFontSize = outputWidth * 0.032
-  ctx.fillStyle = textColor
-  ctx.textAlign = 'right'
-
-  setShadow(6)
-  ctx.font = `600 ${brandFontSize}px ${fontFamily}`
-  ctx.fillText('미모의', outputWidth - padding, padding + logoSize + brandFontSize + 4)
-  ctx.fillText('하루', outputWidth - padding, padding + logoSize + brandFontSize * 2 + 8)
   clearShadow()
 
   // 하단 스탯 영역 (3x2 그리드)
   const statItems = buildStatItems(stats)
   const cols = 3
   const rows = 2
-  const statAreaBottom = canvasHeight - padding * 2 // 최하단 이름+날짜 위
-  const rowHeight = outputWidth * 0.1
-  const statAreaTop = statAreaBottom - rows * rowHeight - padding * 0.5
+  const statAreaBottom = canvasHeight - padding * 1.2
+  const rowHeight = outputWidth * 0.12 // 행 간격 증가 (0.1 → 0.12)
+  const titleFontSize = outputWidth * 0.042
+  const titleAreaHeight = titleFontSize + padding * 0.8
+  const statAreaTop = statAreaBottom - rows * rowHeight
 
   const colWidth = (outputWidth - padding * 2) / cols
+
+  // 제목: petName · 날짜 (스탯 위에 큰 폰트로)
+  ctx.fillStyle = textColor
+  ctx.textAlign = 'left'
+  ctx.font = `700 ${titleFontSize}px ${fontFamily}`
+  setShadow(6)
+  ctx.fillText(`${petName} · ${formatDateKorean(date)}`, padding, statAreaTop - titleAreaHeight + titleFontSize)
+  clearShadow()
 
   setShadow(6)
   ctx.fillStyle = textColor
@@ -246,10 +245,10 @@ export async function renderSummaryImage(options: RenderOptions): Promise<Blob> 
     ctx.font = `400 ${outputWidth * 0.028}px ${fontFamily}`
     ctx.fillText(` ${item.label}`, x + iconFontSize * 1.1, y + iconFontSize)
 
-    // 값
+    // 값 (라벨과의 간격 증가: 4 → 12)
     const valueFontSize = outputWidth * 0.042
     ctx.font = `700 ${valueFontSize}px ${fontFamily}`
-    ctx.fillText(item.value, x, y + iconFontSize + valueFontSize + 4)
+    ctx.fillText(item.value, x, y + iconFontSize + valueFontSize + 12)
 
     // 횟수 (meal, water에만 표시)
     if (item.count > 0 && (i === 0 || i === 1)) {
@@ -257,19 +256,9 @@ export async function renderSummaryImage(options: RenderOptions): Promise<Blob> 
       ctx.font = `700 ${valueFontSize}px ${fontFamily}`
       const vw = ctx.measureText(item.value).width
       ctx.font = `400 ${countFontSize}px ${fontFamily}`
-      ctx.fillText(` (${item.count}회)`, x + vw, y + iconFontSize + valueFontSize + 4)
+      ctx.fillText(` (${item.count}회)`, x + vw, y + iconFontSize + valueFontSize + 12)
     }
   }
-
-  // 최하단: petName · 날짜
-  const bottomY = canvasHeight - padding
-  const bottomFontSize = outputWidth * 0.032
-  ctx.font = `500 ${bottomFontSize}px ${fontFamily}`
-  ctx.textAlign = 'center'
-  ctx.fillStyle = textColor
-  setShadow(6)
-  ctx.fillText(`${petName} · ${formatDateKorean(date)}`, outputWidth / 2, bottomY)
-  clearShadow()
 
   // JPEG Blob 생성
   return new Promise((resolve, reject) => {

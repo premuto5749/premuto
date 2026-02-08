@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Camera, Image as ImageIcon, Loader2, Sun, Moon, RefreshCw } from 'lucide-react'
+import { Camera, Image as ImageIcon, Loader2, Sun, Moon, Download } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { renderSummaryImage, type SummaryTheme } from '@/lib/summary-image-renderer'
 import type { DailyStats } from '@/types'
@@ -109,6 +109,25 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
     // input 초기화
     if (cameraInputRef.current) cameraInputRef.current.value = ''
     if (galleryInputRef.current) galleryInputRef.current.value = ''
+  }
+
+  const handleDownload = () => {
+    if (!resultBlob) return
+
+    const filename = `${petName}_${date}_건강요약.jpg`
+    const url = URL.createObjectURL(resultBlob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    toast({
+      title: '저장 완료',
+      description: '이미지가 기기에 저장되었습니다.',
+    })
   }
 
   const handleSave = async () => {
@@ -244,22 +263,18 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => {
-                  setPhoto(null)
-                  if (previewUrl) URL.revokeObjectURL(previewUrl)
-                  setPreviewUrl(null)
-                  setResultBlob(null)
-                }}
+                onClick={handleDownload}
+                disabled={!resultBlob || isRendering}
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                다른 사진
+                <Download className="w-4 h-4 mr-2" />
+                기기에 저장
               </Button>
               <Button
                 className="flex-1"
                 onClick={handleSave}
                 disabled={!resultBlob || isRendering}
               >
-                저장
+                공유
               </Button>
             </div>
           </div>
