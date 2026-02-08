@@ -1,37 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { SupabaseClient } from '@supabase/supabase-js'
-import { checkUsageLimit, checkWeeklyUsageLimit, logUsage } from '@/lib/tier'
-
-const BUCKET_NAME = 'daily-log-photos'
-const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 1 // 1일 (내보내기용이므로 짧게)
-
-async function convertPathsToSignedUrls(
-  supabase: SupabaseClient,
-  photoUrls: string[] | null
-): Promise<string[]> {
-  if (!photoUrls || photoUrls.length === 0) return []
-  const results: string[] = []
-  for (const pathOrUrl of photoUrls) {
-    if (pathOrUrl.startsWith('http')) {
-      results.push(pathOrUrl)
-      continue
-    }
-    const { data: signedUrl, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(pathOrUrl, SIGNED_URL_EXPIRY)
-    if (error || !signedUrl) {
-      results.push(pathOrUrl)
-    } else {
-      results.push(signedUrl.signedUrl)
-    }
-  }
-  return results
-}
+import { checkUsageLimit, logUsage } from '@/lib/tier'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createClient()
 
@@ -43,14 +16,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const exportType = request.nextUrl.searchParams.get('type') || 'excel'
-
-    let usageCheck
-    if (exportType === 'photo') {
-      usageCheck = await checkWeeklyUsageLimit(user.id, 'daily_log_photo_export')
-    } else {
-      usageCheck = await checkUsageLimit(user.id, 'daily_log_excel_export')
-    }
+    const usageCheck = await checkUsageLimit(user.id, 'daily_log_excel_export')
 
     return NextResponse.json({
       tier: usageCheck.tier,
@@ -80,11 +46,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { year, month, pet_id, export_type = 'excel' } = body as {
+    const { year, month, pet_id } = body as {
       year: number
       month: number // 0-indexed
       pet_id?: string
-      export_type?: 'excel' | 'photo'
     }
 
     if (year == null || month == null) {
@@ -94,18 +59,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 사용 제한 체크 (export_type에 따라 분기)
-    let usageCheck
-    if (export_type === 'photo') {
-      usageCheck = await checkWeeklyUsageLimit(user.id, 'daily_log_photo_export')
-    } else {
-      usageCheck = await checkUsageLimit(user.id, 'daily_log_excel_export')
-    }
+    // 사용 제한 체크
+    const usageCheck = await checkUsageLimit(user.id, 'daily_log_excel_export')
     if (!usageCheck.allowed) {
-      const periodMsg = export_type === 'photo' ? '이번 주' : '오늘'
       return NextResponse.json({
         error: 'TIER_LIMIT_EXCEEDED',
-        message: `${periodMsg} 내보내기 횟수를 모두 사용했습니다.`,
+        message: '오늘 내보내기 횟수를 모두 사용했습니다.',
         tier: usageCheck.tier,
         used: usageCheck.used,
         limit: usageCheck.limit,
@@ -139,23 +98,12 @@ export async function POST(request: NextRequest) {
 
     const logs = data || []
 
-    // photo export일 때만 signed URL 변환
-    if (export_type === 'photo') {
-      for (const log of logs) {
-        if (log.photo_urls && log.photo_urls.length > 0) {
-          log.photo_urls = await convertPathsToSignedUrls(supabase, log.photo_urls)
-        }
-      }
-    }
-
     // 사용량 기록
-    const usageAction = export_type === 'photo' ? 'daily_log_photo_export' : 'daily_log_excel_export'
-    await logUsage(user.id, usageAction, 1, {
+    await logUsage(user.id, 'daily_log_excel_export', 1, {
       year,
       month,
       pet_id: pet_id || null,
       record_count: logs.length,
-      export_type,
     })
 
     const newUsed = usageCheck.used + 1

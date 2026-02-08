@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
-import { FileSpreadsheet, ImageDown, Loader2 } from 'lucide-react'
+import { FileSpreadsheet, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -15,8 +15,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useToast } from '@/hooks/use-toast'
 import * as XLSX from 'xlsx'
-import JSZip from 'jszip'
-import type { DailyStats, DailyLog, LogCategory } from '@/types'
+import type { DailyStats, DailyLog } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 
 interface DailyLogExcelExportProps {
@@ -27,24 +26,16 @@ interface DailyLogExcelExportProps {
   petId: string | null
 }
 
-type ExportType = 'excel' | 'photo'
-
 export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: DailyLogExcelExportProps) {
   const { toast } = useToast()
 
-  // Excel 버튼 상태
-  const [isExportingExcel, setIsExportingExcel] = useState(false)
-  const [isCheckingExcel, setIsCheckingExcel] = useState(false)
-  const [showExcelConfirm, setShowExcelConfirm] = useState(false)
-
-  // Photo 버튼 상태
-  const [isExportingPhoto, setIsExportingPhoto] = useState(false)
-  const [isCheckingPhoto, setIsCheckingPhoto] = useState(false)
-  const [showPhotoConfirm, setShowPhotoConfirm] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [isChecking, setIsChecking] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   const monthLabel = month + 1
 
-  // Excel 워크북 생성 (공통)
+  // Excel 워크북 생성
   const buildWorkbook = useCallback((logs: DailyLog[]) => {
     const workbook = XLSX.utils.book_new()
 
@@ -225,24 +216,22 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
     return workbook
   }, [year, month, monthLabel, statsMap, petName])
 
-  // 내보내기 실행 (excel / photo)
-  const executeExport = useCallback(async (type: ExportType) => {
-    const setExporting = type === 'excel' ? setIsExportingExcel : setIsExportingPhoto
-    setExporting(true)
+  // 엑셀 내보내기 실행
+  const executeExport = useCallback(async () => {
+    setIsExporting(true)
     try {
       const res = await fetch('/api/daily-logs/export-detailed', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ year, month, pet_id: petId, export_type: type }),
+        body: JSON.stringify({ year, month, pet_id: petId }),
       })
 
       if (!res.ok) {
         const result = await res.json()
         if (result.error === 'TIER_LIMIT_EXCEEDED') {
-          const periodMsg = type === 'photo' ? '이번 주' : '오늘'
           toast({
             title: '내보내기 제한',
-            description: `${periodMsg} 무료 내보내기를 모두 사용했습니다. Basic 요금제부터 무제한 이용 가능합니다.`,
+            description: '오늘 무료 내보내기를 모두 사용했습니다. Basic 요금제부터 무제한 이용 가능합니다.',
             variant: 'destructive',
           })
           return
@@ -272,80 +261,17 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
       const monthStr = String(monthLabel).padStart(2, '0')
       const baseFilename = `${petName}_${year}년${monthStr}월_건강기록`
 
-      if (type === 'photo') {
-        // ZIP 생성 (Excel + 사진)
-        const logsWithPhotos = logs.filter(l => l.photo_urls && l.photo_urls.length > 0)
-        const zip = new JSZip()
+      XLSX.writeFile(workbook, `${baseFilename}.xlsx`)
 
-        const excelBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' })
-        zip.file(`${baseFilename}.xlsx`, excelBuffer)
-
-        if (logsWithPhotos.length > 0) {
-          const photosFolder = zip.folder('photos')!
-          const categoryLabel = (cat: string) =>
-            LOG_CATEGORY_CONFIG[cat as LogCategory]?.label || cat
-
-          for (const log of logsWithPhotos) {
-            const dt = new Date(log.logged_at)
-            const dateStr = dt.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
-            const timeStr = dt.toLocaleTimeString('ko-KR', {
-              timeZone: 'Asia/Seoul',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-            }).replace(':', '')
-            const catLabel = categoryLabel(log.category)
-
-            for (let i = 0; i < log.photo_urls.length; i++) {
-              try {
-                const photoUrl = log.photo_urls[i]
-                const photoRes = await fetch(photoUrl)
-                if (!photoRes.ok) continue
-                const blob = await photoRes.blob()
-
-                const contentType = photoRes.headers.get('content-type') || ''
-                let ext = 'jpg'
-                if (contentType.includes('png')) ext = 'png'
-                else if (contentType.includes('webp')) ext = 'webp'
-                else if (contentType.includes('gif')) ext = 'gif'
-                else if (contentType.includes('heic')) ext = 'heic'
-
-                const suffix = log.photo_urls.length > 1 ? `_${i + 1}` : ''
-                const photoName = `${dateStr}_${timeStr}_${catLabel}${suffix}.${ext}`
-                photosFolder.file(photoName, blob)
-              } catch (e) {
-                console.error('Photo download failed:', e)
-              }
-            }
-          }
-        }
-
-        const zipBlob = await zip.generateAsync({ type: 'blob' })
-        const url = URL.createObjectURL(zipBlob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `${baseFilename}.zip`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
-      } else {
-        // Excel만 다운로드
-        XLSX.writeFile(workbook, `${baseFilename}.xlsx`)
-      }
-
-      // 토스트 안내
-      const typeMsg = type === 'photo' ? ' (사진 포함 ZIP)' : ''
       if (usage.limit !== -1) {
-        const periodLabel = type === 'photo' ? '이번 주' : '오늘'
         toast({
           title: '다운로드 완료',
-          description: `건강기록이 다운로드되었습니다${typeMsg}. ${periodLabel} ${usage.used}/${usage.limit}회 사용`,
+          description: `건강기록이 다운로드되었습니다. 오늘 ${usage.used}/${usage.limit}회 사용`,
         })
       } else {
         toast({
           title: '다운로드 완료',
-          description: `건강기록이 다운로드되었습니다${typeMsg}`,
+          description: '건강기록이 다운로드되었습니다',
         })
       }
     } catch (error) {
@@ -356,18 +282,15 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
         variant: 'destructive',
       })
     } finally {
-      setExporting(false)
+      setIsExporting(false)
     }
   }, [year, month, monthLabel, petName, petId, toast, buildWorkbook])
 
   // 버튼 클릭: tier 확인 후 분기
-  const handleExportClick = useCallback(async (type: ExportType) => {
-    const setChecking = type === 'excel' ? setIsCheckingExcel : setIsCheckingPhoto
-    const setShowConfirm = type === 'excel' ? setShowExcelConfirm : setShowPhotoConfirm
-
-    setChecking(true)
+  const handleExportClick = useCallback(async () => {
+    setIsChecking(true)
     try {
-      const res = await fetch(`/api/daily-logs/export-detailed?type=${type}`)
+      const res = await fetch('/api/daily-logs/export-detailed?type=excel')
       if (!res.ok) {
         toast({
           title: '오류',
@@ -383,15 +306,14 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
         if (data.remaining > 0) {
           setShowConfirm(true)
         } else {
-          const periodMsg = type === 'photo' ? '이번 주' : '오늘'
           toast({
             title: '내보내기 제한',
-            description: `${periodMsg} 무료 내보내기를 모두 사용했습니다. Basic 요금제부터 무제한 이용 가능합니다.`,
+            description: '오늘 무료 내보내기를 모두 사용했습니다. Basic 요금제부터 무제한 이용 가능합니다.',
             variant: 'destructive',
           })
         }
       } else {
-        await executeExport(type)
+        await executeExport()
       }
     } catch (error) {
       console.error('Usage check error:', error)
@@ -401,47 +323,31 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
         variant: 'destructive',
       })
     } finally {
-      setChecking(false)
+      setIsChecking(false)
     }
   }, [executeExport, toast])
 
   const hasData = Object.keys(statsMap).length > 0
-  const isExcelLoading = isCheckingExcel || isExportingExcel
-  const isPhotoLoading = isCheckingPhoto || isExportingPhoto
+  const isLoading = isChecking || isExporting
 
   return (
     <>
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          className="flex-1"
-          onClick={() => handleExportClick('excel')}
-          disabled={!hasData || isExcelLoading || isPhotoLoading}
-        >
-          {isExcelLoading ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-          )}
-          {monthLabel}월 엑셀 다운로드
-        </Button>
-        <Button
-          variant="outline"
-          className="flex-1"
-          onClick={() => handleExportClick('photo')}
-          disabled={!hasData || isPhotoLoading || isExcelLoading}
-        >
-          {isPhotoLoading ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <ImageDown className="h-4 w-4 mr-2" />
-          )}
-          {monthLabel}월 사진 포함 다운로드
-        </Button>
-      </div>
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={handleExportClick}
+        disabled={!hasData || isLoading}
+      >
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <FileSpreadsheet className="h-4 w-4 mr-2" />
+        )}
+        {monthLabel}월 엑셀 다운로드
+      </Button>
 
       {/* Excel 확인 다이얼로그 */}
-      <AlertDialog open={showExcelConfirm} onOpenChange={setShowExcelConfirm}>
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>일 1회 제공 기능</AlertDialogTitle>
@@ -451,23 +357,7 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setShowExcelConfirm(false); executeExport('excel') }}>다운로드</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Photo 확인 다이얼로그 */}
-      <AlertDialog open={showPhotoConfirm} onOpenChange={setShowPhotoConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>주 1회 제공 기능</AlertDialogTitle>
-            <AlertDialogDescription>
-              무료 요금제에서는 주 1회 사진 포함 내보내기가 제공됩니다. 이번 주 내보내기 기회를 사용하시겠습니까?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { setShowPhotoConfirm(false); executeExport('photo') }}>다운로드</AlertDialogAction>
+            <AlertDialogAction onClick={() => { setShowConfirm(false); executeExport() }}>다운로드</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
