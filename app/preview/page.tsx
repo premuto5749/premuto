@@ -696,9 +696,20 @@ function PreviewContent() {
                                   </Badge>
                                 ) : item.mapping ? (
                                   <div className="flex flex-col gap-1">
-                                    <span className="text-sm font-medium">
-                                      {item.mapping.display_name_ko || item.mapping.standard_item_name}
-                                    </span>
+                                    {(() => {
+                                      const ocrName = item.raw_name || item.name;
+                                      const standardName = item.mapping.display_name_ko || item.mapping.standard_item_name;
+                                      const isDifferent = ocrName.toLowerCase() !== standardName.toLowerCase();
+                                      return isDifferent ? (
+                                        <span className="text-sm">
+                                          <span className="text-muted-foreground">{ocrName}</span>
+                                          <span className="mx-1">→</span>
+                                          <span className="font-medium">{standardName}</span>
+                                        </span>
+                                      ) : (
+                                        <span className="text-sm font-medium">{standardName}</span>
+                                      );
+                                    })()}
                                     <div className="flex items-center gap-1">
                                       <Badge
                                         variant={item.mapping.confidence >= 90 ? 'default' : item.mapping.confidence >= 70 ? 'secondary' : 'outline'}
