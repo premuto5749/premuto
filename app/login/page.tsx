@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Mail, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
@@ -21,12 +23,14 @@ export default function LoginPage() {
   const [mode, setMode] = useState<AuthMode>('login')
   const [resetEmailSent, setResetEmailSent] = useState(false)
   const [showEmailForm, setShowEmailForm] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
   const { settings: siteSettings } = useSiteSettings()
 
   const switchMode = (newMode: AuthMode) => {
     setMode(newMode)
     setError(null)
     setResetEmailSent(false)
+    setAgreedToTerms(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -286,6 +290,24 @@ export default function LoginPage() {
                     </div>
                   )}
 
+                  {mode === 'signup' && (
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        id="terms"
+                        checked={agreedToTerms}
+                        onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                        disabled={isLoading}
+                        className="mt-0.5"
+                      />
+                      <label htmlFor="terms" className="text-sm leading-snug text-muted-foreground cursor-pointer">
+                        <Link href="/terms" target="_blank" className="underline hover:text-foreground">서비스 이용약관</Link>
+                        {' 및 '}
+                        <Link href="/privacy" target="_blank" className="underline hover:text-foreground">개인정보 처리방침</Link>
+                        에 동의합니다.
+                      </label>
+                    </div>
+                  )}
+
                   {error && (
                     <div className="p-3 text-sm text-red-600 bg-red-50 rounded-lg">
                       {error}
@@ -295,7 +317,7 @@ export default function LoginPage() {
                   <Button
                     type="submit"
                     className="w-full h-12 rounded-full text-base font-medium"
-                    disabled={isLoading}
+                    disabled={isLoading || (mode === 'signup' && !agreedToTerms)}
                     style={{ backgroundColor: siteSettings.primaryColor }}
                   >
                     {isLoading ? (
@@ -353,6 +375,11 @@ export default function LoginPage() {
             <p>사업자 등록번호 : 480-57-00855</p>
             <p>소재지 : 경기도 수원시 장안구 송죽로 9-1, 2층</p>
             <p>이메일 : minsook1@withpremuto.com</p>
+            <p className="pt-2 space-x-2">
+              <Link href="/terms" target="_blank" className="underline hover:text-muted-foreground">이용약관</Link>
+              <span>|</span>
+              <Link href="/privacy" target="_blank" className="underline hover:text-muted-foreground">개인정보처리방침</Link>
+            </p>
             <p className="pt-2 text-[10px] text-muted-foreground/50">
               COPYRIGHT &copy;Premuto. ALL RIGHTS RESERVED. DESIGNED BY PREMUTO.
             </p>
