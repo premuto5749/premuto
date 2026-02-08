@@ -48,29 +48,29 @@ export default function TierConfigPage() {
   const [originalConfig, setOriginalConfig] = useState<TierConfigMap | null>(null)
 
   useEffect(() => {
-    fetchConfig()
-  }, [])
-
-  const fetchConfig = async () => {
-    try {
-      const res = await fetch('/api/admin/tier-config')
-      if (res.status === 403) {
-        setAuthorized(false)
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch('/api/admin/tier-config')
+        if (res.status === 403) {
+          setAuthorized(false)
+          setLoading(false)
+          return
+        }
+        const result = await res.json()
+        if (result.success) {
+          setAuthorized(true)
+          setConfig(result.data)
+          setOriginalConfig(JSON.parse(JSON.stringify(result.data)))
+        }
+      } catch {
+        toast({ title: '오류', description: '설정 조회에 실패했습니다', variant: 'destructive' })
+      } finally {
         setLoading(false)
-        return
       }
-      const result = await res.json()
-      if (result.success) {
-        setAuthorized(true)
-        setConfig(result.data)
-        setOriginalConfig(JSON.parse(JSON.stringify(result.data)))
-      }
-    } catch {
-      toast({ title: '오류', description: '설정 조회에 실패했습니다', variant: 'destructive' })
-    } finally {
-      setLoading(false)
     }
-  }
+    fetchConfig()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleChange = (tier: string, field: string, value: string) => {
     if (!config) return
