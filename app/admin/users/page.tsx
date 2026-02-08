@@ -31,11 +31,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Loader2, Users, ShieldCheck, PawPrint } from 'lucide-react'
+import { Loader2, Users, ShieldCheck, PawPrint, Mail } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 interface UserInfo {
   user_id: string
+  email: string
   tier: string
   pets: string[]
   today_ocr: number
@@ -57,7 +58,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [changingTier, setChangingTier] = useState<{ userId: string; newTier: string; petNames: string[] } | null>(null)
+  const [changingTier, setChangingTier] = useState<{ userId: string; newTier: string; email: string; petNames: string[] } | null>(null)
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
 
@@ -207,7 +208,7 @@ export default function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[180px]">반려동물</TableHead>
+                  <TableHead className="w-[240px]">계정</TableHead>
                   <TableHead className="w-[120px]">Tier</TableHead>
                   <TableHead className="text-center">오늘 OCR</TableHead>
                   <TableHead className="text-center">검사기록</TableHead>
@@ -229,14 +230,17 @@ export default function AdminUsersPage() {
                       <TableRow key={user.user_id}>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
-                            <PawPrint className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                            <Mail className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                             <span className="text-sm font-medium truncate">
-                              {user.pets.length > 0 ? user.pets.join(', ') : '-'}
+                              {user.email || user.user_id.substring(0, 8) + '...'}
                             </span>
                           </div>
-                          <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
-                            {user.user_id.substring(0, 8)}...
-                          </div>
+                          {user.pets.length > 0 && (
+                            <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
+                              <PawPrint className="w-3 h-3 flex-shrink-0" />
+                              {user.pets.join(', ')}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant={tierInfo.variant}>{tierInfo.label}</Badge>
@@ -258,6 +262,7 @@ export default function AdminUsersPage() {
                                 setChangingTier({
                                   userId: user.user_id,
                                   newTier,
+                                  email: user.email,
                                   petNames: user.pets,
                                 })
                               }
@@ -291,7 +296,7 @@ export default function AdminUsersPage() {
             <AlertDialogDescription>
               {changingTier && (
                 <>
-                  <strong>{changingTier.petNames.join(', ') || changingTier.userId.substring(0, 8)}</strong>
+                  <strong>{changingTier.email || changingTier.userId.substring(0, 8)}</strong>
                   {' 사용자의 Tier를 '}
                   <Badge variant={TIER_BADGE[changingTier.newTier]?.variant || 'outline'}>
                     {TIER_BADGE[changingTier.newTier]?.label || changingTier.newTier}

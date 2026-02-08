@@ -17,18 +17,27 @@ export async function GET() {
 
     const supabase = createServiceClient()
 
-    // 1. pets 테이블에서 고유 user_id 목록 (auth.users는 RLS로 직접 조회 불가)
-    const { data: petsData, error: petsError } = await supabase
+    // 1. auth.admin.listUsers()로 전체 사용자 목록 (이메일 포함)
+    const { data: authData, error: authError } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+    if (authError) {
+      console.error('Failed to fetch auth users:', authError)
+      return NextResponse.json({ error: authError.message }, { status: 500 })
+    }
+
+    const authUsers = authData?.users || []
+    const authUserMap = new Map<string, { email: string; created_at: string }>()
+    for (const u of authUsers) {
+      authUserMap.set(u.id, { email: u.email || '', created_at: u.created_at })
+    }
+
+    const userIds = authUsers.map(u => u.id)
+
+    // 2. pets 테이블에서 펫 목록
+    const { data: petsData } = await supabase
       .from('pets')
       .select('user_id, name')
       .order('created_at', { ascending: true })
 
-    if (petsError) {
-      console.error('Failed to fetch pets:', petsError)
-      return NextResponse.json({ error: petsError.message }, { status: 500 })
-    }
-
-    // user_id별 펫 목록
     const userPetsMap = new Map<string, string[]>()
     for (const pet of petsData || []) {
       if (!userPetsMap.has(pet.user_id)) {
@@ -37,9 +46,7 @@ export async function GET() {
       userPetsMap.get(pet.user_id)!.push(pet.name)
     }
 
-    const userIds = Array.from(userPetsMap.keys())
-
-    // 2. user_profiles에서 tier 정보
+    // 3. user_profiles에서 tier 정보
     const { data: profiles } = await supabase
       .from('user_profiles')
       .select('user_id, tier, created_at, updated_at')
@@ -49,7 +56,7 @@ export async function GET() {
       profileMap.set(p.user_id, { tier: p.tier, created_at: p.created_at, updated_at: p.updated_at })
     }
 
-    // 3. 오늘 사용량 (KST 기준)
+    // 4. 오늘 사용량 (KST 기준)
     const now = new Date()
     const kstOffset = 9 * 60 * 60 * 1000
     const kstNow = new Date(now.getTime() + kstOffset)
@@ -70,7 +77,7 @@ export async function GET() {
       else if (u.action === 'daily_log_photo') entry.photo++
     }
 
-    // 4. 검사기록 수 / 일일기록 수
+    // 5. 검사기록 수 / 일일기록 수
     const { data: testRecords } = await supabase
       .from('test_records')
       .select('user_id')
@@ -89,19 +96,21 @@ export async function GET() {
       dailyCountMap.set(r.user_id, (dailyCountMap.get(r.user_id) || 0) + 1)
     }
 
-    // 5. 결과 조합
+    // 6. 결과 조합
     const users = userIds.map(userId => {
+      const authUser = authUserMap.get(userId)
       const profile = profileMap.get(userId)
       const usage = usageMap.get(userId)
       return {
         user_id: userId,
+        email: authUser?.email || '',
         tier: profile?.tier || 'free',
         pets: userPetsMap.get(userId) || [],
         today_ocr: usage?.ocr || 0,
         today_photo: usage?.photo || 0,
         test_records: testCountMap.get(userId) || 0,
         daily_logs: dailyCountMap.get(userId) || 0,
-        joined_at: profile?.created_at || null,
+        joined_at: authUser?.created_at || profile?.created_at || null,
       }
     })
 
