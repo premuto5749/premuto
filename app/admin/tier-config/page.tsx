@@ -28,14 +28,14 @@ const TIER_KEYS = ['free', 'basic', 'premium'] as const
 
 const FIELD_LABELS: Record<string, { label: string; description: string }> = {
   label: { label: '표시 이름', description: '사용자에게 보이는 등급명' },
-  daily_ocr_limit: { label: '일일 OCR 분석 횟수', description: '-1 = 무제한' },
-  max_files_per_ocr: { label: 'OCR 1회당 최대 파일 수', description: '업로드 시 파일 개수 제한' },
-  daily_log_max_photos: { label: '일일 기록 사진 수', description: '1회 업로드 시 최대 사진 수' },
-  daily_log_max_photo_size_mb: { label: '사진 최대 크기 (MB)', description: '개별 사진 파일 크기 제한' },
-  monthly_detailed_export_limit: { label: '월간 상세 내보내기 횟수', description: '-1 = 무제한 (레거시)' },
-  daily_description_gen_limit: { label: 'AI 설명 생성 횟수', description: '-1 = 무제한, 0 = 잠금' },
-  daily_excel_export_limit: { label: '일일 엑셀 내보내기 횟수', description: '-1 = 무제한' },
-  weekly_photo_export_limit: { label: '주간 사진 내보내기 횟수', description: '-1 = 무제한' },
+  daily_ocr_limit: { label: '일일 OCR 분석 횟수', description: '혈액검사 OCR 분석 일일 제한. -1 = 무제한' },
+  max_files_per_ocr: { label: 'OCR 1회당 최대 파일 수', description: '혈액검사 OCR 업로드 시 한 번에 올릴 수 있는 파일 수' },
+  daily_log_max_photos: { label: '일일기록 사진 업로드 수', description: '일일기록 사진 1회 업로드 시 최대 장수' },
+  daily_log_max_photo_size_mb: { label: '일일기록 사진 최대 크기 (MB)', description: '일일기록 사진 개별 파일 크기 제한' },
+  monthly_detailed_export_limit: { label: '혈액검사 내보내기 횟수 (월간)', description: '혈액검사 전체 기록 Excel 내보내기. 월간 횟수 제한. -1 = 무제한' },
+  daily_description_gen_limit: { label: 'AI 설명 생성 횟수 (일일)', description: '표준항목 AI 설명 자동 생성. 일일 횟수 제한. -1 = 무제한, 0 = 잠금' },
+  daily_excel_export_limit: { label: '일일기록 엑셀 내보내기 횟수 (일일)', description: '일일기록(식사/음수 등) Excel 내보내기. 일일 횟수 제한. -1 = 무제한' },
+  weekly_photo_export_limit: { label: '일일기록 사진 내보내기 횟수 (주간)', description: '일일기록 사진 ZIP 내보내기. 주간 횟수 제한. -1 = 무제한' },
 }
 
 export default function TierConfigPage() {
