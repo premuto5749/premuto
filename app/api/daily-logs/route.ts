@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { DailyLog, DailyLogInput, DailyStats } from '@/types'
 import { SupabaseClient } from '@supabase/supabase-js'
+import { triggerDailyLogDriveBackup } from '@/lib/google-drive-upload'
 
 export const dynamic = 'force-dynamic'
 
@@ -222,6 +223,12 @@ export async function POST(request: NextRequest) {
     const processedData = {
       ...data,
       photo_urls: await convertPathsToSignedUrls(supabase, data.photo_urls)
+    }
+
+    // Google Drive 백업 트리거 (fire-and-forget)
+    if (data.photo_urls?.length > 0 && pet_id) {
+      triggerDailyLogDriveBackup(user.id, pet_id, data.logged_at, data.photo_urls, data.id)
+        .catch(err => console.error('[GoogleDrive] Daily log backup failed:', err))
     }
 
     return NextResponse.json({

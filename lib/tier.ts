@@ -12,6 +12,7 @@ export interface TierConfig {
   monthly_detailed_export_limit: number  // -1 = 무제한
   daily_excel_export_limit: number    // 일일 엑셀 내보내기 (-1=무제한)
   weekly_photo_export_limit: number   // 주간 사진 ZIP 내보내기 (-1=무제한)
+  google_drive_enabled: boolean       // Google Drive 백업 활성화
 }
 
 export type TierConfigMap = Record<TierName, TierConfig>
@@ -28,6 +29,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     monthly_detailed_export_limit: 1,
     daily_excel_export_limit: 1,
     weekly_photo_export_limit: 1,
+    google_drive_enabled: false,
   },
   basic: {
     label: '기본',
@@ -39,6 +41,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     monthly_detailed_export_limit: -1,
     daily_excel_export_limit: -1,
     weekly_photo_export_limit: -1,
+    google_drive_enabled: true,
   },
   premium: {
     label: '프리미엄',
@@ -50,6 +53,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     monthly_detailed_export_limit: -1,
     daily_excel_export_limit: -1,
     weekly_photo_export_limit: -1,
+    google_drive_enabled: true,
   },
 }
 

@@ -18,6 +18,7 @@ import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
+import { GoogleDriveSection } from '@/components/settings/GoogleDriveSection'
 
 // 투약 빈도 옵션
 const FREQUENCY_OPTIONS = [
@@ -176,7 +177,10 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
 
           {/* 데이터 관리 */}
           <TabsContent value="data">
-            <DataManagementSection />
+            <div className="space-y-6">
+              <GoogleDriveSection />
+              <DataManagementSection />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

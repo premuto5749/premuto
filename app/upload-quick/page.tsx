@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Loader2, ArrowRight, AlertCircle, Info } from 'lucide-react'
+import { usePet } from '@/contexts/PetContext'
 
 const FileUploader = dynamic(
   () => import('@/components/upload/FileUploader').then(mod => ({ default: mod.FileUploader })),
@@ -51,6 +52,7 @@ interface TierData {
 
 export default function UploadQuickPage() {
   const router = useRouter()
+  const { currentPet } = usePet()
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -106,6 +108,11 @@ export default function UploadQuickPage() {
     try {
       const formData = new FormData()
       const MAX_PAYLOAD_MB = 4.5
+
+      // pet_id 추가 (Google Drive 백업용)
+      if (currentPet?.id) {
+        formData.append('pet_id', currentPet.id)
+      }
 
       // 이미지 압축 후 FormData에 추가
       let totalSize = 0
