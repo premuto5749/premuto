@@ -206,26 +206,30 @@ export async function renderSummaryImage(options: RenderOptions): Promise<Blob> 
   ctx.drawImage(tintedLogo, outputWidth - padding - logoSize, padding)
   clearShadow()
 
-  // 우상단 로고 아래 "미모의" + "하루" 텍스트
-  const brandFontSize = outputWidth * 0.032
-  ctx.fillStyle = textColor
-  ctx.textAlign = 'right'
-
-  setShadow(6)
-  ctx.font = `600 ${brandFontSize}px ${fontFamily}`
-  ctx.fillText('미모의', outputWidth - padding, padding + logoSize + brandFontSize + 4)
-  ctx.fillText('하루', outputWidth - padding, padding + logoSize + brandFontSize * 2 + 8)
-  clearShadow()
-
   // 하단 스탯 영역 (3x2 그리드)
   const statItems = buildStatItems(stats)
   const cols = 3
   const rows = 2
-  const statAreaBottom = canvasHeight - padding * 2 // 최하단 이름+날짜 위
-  const rowHeight = outputWidth * 0.1
-  const statAreaTop = statAreaBottom - rows * rowHeight - padding * 0.5
+  const rowHeight = outputWidth * 0.13
+  const statAreaBottom = canvasHeight - padding
+  const statAreaTop = statAreaBottom - rows * rowHeight
 
   const colWidth = (outputWidth - padding * 2) / cols
+
+  // petName + 날짜 (스탯 카드 위, 좌정렬)
+  const nameFontSize = outputWidth * 0.064 // 기존 0.032의 2배
+  const dateFontSize = outputWidth * 0.032
+  ctx.textAlign = 'left'
+  ctx.fillStyle = textColor
+
+  setShadow(6)
+  ctx.font = `700 ${nameFontSize}px ${fontFamily}`
+  const nameY = statAreaTop - dateFontSize - padding * 0.6
+  ctx.fillText(petName, padding, nameY)
+
+  ctx.font = `400 ${dateFontSize}px ${fontFamily}`
+  ctx.fillText(formatDateKorean(date), padding, nameY + dateFontSize + 8)
+  clearShadow()
 
   setShadow(6)
   ctx.fillStyle = textColor
@@ -264,16 +268,6 @@ export async function renderSummaryImage(options: RenderOptions): Promise<Blob> 
       ctx.fillText(` (${item.count}회)`, x + vw, y + iconFontSize + valueFontSize + 4)
     }
   }
-
-  // 최하단: petName · 날짜
-  const bottomY = canvasHeight - padding
-  const bottomFontSize = outputWidth * 0.032
-  ctx.font = `500 ${bottomFontSize}px ${fontFamily}`
-  ctx.textAlign = 'center'
-  ctx.fillStyle = textColor
-  setShadow(6)
-  ctx.fillText(`${petName} · ${formatDateKorean(date)}`, outputWidth / 2, bottomY)
-  clearShadow()
 
   // JPEG Blob 생성
   return new Promise((resolve, reject) => {
