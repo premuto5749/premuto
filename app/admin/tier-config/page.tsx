@@ -17,6 +17,9 @@ interface TierConfig {
   daily_log_max_photos: number
   daily_log_max_photo_size_mb: number
   monthly_detailed_export_limit: number
+  daily_description_gen_limit: number
+  daily_excel_export_limit: number
+  weekly_photo_export_limit: number
 }
 
 type TierConfigMap = Record<string, TierConfig>
@@ -29,7 +32,10 @@ const FIELD_LABELS: Record<string, { label: string; description: string }> = {
   max_files_per_ocr: { label: 'OCR 1회당 최대 파일 수', description: '업로드 시 파일 개수 제한' },
   daily_log_max_photos: { label: '일일 기록 사진 수', description: '1회 업로드 시 최대 사진 수' },
   daily_log_max_photo_size_mb: { label: '사진 최대 크기 (MB)', description: '개별 사진 파일 크기 제한' },
-  monthly_detailed_export_limit: { label: '월간 상세 내보내기 횟수', description: '-1 = 무제한' },
+  monthly_detailed_export_limit: { label: '월간 상세 내보내기 횟수', description: '-1 = 무제한 (레거시)' },
+  daily_description_gen_limit: { label: 'AI 설명 생성 횟수', description: '-1 = 무제한, 0 = 잠금' },
+  daily_excel_export_limit: { label: '일일 엑셀 내보내기 횟수', description: '-1 = 무제한' },
+  weekly_photo_export_limit: { label: '주간 사진 내보내기 횟수', description: '-1 = 무제한' },
 }
 
 export default function TierConfigPage() {
@@ -83,6 +89,9 @@ export default function TierConfigPage() {
           else if (field === 'daily_log_max_photos') t.daily_log_max_photos = numValue
           else if (field === 'daily_log_max_photo_size_mb') t.daily_log_max_photo_size_mb = numValue
           else if (field === 'monthly_detailed_export_limit') t.monthly_detailed_export_limit = numValue
+          else if (field === 'daily_description_gen_limit') t.daily_description_gen_limit = numValue
+          else if (field === 'daily_excel_export_limit') t.daily_excel_export_limit = numValue
+          else if (field === 'weekly_photo_export_limit') t.weekly_photo_export_limit = numValue
         }
       }
       return updated

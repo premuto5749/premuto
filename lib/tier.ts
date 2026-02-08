@@ -10,6 +10,8 @@ export interface TierConfig {
   daily_log_max_photo_size_mb: number
   daily_description_gen_limit: number  // -1 = 무제한, 0 = 잠금
   monthly_detailed_export_limit: number  // -1 = 무제한
+  daily_excel_export_limit: number    // 일일 엑셀 내보내기 (-1=무제한)
+  weekly_photo_export_limit: number   // 주간 사진 ZIP 내보내기 (-1=무제한)
 }
 
 export type TierConfigMap = Record<TierName, TierConfig>
@@ -24,6 +26,8 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     daily_log_max_photo_size_mb: 5,
     daily_description_gen_limit: 0,
     monthly_detailed_export_limit: 1,
+    daily_excel_export_limit: 1,
+    weekly_photo_export_limit: 1,
   },
   basic: {
     label: '기본',
@@ -33,6 +37,8 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     daily_log_max_photo_size_mb: 10,
     daily_description_gen_limit: 30,
     monthly_detailed_export_limit: -1,
+    daily_excel_export_limit: -1,
+    weekly_photo_export_limit: -1,
   },
   premium: {
     label: '프리미엄',
@@ -42,6 +48,8 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     daily_log_max_photo_size_mb: 10,
     daily_description_gen_limit: -1,
     monthly_detailed_export_limit: -1,
+    daily_excel_export_limit: -1,
+    weekly_photo_export_limit: -1,
   },
 }
 
@@ -60,7 +68,13 @@ export async function getTierConfig(): Promise<TierConfigMap> {
       return DEFAULT_TIER_CONFIG
     }
 
-    return data.value as TierConfigMap
+    // DB 값에 새 필드가 없을 수 있으므로 defaults와 merge
+    const dbConfig = data.value as TierConfigMap
+    const merged: TierConfigMap = {} as TierConfigMap
+    for (const tier of ['free', 'basic', 'premium'] as TierName[]) {
+      merged[tier] = { ...DEFAULT_TIER_CONFIG[tier], ...(dbConfig[tier] || {}) }
+    }
+    return merged
   } catch (err) {
     console.error('[Tier] getTierConfig error:', err)
     return DEFAULT_TIER_CONFIG
@@ -148,6 +162,79 @@ export async function logUsage(
 
   console.log(`[Tier] Usage logged: user=${userId.substring(0, 8)}... action=${action} files=${fileCount}`)
   return true
+}
+
+/** 이번 주 사용량 조회 (KST 기준, 월요일 시작) */
+export async function getWeeklyUsage(
+  userId: string,
+  action: string
+): Promise<number> {
+  const supabase = await createClient()
+
+  const now = new Date()
+  const kstOffset = 9 * 60 * 60 * 1000
+  const kstNow = new Date(now.getTime() + kstOffset)
+  // KST 기준 요일 (0=일, 1=월, ..., 6=토)
+  const dayOfWeek = kstNow.getUTCDay()
+  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  const weekStart = new Date(
+    Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate() - daysSinceMonday) - kstOffset
+  )
+
+  const { count, error } = await supabase
+    .from('usage_logs')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('action', action)
+    .gte('created_at', weekStart.toISOString())
+
+  if (error) {
+    console.error(`[Tier] getWeeklyUsage error (${action}):`, error.message, error.code)
+    return 0
+  }
+  return count || 0
+}
+
+/** 주간 사용 가능 여부 체크 (tier + 주간 사용량) */
+export async function checkWeeklyUsageLimit(
+  userId: string,
+  action: string
+): Promise<{
+  allowed: boolean
+  tier: TierName
+  tierConfig: TierConfig
+  used: number
+  limit: number
+  remaining: number
+}> {
+  const [tierName, tierConfigMap, used] = await Promise.all([
+    getUserTier(userId),
+    getTierConfig(),
+    getWeeklyUsage(userId, action),
+  ])
+
+  const tierConfig = tierConfigMap[tierName] || tierConfigMap.free
+
+  let limit: number
+  if (action === 'daily_log_photo_export') {
+    limit = tierConfig.weekly_photo_export_limit ?? -1
+  } else {
+    limit = -1
+  }
+
+  const allowed = limit === -1 || used < limit
+  const remaining = limit === -1 ? -1 : Math.max(0, limit - used)
+
+  console.log(`[Tier] Weekly check: user=${userId.substring(0, 8)}... tier=${tierName} action=${action} used=${used}/${limit} allowed=${allowed}`)
+
+  return {
+    allowed,
+    tier: tierName,
+    tierConfig,
+    used,
+    limit,
+    remaining,
+  }
 }
 
 /** 이번 달 사용량 조회 (KST 기준) */
@@ -243,6 +330,8 @@ export async function checkUsageLimit(
     limit = tierConfig.daily_ocr_limit
   } else if (action === 'description_generation') {
     limit = tierConfig.daily_description_gen_limit
+  } else if (action === 'daily_log_excel_export') {
+    limit = tierConfig.daily_excel_export_limit ?? -1
   } else {
     limit = tierConfig.daily_log_max_photos
   }
