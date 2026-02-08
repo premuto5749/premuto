@@ -190,13 +190,26 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET 엔드포인트 - 전체 데이터 내보내기 (간편 사용)
+// GET 엔드포인트 - 내보내기 사용량 체크
 export async function GET() {
-  const request = new Request('http://localhost/api/export-excel', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({})
-  })
+  try {
+    const supabase = await createClient()
 
-  return POST(new NextRequest(request))
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
+    }
+
+    const usageCheck = await checkMonthlyUsageLimit(user.id, 'detailed_export')
+
+    return NextResponse.json({
+      tier: usageCheck.tier,
+      used: usageCheck.used,
+      limit: usageCheck.limit,
+      remaining: usageCheck.remaining,
+    })
+  } catch (error) {
+    console.error('Export usage check error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
