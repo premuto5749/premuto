@@ -92,6 +92,9 @@ export async function POST(request: NextRequest) {
         photo_url: body.photo_url || null,
         is_default: isDefault,
         sort_order: (count || 0),
+        is_neutered: body.is_neutered ?? false,
+        activity_level: body.activity_level || 'normal',
+        food_calorie_density: body.food_calorie_density ?? null,
       })
       .select()
       .single()
@@ -155,6 +158,9 @@ export async function PATCH(request: NextRequest) {
     if (body.weight_kg !== undefined) updateData.weight_kg = body.weight_kg
     if (body.photo_url !== undefined) updateData.photo_url = body.photo_url
     if (body.is_default !== undefined) updateData.is_default = body.is_default
+    if (body.is_neutered !== undefined) updateData.is_neutered = body.is_neutered
+    if (body.activity_level !== undefined) updateData.activity_level = body.activity_level
+    if (body.food_calorie_density !== undefined) updateData.food_calorie_density = body.food_calorie_density
 
     const { data: pet, error } = await supabase
       .from('pets')

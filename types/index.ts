@@ -198,7 +198,7 @@ export interface BatchSaveResponse {
 // 일일 건강 기록 (Daily Log) 타입
 // ============================================
 
-export type LogCategory = 'meal' | 'water' | 'medicine' | 'poop' | 'pee' | 'breathing'
+export type LogCategory = 'meal' | 'water' | 'medicine' | 'poop' | 'pee' | 'breathing' | 'weight'
 
 export interface DailyLog {
   id: string
@@ -298,6 +298,9 @@ export interface Pet {
   photo_url: string | null     // 프로필 사진 URL
   is_default: boolean          // 기본 선택 여부
   sort_order: number           // 정렬 순서
+  is_neutered: boolean         // 중성화 여부
+  activity_level: 'low' | 'normal' | 'high'  // 활동량
+  food_calorie_density: number | null  // 사료 칼로리 밀도 (kcal/g)
   created_at: string
   updated_at: string
 }
@@ -310,6 +313,9 @@ export interface PetInput {
   weight_kg?: number | null
   photo_url?: string | null
   is_default?: boolean
+  is_neutered?: boolean
+  activity_level?: 'low' | 'normal' | 'high'
+  food_calorie_density?: number | null
 }
 
 // ============================================
@@ -393,5 +399,12 @@ export const LOG_CATEGORY_CONFIG: Record<LogCategory, {
     unit: '회/분',
     placeholder: '분당 호흡수',
     color: 'bg-teal-100 text-teal-700'
+  },
+  weight: {
+    label: '체중',
+    icon: '⚖️',
+    unit: 'kg',
+    placeholder: '체중 (kg)',
+    color: 'bg-emerald-100 text-emerald-700'
   }
 }

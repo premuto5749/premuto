@@ -68,6 +68,45 @@ export async function GET(request: NextRequest) {
     const stats = searchParams.get('stats')         // 통계 조회 여부
     const petId = searchParams.get('pet_id')        // 반려동물 필터
     const showDeleted = searchParams.get('deleted') === 'true' // 삭제된 기록 조회
+    const latestWeight = searchParams.get('latest_weight') // 최근 체중 조회
+
+    // 최근 체중 조회 (carry-forward)
+    if (latestWeight === 'true' && petId) {
+      const targetDate = date || new Date().toISOString().split('T')[0]
+
+      // 해당 날짜 이전의 가장 최근 weight 기록
+      const { data: weightLog } = await supabase
+        .from('daily_logs')
+        .select('amount, logged_at')
+        .eq('user_id', user.id)
+        .eq('pet_id', petId)
+        .eq('category', 'weight')
+        .is('deleted_at', null)
+        .lte('logged_at', `${targetDate}T23:59:59.999+09:00`)
+        .order('logged_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (weightLog) {
+        return NextResponse.json({
+          success: true,
+          data: { weight: weightLog.amount, logged_at: weightLog.logged_at }
+        })
+      }
+
+      // 체중 기록이 없으면 pets.weight_kg fallback
+      const { data: pet } = await supabase
+        .from('pets')
+        .select('weight_kg')
+        .eq('id', petId)
+        .eq('user_id', user.id)
+        .single()
+
+      return NextResponse.json({
+        success: true,
+        data: { weight: pet?.weight_kg || null, logged_at: null }
+      })
+    }
 
     // 통계 조회
     if (stats === 'true') {

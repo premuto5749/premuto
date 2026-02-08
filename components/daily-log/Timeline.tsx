@@ -99,6 +99,10 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       return '' // 배변/배뇨는 양 표시 안함
     }
 
+    if (log.category === 'weight' && log.amount !== null && log.amount !== undefined) {
+      return `${Number(log.amount).toFixed(1)}kg`
+    }
+
     // 식사의 경우 급여량과 식사량 표시
     if (log.category === 'meal' && log.amount !== null && log.amount !== undefined) {
       const leftover = log.leftover_amount || 0

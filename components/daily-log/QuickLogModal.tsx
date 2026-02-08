@@ -22,6 +22,8 @@ interface QuickLogModalProps {
   defaultDate?: string // YYYY-MM-DD 형식, 선택된 날짜가 있으면 해당 날짜로 초기화
   petId?: string // 반려동물 ID
   onBreathingSelect?: () => void // 호흡수 선택 시 타이머 모달 열기
+  currentWeight?: number | null // 현재 체중 (체중 기록 페이지에서 pre-fill)
+  onWeightLogged?: () => void // 체중 기록 후 콜백
 }
 
 // 현재 시간을 HH:MM 형식으로 반환
@@ -39,7 +41,7 @@ const getCurrentDate = () => {
   return `${year}-${month}-${day}`
 }
 
-export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId, onBreathingSelect }: QuickLogModalProps) {
+export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId, onBreathingSelect, currentWeight, onWeightLogged }: QuickLogModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const [amount, setAmount] = useState('')
   const [leftoverAmount, setLeftoverAmount] = useState('')  // 남긴 양 (식사용)
@@ -60,13 +62,21 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
+  // 스와이프 체중 페이지 상태
+  const [currentPage, setCurrentPage] = useState<'categories' | 'weight'>('categories')
+  const [weightInput, setWeightInput] = useState('')
+  const [isWeightSubmitting, setIsWeightSubmitting] = useState(false)
+  const touchStartX = useRef<number>(0)
+
   // 모달이 열릴 때마다 현재 시간으로 초기화 (defaultDate가 있으면 해당 날짜 사용)
   useEffect(() => {
     if (open) {
       setLogTime(getCurrentTime())
       setLogDate(defaultDate || getCurrentDate())
+      setCurrentPage('categories')
+      setWeightInput(currentWeight?.toString() || '')
     }
-  }, [open, defaultDate])
+  }, [open, defaultDate, currentWeight])
 
   // 사진 미리보기 URL cleanup
   useEffect(() => {
@@ -320,6 +330,64 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     }
   }
 
+  // 스와이프 핸들러
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && currentPage === 'categories') {
+        setCurrentPage('weight')
+      } else if (diff < 0 && currentPage === 'weight') {
+        setCurrentPage('categories')
+      }
+    }
+  }
+
+  // 체중 기록 제출
+  const handleWeightSubmit = async () => {
+    if (!weightInput || !petId) return
+
+    setIsWeightSubmitting(true)
+    try {
+      const logData: DailyLogInput = {
+        category: 'weight',
+        pet_id: petId,
+        logged_at: `${logDate}T${logTime}:00+09:00`,
+        amount: parseFloat(weightInput),
+        unit: 'kg',
+      }
+
+      const response = await fetch('/api/daily-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logData),
+      })
+
+      if (!response.ok) throw new Error('Failed to save weight')
+
+      toast({
+        title: '체중 기록 완료',
+        description: `⚖️ ${weightInput}kg 기록되었습니다.`,
+      })
+
+      onWeightLogged?.()
+      onSuccess?.()
+      onOpenChange(false)
+    } catch (error) {
+      console.error('Weight save error:', error)
+      toast({
+        title: '저장 실패',
+        description: '체중 기록에 실패했습니다.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsWeightSubmitting(false)
+    }
+  }
+
   const handleCategoryClick = (category: LogCategory) => {
     // 호흡수 선택 시 타이머 모달 열기
     if (category === 'breathing' && onBreathingSelect) {
@@ -340,22 +408,106 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         </DialogHeader>
 
         {!selectedCategory ? (
-          // 카테고리 선택 화면
-          <div className="grid grid-cols-3 gap-3 py-4">
-            {categories.map((cat) => {
-              const config = LOG_CATEGORY_CONFIG[cat]
-              return (
-                <button
-                  key={cat}
-                  onClick={() => handleCategoryClick(cat)}
-                  disabled={isSubmitting}
-                  className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
-                >
-                  <span className="text-3xl mb-2">{config.icon}</span>
-                  <span className="text-sm font-medium">{config.label}</span>
-                </button>
-              )
-            })}
+          // 카테고리 선택 / 체중 스와이프 화면
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <div className="overflow-hidden">
+              <div
+                className="flex transition-transform duration-300 ease-in-out"
+                style={{ transform: currentPage === 'weight' ? 'translateX(-100%)' : 'translateX(0)' }}
+              >
+                {/* 페이지 1: 카테고리 선택 */}
+                <div className="min-w-full">
+                  <div className="grid grid-cols-3 gap-3 py-4">
+                    {categories.map((cat) => {
+                      const config = LOG_CATEGORY_CONFIG[cat]
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => handleCategoryClick(cat)}
+                          disabled={isSubmitting}
+                          className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
+                        >
+                          <span className="text-3xl mb-2">{config.icon}</span>
+                          <span className="text-sm font-medium">{config.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* 페이지 2: 체중 기록 */}
+                <div className="min-w-full">
+                  <div className="space-y-4 py-4">
+                    <div className="text-center">
+                      <span className="text-3xl">⚖️</span>
+                      <h3 className="text-lg font-medium mt-2">체중 기록</h3>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">체중</label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          step="0.1"
+                          placeholder="체중 (kg)"
+                          value={weightInput}
+                          onChange={(e) => setWeightInput(e.target.value)}
+                          className="flex-1"
+                        />
+                        <span className="flex items-center text-muted-foreground px-3 bg-muted rounded-md">
+                          kg
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">날짜/시간</label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="date"
+                          value={logDate}
+                          onChange={(e) => setLogDate(e.target.value)}
+                          className="w-1/2"
+                        />
+                        <Input
+                          type="time"
+                          value={logTime}
+                          onChange={(e) => setLogTime(e.target.value)}
+                          className="w-1/2"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleWeightSubmit}
+                      disabled={isWeightSubmitting || !weightInput || !petId}
+                      className="w-full"
+                    >
+                      {isWeightSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          저장 중...
+                        </>
+                      ) : (
+                        '체중 저장'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 페이지 인디케이터 */}
+            <div className="flex justify-center gap-2 pb-2">
+              <button
+                className={`w-2 h-2 rounded-full transition-colors ${currentPage === 'categories' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                onClick={() => setCurrentPage('categories')}
+              />
+              <button
+                className={`w-2 h-2 rounded-full transition-colors ${currentPage === 'weight' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                onClick={() => setCurrentPage('weight')}
+              />
+            </div>
           </div>
         ) : (
           // 입력 화면
