@@ -16,6 +16,7 @@ const ASSET_CONFIG: Record<string, { folder: string; maxSize: number }> = {
   headerLogo: { folder: 'header-logo', maxSize: 2 * 1024 * 1024 }, // 2MB (헤더 메뉴용 가로형)
   loginBgImage: { folder: 'login-bg', maxSize: 5 * 1024 * 1024 }, // 5MB (로그인 배경 이미지)
   ogImage: { folder: 'og', maxSize: 5 * 1024 * 1024 }, // 5MB
+  shareLogo: { folder: 'share-logo', maxSize: 2 * 1024 * 1024 }, // 2MB (건강 기록 공유 로고)
   popupImage: { folder: 'popup-images', maxSize: 2 * 1024 * 1024 }, // 2MB (공지 팝업 본문 이미지)
 }
 

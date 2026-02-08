@@ -20,13 +20,14 @@ const DEFAULT_SETTINGS: SiteSettings = {
   headerLogoUrl: null,
   loginBgImageUrl: null,
   ogImageUrl: null,
+  shareLogoUrl: null,
   keywords: ['반려동물', '건강기록', '혈액검사', '일일기록'],
   themeColor: '#ffffff',
   primaryColor: '#f97316',
   language: 'ko'
 }
 
-type AssetType = 'favicon' | 'logo' | 'headerLogo' | 'loginBgImage' | 'ogImage'
+type AssetType = 'favicon' | 'logo' | 'headerLogo' | 'loginBgImage' | 'ogImage' | 'shareLogo'
 
 interface UploadState {
   uploading: boolean
@@ -47,7 +48,8 @@ export default function SiteSettingsPage() {
     logo: { uploading: false, error: null },
     headerLogo: { uploading: false, error: null },
     loginBgImage: { uploading: false, error: null },
-    ogImage: { uploading: false, error: null }
+    ogImage: { uploading: false, error: null },
+    shareLogo: { uploading: false, error: null }
   })
 
   const faviconInputRef = useRef<HTMLInputElement>(null)
@@ -55,6 +57,7 @@ export default function SiteSettingsPage() {
   const headerLogoInputRef = useRef<HTMLInputElement>(null)
   const loginBgImageInputRef = useRef<HTMLInputElement>(null)
   const ogImageInputRef = useRef<HTMLInputElement>(null)
+  const shareLogoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -114,6 +117,7 @@ export default function SiteSettingsPage() {
         : assetType === 'logo' ? 'logoUrl'
         : assetType === 'headerLogo' ? 'headerLogoUrl'
         : assetType === 'loginBgImage' ? 'loginBgImageUrl'
+        : assetType === 'shareLogo' ? 'shareLogoUrl'
         : 'ogImageUrl'
 
       setSettings(prev => ({ ...prev, [urlKey]: data.data.url }))
@@ -121,6 +125,7 @@ export default function SiteSettingsPage() {
         : assetType === 'logo' ? '로그인 로고'
         : assetType === 'headerLogo' ? '헤더 로고'
         : assetType === 'loginBgImage' ? '로그인 배경'
+        : assetType === 'shareLogo' ? '공유 로고'
         : 'OG 이미지'
       setSuccess(`${assetName}가 업로드되었습니다`)
     } catch (err) {
@@ -152,6 +157,7 @@ export default function SiteSettingsPage() {
         : assetType === 'logo' ? 'logoUrl'
         : assetType === 'headerLogo' ? 'headerLogoUrl'
         : assetType === 'loginBgImage' ? 'loginBgImageUrl'
+        : assetType === 'shareLogo' ? 'shareLogoUrl'
         : 'ogImageUrl'
 
       setSettings(prev => ({ ...prev, [urlKey]: null }))
@@ -498,6 +504,18 @@ export default function SiteSettingsPage() {
               accept="image/png,image/jpeg,image/webp"
               previewSize="lg"
             />
+
+            <hr />
+
+            <ImageUploadCard
+              assetType="shareLogo"
+              title="공유 로고"
+              description="건강 기록 사진 공유 시 우상단에 표시 (권장: 정방형 PNG, 투명 배경)"
+              imageUrl={settings.shareLogoUrl}
+              inputRef={shareLogoInputRef}
+              accept="image/png,image/svg+xml,image/jpeg"
+              previewSize="sm"
+            />
           </CardContent>
         </Card>
 
@@ -509,6 +527,7 @@ export default function SiteSettingsPage() {
           <CardContent className="text-sm text-blue-700 space-y-1">
             <p>• <strong>로그인 로고</strong>: 로그인 페이지 상단 (정방형 200x200px)</p>
             <p>• <strong>헤더 로고</strong>: 햄버거 메뉴 상단 (가로형, 높이 40px)</p>
+            <p>• <strong>공유 로고</strong>: 건강 기록 사진 공유 시 우상단 (정방형 PNG)</p>
           </CardContent>
         </Card>
 

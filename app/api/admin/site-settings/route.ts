@@ -12,6 +12,7 @@ export interface SiteSettings {
   headerLogoUrl: string | null     // 헤더 메뉴용 가로형 로고
   loginBgImageUrl: string | null   // 로그인 페이지 배경 이미지
   ogImageUrl: string | null
+  shareLogoUrl: string | null        // 건강 기록 사진 공유 시 우상단 로고
   keywords: string[]
   themeColor: string
   primaryColor: string             // 버튼, 강조 색상
@@ -27,6 +28,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   headerLogoUrl: null,
   loginBgImageUrl: null,
   ogImageUrl: null,
+  shareLogoUrl: null,
   keywords: ['반려동물', '건강기록', '혈액검사', '일일기록'],
   themeColor: '#ffffff',
   primaryColor: '#f97316',         // orange-500

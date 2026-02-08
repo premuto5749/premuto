@@ -10,6 +10,7 @@ export interface SiteSettings {
   headerLogoUrl: string | null
   loginBgImageUrl: string | null
   ogImageUrl: string | null
+  shareLogoUrl: string | null
   keywords: string[]
   themeColor: string
   primaryColor: string
@@ -24,6 +25,7 @@ const DEFAULT_SETTINGS: SiteSettings = {
   headerLogoUrl: null,
   loginBgImageUrl: null,
   ogImageUrl: null,
+  shareLogoUrl: null,
   keywords: ['반려동물', '건강기록', '혈액검사', '일일기록'],
   themeColor: '#ffffff',
   primaryColor: '#f97316',
