@@ -5,6 +5,7 @@ import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
 import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 import { createClient } from '@/lib/supabase/server'
 import { checkUsageLimit, logUsage } from '@/lib/tier'
+import { triggerOcrSourceDriveBackup } from '@/lib/google-drive-upload'
 
 export const dynamic = 'force-dynamic'
 
@@ -513,6 +514,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const files: File[] = []
+    const petId = formData.get('pet_id') as string | null
 
     // FormData에서 모든 파일 추출
     for (const [key, value] of Array.from(formData.entries())) {
@@ -554,6 +556,22 @@ export async function POST(request: NextRequest) {
           { error: `Invalid file type for ${file.name}. Only JPG, PNG, and PDF are supported.` },
           { status: 400 }
         )
+      }
+    }
+
+    // Google Drive 백업용 파일 버퍼 캡처 (OCR 처리 전)
+    const fileBuffersForDrive = new Map<string, { buffer: Buffer; mimeType: string }>()
+    if (petId) {
+      for (const file of files) {
+        try {
+          const arrBuf = await file.arrayBuffer()
+          fileBuffersForDrive.set(file.name, {
+            buffer: Buffer.from(arrBuf),
+            mimeType: file.type,
+          })
+        } catch {
+          // 버퍼 캡처 실패는 무시 (Drive 백업만 안 됨)
+        }
       }
     }
 
@@ -653,6 +671,14 @@ export async function POST(request: NextRequest) {
       file_count: files.length,
       item_count: totalItems,
     })
+
+    // Google Drive 백업 트리거 (fire-and-forget)
+    if (petId && fileBuffersForDrive.size > 0) {
+      const testDate = primaryMetadata.test_date || ''
+      const hospitalName = primaryMetadata.hospital_name || null
+      triggerOcrSourceDriveBackup(user.id, petId, testDate, hospitalName, fileBuffersForDrive, batchId)
+        .catch(err => console.error('[GoogleDrive] OCR source backup failed:', err))
+    }
 
     return NextResponse.json({
       success: true,

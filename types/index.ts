@@ -312,6 +312,38 @@ export interface PetInput {
   is_default?: boolean
 }
 
+// ============================================
+// Google Drive 연동 타입
+// ============================================
+
+export interface GoogleDriveConnection {
+  id: string
+  user_id: string
+  google_email: string | null
+  access_token: string           // 암호화된 토큰
+  refresh_token: string          // 암호화된 토큰
+  token_expires_at: string | null
+  root_folder_id: string | null
+  is_active: boolean
+  last_sync_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface GoogleDriveSyncLog {
+  id: string
+  user_id: string
+  source_type: 'daily_log_photo' | 'ocr_source'
+  source_id: string | null
+  file_name: string
+  drive_file_id: string | null
+  drive_folder_path: string | null
+  status: 'pending' | 'uploading' | 'success' | 'failed'
+  error_message: string | null
+  retry_count: number
+  created_at: string
+}
+
 // 카테고리별 설정
 export const LOG_CATEGORY_CONFIG: Record<LogCategory, {
   label: string
