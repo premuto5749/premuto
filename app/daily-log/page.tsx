@@ -1,13 +1,20 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon, Share2, ImagePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { BreathingTimerModal } from '@/components/daily-log/BreathingTimerModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
 import { Timeline } from '@/components/daily-log/Timeline'
 import { AppHeader } from '@/components/layout/AppHeader'
+import { DailySummaryOverlay } from '@/components/daily-log/DailySummaryOverlay'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
 import type { DailyLog, DailyStats, LogCategory } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
@@ -37,6 +44,7 @@ export default function DailyLogPage() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [isSummaryOverlayOpen, setIsSummaryOverlayOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const { toast } = useToast()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
@@ -338,9 +346,23 @@ export default function DailyLogPage() {
           </Popover>
 
           <div className="flex items-center">
-            <Button variant="ghost" size="icon" onClick={exportLogsToText} title="기록 내보내기">
-              <Copy className="w-5 h-5" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" title="공유">
+                  <Share2 className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={exportLogsToText}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  텍스트 복사
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsSummaryOverlayOpen(true)}>
+                  <ImagePlus className="w-4 h-4 mr-2" />
+                  사진으로 공유
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="ghost"
               size="icon"
@@ -413,6 +435,15 @@ export default function DailyLogPage() {
         onSuccess={fetchData}
         defaultDate={selectedDate}
         petId={currentPet?.id}
+      />
+
+      {/* 사진 공유 오버레이 */}
+      <DailySummaryOverlay
+        open={isSummaryOverlayOpen}
+        onOpenChange={setIsSummaryOverlayOpen}
+        stats={stats}
+        date={selectedDate}
+        petName={currentPet?.name || ''}
       />
     </div>
   )
