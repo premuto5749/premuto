@@ -23,23 +23,43 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isRendering, setIsRendering] = useState(false)
   const [resultBlob, setResultBlob] = useState<Blob | null>(null)
+  const [logoImg, setLogoImg] = useState<HTMLImageElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
-  const logoImgRef = useRef<HTMLImageElement | null>(null)
   const { toast } = useToast()
   const { settings } = useSiteSettings()
 
-  // 로고 프리로드
+  // 로고 프리로드 (상태 기반으로 변경하여 로드 완료 시 재렌더 트리거)
   useEffect(() => {
     if (!open) return
-    const img = new Image()
-    img.onload = () => { logoImgRef.current = img }
-    img.src = settings.shareLogoUrl || '/email/logo.png'
+    let cancelled = false
+
+    const tryLoad = (src: string, isFallback = false) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        if (!cancelled) setLogoImg(img)
+      }
+      img.onerror = () => {
+        if (cancelled) return
+        if (!isFallback) {
+          // 설정된 URL 실패 시 기본 로고로 폴백
+          tryLoad('/email/logo.png', true)
+        } else {
+          console.error('Logo load failed (including fallback)')
+        }
+      }
+      img.src = src
+    }
+
+    tryLoad(settings.shareLogoUrl || '/email/logo.png')
+
+    return () => { cancelled = true }
   }, [open, settings.shareLogoUrl])
 
   // 사진 선택 시 렌더링
-  const renderPreview = useCallback(async (file: File, t: SummaryTheme) => {
-    if (!stats || !logoImgRef.current) return
+  const renderPreview = useCallback(async (file: File, t: SummaryTheme, logo: HTMLImageElement) => {
+    if (!stats) return
 
     setIsRendering(true)
     try {
@@ -49,7 +69,7 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
         date,
         stats,
         theme: t,
-        logoImg: logoImgRef.current,
+        logoImg: logo,
       })
 
       setResultBlob(blob)
@@ -72,12 +92,12 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stats, petName, date, toast]) // previewUrl 의존성 제거 - 추가 시 무한 렌더 루프
 
-  // 사진 변경 시 렌더링
+  // 사진 변경 또는 로고 로드 완료 시 렌더링
   useEffect(() => {
-    if (photo && open) {
-      renderPreview(photo, theme)
+    if (photo && open && logoImg) {
+      renderPreview(photo, theme, logoImg)
     }
-  }, [photo, theme, open, renderPreview])
+  }, [photo, theme, open, logoImg, renderPreview])
 
   // cleanup on close
   useEffect(() => {
@@ -89,6 +109,7 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
       setPreviewUrl(null)
       setResultBlob(null)
       setTheme('white')
+      setLogoImg(null)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]) // previewUrl 의존성 제거 - close 시에만 실행
@@ -226,7 +247,7 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
 
             {/* 미리보기 */}
             <div className="relative rounded-lg overflow-hidden bg-muted">
-              {isRendering && (
+              {(isRendering || !logoImg) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
                   <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                 </div>
