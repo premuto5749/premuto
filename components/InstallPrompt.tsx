@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Download, Share, Plus, X } from 'lucide-react'
+import { Download, Share, Plus } from 'lucide-react'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -33,7 +33,9 @@ function getIsStandalone(): boolean {
 
 function getIsDismissed(): boolean {
   try {
-    return localStorage.getItem(DISMISS_STORAGE_KEY) === 'true'
+    const dismissedUntil = localStorage.getItem(DISMISS_STORAGE_KEY)
+    if (!dismissedUntil) return false
+    return Date.now() < Number(dismissedUntil)
   } catch {
     return false
   }
@@ -103,9 +105,10 @@ export function InstallPrompt() {
     setOpen(false)
   }
 
-  const handleDismissForever = () => {
+  const handleDismissForWeek = () => {
     try {
-      localStorage.setItem(DISMISS_STORAGE_KEY, 'true')
+      const oneWeekFromNow = Date.now() + 7 * 24 * 60 * 60 * 1000
+      localStorage.setItem(DISMISS_STORAGE_KEY, String(oneWeekFromNow))
     } catch {
       // ignore storage errors
     }
@@ -161,33 +164,33 @@ export function InstallPrompt() {
           )}
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDismissForever}
-            className="text-muted-foreground"
-          >
-            <X className="h-4 w-4 mr-1" />
-            다시 보지 않기
-          </Button>
-          <div className="flex gap-2">
+        <DialogFooter className="flex-col gap-2">
+          {platform === 'chromium' && (
+            <Button
+              className="w-full"
+              onClick={handleInstall}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              설치하기
+            </Button>
+          )}
+          <div className="flex gap-2 w-full">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDismissForWeek}
+              className="flex-1 text-muted-foreground"
+            >
+              일주일간 보지 않기
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleClose}
+              className="flex-1"
             >
               닫기
             </Button>
-            {platform === 'chromium' && (
-              <Button
-                size="sm"
-                onClick={handleInstall}
-              >
-                <Download className="h-4 w-4 mr-1" />
-                설치하기
-              </Button>
-            )}
           </div>
         </DialogFooter>
       </DialogContent>
