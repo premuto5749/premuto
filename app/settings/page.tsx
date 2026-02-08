@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff, Crown, User, Flame, CalendarDays, FileText, TestTube2 } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff, Crown, User, Flame, CalendarDays, FileText, TestTube2, Scale } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
@@ -225,6 +226,9 @@ function PetProfileSection() {
     weight_kg: null,
     photo_url: null,
     is_default: false,
+    is_neutered: false,
+    activity_level: 'normal',
+    food_calorie_density: null,
   })
 
   const resetForm = () => {
@@ -236,6 +240,9 @@ function PetProfileSection() {
       weight_kg: null,
       photo_url: null,
       is_default: false,
+      is_neutered: false,
+      activity_level: 'normal',
+      food_calorie_density: null,
     })
     setEditingPet(null)
   }
@@ -250,6 +257,9 @@ function PetProfileSection() {
       weight_kg: pet.weight_kg,
       photo_url: pet.photo_url,
       is_default: pet.is_default,
+      is_neutered: pet.is_neutered ?? false,
+      activity_level: pet.activity_level || 'normal',
+      food_calorie_density: pet.food_calorie_density ?? null,
     })
     setIsDialogOpen(true)
   }
@@ -494,6 +504,52 @@ function PetProfileSection() {
                       onChange={(e) => setForm({ ...form, weight_kg: e.target.value ? parseFloat(e.target.value) : null })}
                       placeholder="예: 4.5"
                     />
+                  </div>
+                </div>
+
+                {/* 칼로리 관련 설정 */}
+                <div className="border-t pt-4 mt-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Scale className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">칼로리 설정</span>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="is_neutered"
+                        checked={form.is_neutered ?? false}
+                        onCheckedChange={(checked) => setForm({ ...form, is_neutered: checked === true })}
+                      />
+                      <Label htmlFor="is_neutered" className="text-sm font-normal">중성화 완료</Label>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="activity_level">활동량</Label>
+                      <Select
+                        value={form.activity_level || 'normal'}
+                        onValueChange={(value) => setForm({ ...form, activity_level: value as 'low' | 'normal' | 'high' })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="활동량 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">낮음</SelectItem>
+                          <SelectItem value="normal">보통</SelectItem>
+                          <SelectItem value="high">높음</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="food_calorie_density">사료 칼로리 (kcal/g)</Label>
+                      <Input
+                        id="food_calorie_density"
+                        type="number"
+                        step="0.01"
+                        value={form.food_calorie_density?.toString() || ''}
+                        onChange={(e) => setForm({ ...form, food_calorie_density: e.target.value ? parseFloat(e.target.value) : null })}
+                        placeholder="예: 3.8"
+                      />
+                      <p className="text-xs text-muted-foreground">사료 포장지에서 확인하세요</p>
+                    </div>
                   </div>
                 </div>
               </div>

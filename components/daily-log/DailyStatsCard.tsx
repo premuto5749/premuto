@@ -5,14 +5,22 @@ import type { DailyStats, LogCategory } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { formatNumber } from '@/lib/utils'
 
+interface CalorieData {
+  intake: number
+  target: number
+  percentage: number
+}
+
 interface DailyStatsCardProps {
   stats: DailyStats | null
   date: string
   selectedCategory?: LogCategory | null
   onCategoryClick?: (category: LogCategory) => void
+  currentWeight?: number | null
+  calorieData?: CalorieData | null
 }
 
-export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick }: DailyStatsCardProps) {
+export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick, currentWeight, calorieData }: DailyStatsCardProps) {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
     const today = new Date()
@@ -95,9 +103,14 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">{formatDate(date)} 요약</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">{formatDate(date)} 요약</CardTitle>
+          {currentWeight && (
+            <span className="text-sm text-muted-foreground">⚖️ {currentWeight}kg</span>
+          )}
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         <div className="grid grid-cols-3 gap-3">
           {statItems.map((item) => {
             const isSelected = selectedCategory === item.category
@@ -131,6 +144,26 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick 
             )
           })}
         </div>
+        {/* 칼로리 프로그레스 바 */}
+        {calorieData && (
+          <div className="p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center justify-between text-sm mb-1.5">
+              <span className="text-muted-foreground">칼로리</span>
+              <span className={`font-medium ${calorieData.percentage > 100 ? 'text-red-600' : ''}`}>
+                {formatNumber(calorieData.intake)} / {formatNumber(calorieData.target)} kcal
+                {calorieData.percentage > 100 && ' (초과)'}
+              </span>
+            </div>
+            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  calorieData.percentage > 100 ? 'bg-red-500' : 'bg-emerald-500'
+                }`}
+                style={{ width: `${Math.min(calorieData.percentage, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

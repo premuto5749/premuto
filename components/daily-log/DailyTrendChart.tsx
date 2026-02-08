@@ -20,6 +20,7 @@ const CATEGORY_COLORS: Record<LogCategory, string> = {
   poop: '#d97706',     // amber
   pee: '#eab308',      // yellow
   breathing: '#14b8a6', // teal
+  weight: '#10b981',    // emerald
 }
 
 function getCategoryValue(stats: DailyStats, category: LogCategory): number | null {
@@ -36,6 +37,8 @@ function getCategoryValue(stats: DailyStats, category: LogCategory): number | nu
       return stats.pee_count > 0 ? stats.pee_count : null
     case 'breathing':
       return stats.breathing_count > 0 && stats.avg_breathing_rate ? Math.round(stats.avg_breathing_rate) : null
+    case 'weight':
+      return null // 체중은 daily_stats에서 집계하지 않음
   }
 }
 
@@ -47,6 +50,7 @@ function getCategoryUnit(category: LogCategory): string {
     case 'poop': return '회'
     case 'pee': return '회'
     case 'breathing': return '회/분'
+    case 'weight': return 'kg'
   }
 }
 
