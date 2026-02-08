@@ -1257,14 +1257,14 @@ function DataManagementSection() {
         </CardContent>
       </Card>
 
-      {/* 데이터 내보내기 */}
+      {/* 혈액검사기록 내보내기 */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Download className="w-5 h-5" />
-            데이터 내보내기
+            혈액검사기록 내보내기
           </CardTitle>
-          <CardDescription>기록된 데이터를 파일로 내보냅니다</CardDescription>
+          <CardDescription>혈액검사 기록을 Excel 파일로 내보냅니다</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <Button
