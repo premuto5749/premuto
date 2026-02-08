@@ -16,7 +16,11 @@ const ASSET_CONFIG: Record<string, { folder: string; maxSize: number }> = {
   headerLogo: { folder: 'header-logo', maxSize: 2 * 1024 * 1024 }, // 2MB (헤더 메뉴용 가로형)
   loginBgImage: { folder: 'login-bg', maxSize: 5 * 1024 * 1024 }, // 5MB (로그인 배경 이미지)
   ogImage: { folder: 'og', maxSize: 5 * 1024 * 1024 }, // 5MB
+  popupImage: { folder: 'popup-images', maxSize: 2 * 1024 * 1024 }, // 2MB (공지 팝업 본문 이미지)
 }
+
+// 여러 이미지가 공존하는 에셋 타입 (기존 파일 삭제 안 함)
+const MULTI_FILE_TYPES = new Set(['popupImage'])
 
 export async function POST(request: NextRequest) {
   try {
@@ -82,19 +86,21 @@ export async function POST(request: NextRequest) {
 
     console.log('Uploading site asset:', { assetType, fileName, size: file.size, type: file.type })
 
-    // 기존 파일 삭제 (같은 폴더의 이전 파일들)
-    const { data: existingFiles } = await supabase.storage
-      .from(BUCKET_NAME)
-      .list(config.folder)
+    // 기존 파일 삭제 (같은 폴더의 이전 파일들) - 여러 이미지가 공존하는 타입은 건너뜀
+    if (!MULTI_FILE_TYPES.has(assetType)) {
+      const { data: existingFiles } = await supabase.storage
+        .from(BUCKET_NAME)
+        .list(config.folder)
 
-    if (existingFiles && existingFiles.length > 0) {
-      const filesToDelete = existingFiles
-        .filter(f => f.name.startsWith(assetType))
-        .map(f => `${config.folder}/${f.name}`)
+      if (existingFiles && existingFiles.length > 0) {
+        const filesToDelete = existingFiles
+          .filter(f => f.name.startsWith(assetType))
+          .map(f => `${config.folder}/${f.name}`)
 
-      if (filesToDelete.length > 0) {
-        await supabase.storage.from(BUCKET_NAME).remove(filesToDelete)
-        console.log('Deleted old files:', filesToDelete)
+        if (filesToDelete.length > 0) {
+          await supabase.storage.from(BUCKET_NAME).remove(filesToDelete)
+          console.log('Deleted old files:', filesToDelete)
+        }
       }
     }
 

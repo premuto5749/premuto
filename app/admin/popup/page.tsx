@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AppHeader } from '@/components/layout/AppHeader'
+import { RichTextEditor } from '@/components/editors/RichTextEditor'
 import { Loader2, ShieldCheck, Save, Plus, Trash2, Pencil, ArrowLeft, ChevronDown, ChevronUp, Eye } from 'lucide-react'
 
 interface PopupAnnouncement {
@@ -395,18 +396,12 @@ export default function PopupManagementPage() {
 
               {/* 본문 */}
               <div className="space-y-2">
-                <Label htmlFor="content">본문 (HTML)</Label>
-                <textarea
-                  id="content"
-                  value={form.content}
-                  onChange={e => setForm(prev => ({ ...prev, content: e.target.value }))}
+                <Label>본문</Label>
+                <RichTextEditor
+                  content={form.content}
+                  onChange={(html) => setForm(prev => ({ ...prev, content: html }))}
                   placeholder="공지 내용을 입력하세요"
-                  rows={8}
-                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
-                <p className="text-xs text-muted-foreground">
-                  HTML 태그 사용 가능: &lt;b&gt;, &lt;br&gt;, &lt;ul&gt;, &lt;li&gt;, &lt;a&gt;, &lt;p&gt; 등
-                </p>
               </div>
 
               {/* 미리보기 토글 */}
