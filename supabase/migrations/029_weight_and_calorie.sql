@@ -26,10 +26,6 @@ DROP TRIGGER IF EXISTS trigger_update_pet_weight ON daily_logs;
 CREATE TRIGGER trigger_update_pet_weight
   AFTER INSERT ON daily_logs
   FOR EACH ROW
-  WHEN (NEW.category = 'weight')
   EXECUTE FUNCTION update_pet_weight_on_log();
 
--- 4. 체중 조회 성능 인덱스
-CREATE INDEX IF NOT EXISTS idx_daily_logs_weight_lookup
-  ON daily_logs(user_id, pet_id, logged_at DESC)
-  WHERE category = 'weight' AND deleted_at IS NULL;
+-- 4. 체중 조회 성능 인덱스는 030에서 생성 (같은 트랜잭션에서 새 enum 값 참조 불가)
