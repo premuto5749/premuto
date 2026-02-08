@@ -341,6 +341,10 @@ npm run lint         # ESLint
 npx supabase db push # DB 마이그레이션
 ```
 
+### 로컬 도구 경로
+
+- **gh CLI**: `"C:/Program Files/GitHub CLI/gh.exe"` (PATH에 없으므로 전체 경로 사용)
+
 ## 9. 보안 정책
 
 > 📘 **패턴 참조**: [multi-user-rls-isolation.md](.claude/skills/multi-user-rls-isolation.md)
