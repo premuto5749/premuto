@@ -380,6 +380,7 @@ npx supabase db push # DB 마이그레이션
 8. main 복귀          git checkout main && git pull
 ```
 
+- **작업 시작 시 무조건 새 브랜치를 먼저 생성**할 것. 코드 수정 전에 브랜치부터 만든다.
 - **항상 main에서 새 브랜치를 생성**할 것. 다른 브랜치에서 분기하지 않는다.
 - **어떤 작업이든 반드시 PR을 생성**할 것. main에 직접 커밋/푸시하지 않는다. (docs, fix, feat 모두 포함)
 - 머지 시 `--squash`로 커밋을 정리하고 `--delete-branch`로 원격 브랜치를 삭제한다.
