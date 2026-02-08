@@ -1501,8 +1501,12 @@ function AccountInfoSection() {
               <span className="font-medium">{formatUsage(tierData.usage.ocr_analysis.used, tierData.usage.ocr_analysis.limit)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">사진 업로드</span>
-              <span className="font-medium">{formatUsage(tierData.usage.daily_log_photo.used, tierData.usage.daily_log_photo.limit)}</span>
+              <span className="text-muted-foreground">사진 첨부</span>
+              <span className="font-medium">
+                {tierData.usage.daily_log_photo.limit === -1
+                  ? '무제한'
+                  : `1회 최대 ${tierData.usage.daily_log_photo.limit}장`}
+              </span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">AI 설명 생성</span>
