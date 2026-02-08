@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import {
   Dialog,
   DialogContent,
@@ -80,6 +81,11 @@ export function AnnouncementPopup() {
 
     const fetchAnnouncements = async () => {
       try {
+        // 로그인 사용자에게만 공지사항 표시
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+
         const res = await fetch('/api/popup-settings')
         const data = await res.json()
         if (data.success && data.data.length > 0) {
@@ -146,7 +152,7 @@ export function AnnouncementPopup() {
           <DialogDescription className="sr-only">공지사항</DialogDescription>
         </DialogHeader>
         <div
-          className="prose prose-sm max-w-none py-2"
+          className="prose prose-sm max-w-none py-2 max-h-[60vh] overflow-y-auto"
           dangerouslySetInnerHTML={{ __html: currentAnnouncement.content }}
         />
         <DialogFooter className="flex-col sm:flex-row gap-2">
