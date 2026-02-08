@@ -14,6 +14,7 @@ import {
   ExportTestResult,
   ExportOptions
 } from '@/lib/export/excel-exporter'
+import { checkMonthlyUsageLimit, logUsage } from '@/lib/tier'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,25 @@ export async function POST(request: NextRequest) {
     const { record_ids, date_from, date_to, categories, options } = body
 
     const supabase = await createClient()
+
+    // 사용자 인증 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ success: false, error: '로그인이 필요합니다' }, { status: 401 })
+    }
+
+    // 월간 내보내기 제한 체크
+    const usageCheck = await checkMonthlyUsageLimit(user.id, 'detailed_export')
+    if (!usageCheck.allowed) {
+      return NextResponse.json({
+        success: false,
+        error: 'TIER_LIMIT_EXCEEDED',
+        message: '이번 달 내보내기 횟수를 모두 사용했습니다.',
+        tier: usageCheck.tier,
+        used: usageCheck.used,
+        limit: usageCheck.limit,
+      }, { status: 403 })
+    }
 
     // 쿼리 빌더 시작
     let query = supabase
@@ -140,6 +160,12 @@ export async function POST(request: NextRequest) {
     const workbook = createExcelWorkbook(results, options)
     const buffer = workbookToBuffer(workbook)
     const filename = generateFilename(results)
+
+    // 사용량 기록
+    await logUsage(user.id, 'detailed_export', 1, {
+      type: 'test-results-excel',
+      record_count: results.length,
+    })
 
     // 응답 헤더 설정
     const headers = new Headers()

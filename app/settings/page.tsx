@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff, Crown, User } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Pill, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff, Crown, User, Flame, CalendarDays, FileText, TestTube2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
@@ -1041,6 +1041,7 @@ function DataManagementSection() {
   const [exporting, setExporting] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const { toast } = useToast()
 
   // 사용자 커스텀 데이터 초기화 관련 상태
   const [userCustomStats, setUserCustomStats] = useState<UserCustomDataStats | null>(null)
@@ -1087,49 +1088,45 @@ function DataManagementSection() {
     }
   }
 
-  const handleExport = async (type: 'daily-log' | 'test-results') => {
-    setExporting(type)
+  const handleExport = async () => {
+    setExporting('test-results')
     try {
-      if (type === 'test-results') {
-        // 검사결과 Excel 내보내기
-        const response = await fetch('/api/export-excel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            options: { format: 'pivot', includeReference: true, includeStatus: true }
-          })
+      const response = await fetch('/api/export-excel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          options: { format: 'pivot', includeReference: true, includeStatus: true }
         })
+      })
 
-        if (!response.ok) throw new Error('Export failed')
-
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `mimo-test-results-${new Date().toISOString().split('T')[0]}.xlsx`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
-      } else {
-        // Daily log 내보내기
-        const response = await fetch('/api/daily-logs?all=true')
+      if (response.status === 403) {
         const data = await response.json()
-
-        if (!data.success) throw new Error('Export failed')
-
-        const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `mimo-daily-logs-${new Date().toISOString().split('T')[0]}.json`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
+        if (data.error === 'TIER_LIMIT_EXCEEDED') {
+          toast({
+            title: '내보내기 제한',
+            description: '이번 달 내보내기 횟수를 모두 사용했습니다.',
+            variant: 'destructive',
+          })
+          return
+        }
       }
+
+      if (!response.ok) throw new Error('Export failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `mimo-test-results-${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({ title: '내보내기 완료', description: '검사 결과가 다운로드되었습니다.' })
     } catch (error) {
       console.error('Export failed:', error)
+      toast({ title: '내보내기 실패', description: '다시 시도해주세요.', variant: 'destructive' })
     } finally {
       setExporting(null)
     }
@@ -1273,20 +1270,7 @@ function DataManagementSection() {
           <Button
             variant="outline"
             className="w-full justify-start"
-            onClick={() => handleExport('daily-log')}
-            disabled={exporting !== null}
-          >
-            {exporting === 'daily-log' ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4 mr-2" />
-            )}
-            일일 기록 내보내기 (JSON)
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full justify-start"
-            onClick={() => handleExport('test-results')}
+            onClick={handleExport}
             disabled={exporting !== null}
           >
             {exporting === 'test-results' ? (
@@ -1357,6 +1341,14 @@ function AccountInfoSection() {
       description_generation: { used: number; limit: number; remaining: number }
     }
   } | null>(null)
+  const [stats, setStats] = useState<{
+    createdAt: string
+    petCount: number
+    totalDailyLogs: number
+    totalTestRecords: number
+    streak: number
+    lastRecordDate: string | null
+  } | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -1368,11 +1360,14 @@ function AccountInfoSection() {
           setUserEmail(user.email || null)
         }
 
-        const res = await fetch('/api/tier')
-        const data = await res.json()
-        if (data.success) {
-          setTierData(data.data)
-        }
+        const [tierRes, statsRes] = await Promise.all([
+          fetch('/api/tier'),
+          fetch('/api/account-stats'),
+        ])
+        const [tierJson, statsJson] = await Promise.all([tierRes.json(), statsRes.json()])
+
+        if (tierJson.success) setTierData(tierJson.data)
+        if (statsJson.success) setStats(statsJson.data)
       } catch (error) {
         console.error('Failed to load account info:', error)
       } finally {
@@ -1389,7 +1384,8 @@ function AccountInfoSection() {
     })
   }
 
-  const formatUsage = (used: number, limit: number) => {
+  const formatUsage = (used: number, limit: number | undefined) => {
+    if (limit === undefined || limit === null) return '-'
     if (limit === 0) return '잠금'
     if (limit === -1) return '무제한'
     return `${used} / ${limit}`
@@ -1404,6 +1400,11 @@ function AccountInfoSection() {
       default:
         return 'bg-gray-100 text-gray-700 border-gray-200'
     }
+  }
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr)
+    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
   }
 
   if (loading) {
@@ -1426,6 +1427,7 @@ function AccountInfoSection() {
         <CardDescription>계정 및 구독 정보를 확인하세요</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* 기본 정보 */}
         <div className="p-4 bg-muted rounded-lg space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">이메일</span>
@@ -1437,8 +1439,60 @@ function AccountInfoSection() {
               {tierData?.config?.label || '무료'}
             </Badge>
           </div>
+          {stats && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">가입일</span>
+              <span className="font-medium">{formatDate(stats.createdAt)}</span>
+            </div>
+          )}
         </div>
 
+        {/* 활동 통계 */}
+        {stats && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 border rounded-lg text-center">
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <PawPrint className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">반려동물</span>
+              </div>
+              <p className="text-lg font-semibold">{stats.petCount}</p>
+            </div>
+            <div className="p-3 border rounded-lg text-center">
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <Flame className={`w-4 h-4 ${stats.streak > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} />
+                <span className="text-xs text-muted-foreground">연속 기록</span>
+              </div>
+              <p className="text-lg font-semibold">{stats.streak}<span className="text-sm font-normal text-muted-foreground">일</span></p>
+            </div>
+            <div className="p-3 border rounded-lg text-center">
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <FileText className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">일일 기록</span>
+              </div>
+              <p className="text-lg font-semibold">{stats.totalDailyLogs.toLocaleString()}<span className="text-sm font-normal text-muted-foreground">건</span></p>
+            </div>
+            <div className="p-3 border rounded-lg text-center">
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <TestTube2 className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">혈액검사</span>
+              </div>
+              <p className="text-lg font-semibold">{stats.totalTestRecords}<span className="text-sm font-normal text-muted-foreground">건</span></p>
+            </div>
+          </div>
+        )}
+
+        {/* 마지막 기록 */}
+        {stats?.lastRecordDate && (
+          <div className="flex items-center justify-between text-sm px-1">
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <CalendarDays className="w-3.5 h-3.5" />
+              마지막 기록
+            </span>
+            <span className="font-medium">{formatDate(stats.lastRecordDate)}</span>
+          </div>
+        )}
+
+        {/* 오늘 사용량 */}
         {tierData && (
           <div className="p-4 border rounded-lg space-y-2">
             <p className="text-sm font-medium mb-2">오늘 사용량</p>
