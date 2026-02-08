@@ -39,6 +39,15 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // Supabase가 /auth/callback 대신 루트(/)로 code를 보내는 경우 처리
+  // (Supabase 대시보드 Redirect URLs 설정과 무관하게 안전하게 처리)
+  const code = request.nextUrl.searchParams.get('code')
+  if (code && request.nextUrl.pathname === '/') {
+    const callbackUrl = new URL('/auth/callback', request.url)
+    callbackUrl.searchParams.set('code', code)
+    return NextResponse.redirect(callbackUrl)
+  }
+
   const {
     data: { session },
   } = await supabase.auth.getSession()
