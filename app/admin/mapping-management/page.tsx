@@ -4,38 +4,11 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Loader2, Save, AlertTriangle, Sparkles, AlertCircle, Trash2, ShieldCheck, ArrowRight, RefreshCw } from 'lucide-react'
-import type { StandardItem } from '@/types'
-
-interface MappingData {
-  standard_item: StandardItem
-  is_unmapped: boolean // Unmapped 카테고리 여부
-  mapping_count: number // 이 항목으로 매핑된 raw_name 개수
-  result_count: number // 실제 검사 결과 개수
-}
+import { Loader2, Trash2, ShieldCheck, ArrowRight, RefreshCw } from 'lucide-react'
 
 interface UnmappedItem {
   id: string
@@ -68,17 +41,13 @@ interface AnalysisSummary {
 
 function MappingManagementContent() {
   const router = useRouter()
-  const [items, setItems] = useState<MappingData[]>([])
-  const [allStandardItems, setAllStandardItems] = useState<StandardItem[]>([])
   const [loading, setLoading] = useState(true)
   const [authorized, setAuthorized] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [aiCleaning, setAiCleaning] = useState(false)
-  const [filter, setFilter] = useState<'all' | 'unmapped'>('unmapped')
-  const [selectedRemappings, setSelectedRemappings] = useState<Record<string, string>>({})
-  const [rateLimitError, setRateLimitError] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // 통계용 카운트
+  const [totalItemCount, setTotalItemCount] = useState(0)
+  const [unmappedCount, setUnmappedCount] = useState(0)
 
   // AI 분석 관련 상태
   const [analysisMode, setAnalysisMode] = useState(false)
@@ -122,149 +91,14 @@ function MappingManagementContent() {
       // 모든 standard_items 가져오기
       const standardItemsResponse = await fetch('/api/standard-items')
       const standardItemsData = await standardItemsResponse.json()
-      const standardItems: StandardItem[] = standardItemsData.data || []
-      setAllStandardItems(standardItems)
+      const standardItems = standardItemsData.data || []
 
-      // item_mappings 통계 가져오기 (test_results 참조 개수 포함)
-      const mappingsResponse = await fetch('/api/item-mappings/stats')
-      const mappingsData = await mappingsResponse.json()
-      const mappingStats: Record<string, number> = mappingsData.data || {}
-      const resultStats: Record<string, number> = mappingsData.resultStats || {}
-
-      // 모든 항목 조합 (병합 가능하도록)
-      const mappingDataList: MappingData[] = standardItems.map(item => ({
-        standard_item: item,
-        is_unmapped: item.category === 'Unmapped',
-        mapping_count: mappingStats[item.id] || 0,
-        result_count: resultStats[item.id] || 0
-      }))
-
-      setItems(mappingDataList)
+      setTotalItemCount(standardItems.length)
+      setUnmappedCount(standardItems.filter((item: { category?: string }) => item.category === 'Unmapped').length)
     } catch (error) {
       console.error('Failed to fetch mapping data:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleRemapItem = (itemId: string, newStandardItemId: string) => {
-    setSelectedRemappings(prev => ({
-      ...prev,
-      [itemId]: newStandardItemId
-    }))
-  }
-
-  const handleSaveRemappings = async () => {
-    setSaving(true)
-
-    try {
-      const remappingPromises = Object.entries(selectedRemappings).map(async ([oldId, newId]) => {
-        const response = await fetch('/api/item-mappings/remap', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            old_standard_item_id: oldId,
-            new_standard_item_id: newId
-          })
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to remap item ${oldId}`)
-        }
-
-        return response.json()
-      })
-
-      await Promise.all(remappingPromises)
-
-      alert('매핑이 성공적으로 업데이트되었습니다.')
-      setSelectedRemappings({})
-      fetchData() // 새로고침
-
-    } catch (error) {
-      console.error('Save remappings error:', error)
-      alert(error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDeleteItem = async (itemId: string, itemName: string) => {
-    setDeletingId(itemId)
-    try {
-      const response = await fetch(`/api/admin/standard-items/${itemId}`, {
-        method: 'DELETE'
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          alert(`"${itemName}" 항목에 ${result.resultCount}개의 검사 결과가 연결되어 있어 삭제할 수 없습니다.\n먼저 다른 항목으로 병합해주세요.`)
-        } else {
-          throw new Error(result.error || '삭제에 실패했습니다.')
-        }
-        return
-      }
-
-      fetchData()
-    } catch (error) {
-      console.error('Delete error:', error)
-      alert(error instanceof Error ? error.message : '삭제 중 오류가 발생했습니다.')
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
-  const filteredItems = items.filter(item => {
-    if (filter === 'unmapped') {
-      return item.is_unmapped
-    }
-    return true
-  })
-
-  const unmappedCount = items.filter(i => i.is_unmapped).length
-  const remappingCount = Object.keys(selectedRemappings).length
-
-  const handleAiCleanup = async () => {
-    if (unmappedCount === 0) {
-      alert('정리할 Unmapped 항목이 없습니다.')
-      return
-    }
-
-    if (!confirm(`AI가 ${unmappedCount}개의 Unmapped 항목을 자동으로 정리합니다. 계속하시겠습니까?`)) {
-      return
-    }
-
-    setAiCleaning(true)
-    try {
-      const response = await fetch('/api/item-mappings/ai-cleanup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        // AI 사용량 제한 에러 처리
-        if (response.status === 429 || result.error === 'AI_RATE_LIMIT') {
-          setRateLimitError(true)
-          return
-        }
-        throw new Error(result.error || 'AI 정리 중 오류가 발생했습니다.')
-      }
-
-      const remainingMsg = result.data.remaining_count > 0
-        ? `\n- 남은 항목: ${result.data.remaining_count}개 (다시 실행해주세요)`
-        : ''
-      alert(`AI 정리 완료!\n- 매핑된 항목: ${result.data.mapped_count}개\n- 실패한 항목: ${result.data.failed_count}개${remainingMsg}`)
-      setSelectedRemappings({})
-      fetchData() // 새로고침
-    } catch (error) {
-      console.error('AI cleanup error:', error)
-      alert(error instanceof Error ? error.message : 'AI 정리 중 오류가 발생했습니다.')
-    } finally {
-      setAiCleaning(false)
     }
   }
 
@@ -428,23 +262,17 @@ function MappingManagementContent() {
         </div>
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm font-medium text-muted-foreground">전체 표준 항목</div>
-            <div className="text-2xl font-bold">{items.length}개</div>
+            <div className="text-2xl font-bold">{totalItemCount}개</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm font-medium text-muted-foreground">Unmapped 항목</div>
             <div className="text-2xl font-bold text-orange-600">{unmappedCount}개</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm font-medium text-muted-foreground">재매핑 대기</div>
-            <div className="text-2xl font-bold text-blue-600">{remappingCount}개</div>
           </CardContent>
         </Card>
       </div>
@@ -612,234 +440,8 @@ function MappingManagementContent() {
         </Card>
       )}
 
-      {/* 필터 및 AI 정리 */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium">필터:</span>
-          <div className="flex gap-2">
-            <Button
-              variant={filter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilter('all')}
-            >
-              전체
-            </Button>
-            <Button
-              variant={filter === 'unmapped' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setFilter('unmapped')}
-            >
-              Unmapped만
-            </Button>
-          </div>
-        </div>
-
-        {/* AI 정리 버튼 */}
-        <Button
-          onClick={handleAiCleanup}
-          disabled={aiCleaning || unmappedCount === 0}
-          variant="outline"
-          className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-400 disabled:to-gray-500"
-        >
-          {aiCleaning ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              AI 정리 중...
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4 mr-2" />
-              AI로 정리하기 ({unmappedCount})
-            </>
-          )}
-        </Button>
       </div>
 
-      {/* 매핑 테이블 */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>미분류 항목 목록 ({filteredItems.length}개)</CardTitle>
-          <CardDescription>
-            OCR에서 자동 생성된 미분류 항목을 표준 항목과 병합합니다. AI 정리 버튼으로 자동 매핑할 수 있습니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">항목명</TableHead>
-                  <TableHead className="w-[150px]">한글명</TableHead>
-                  <TableHead className="w-[100px]">카테고리</TableHead>
-                  <TableHead className="w-[80px]">단위</TableHead>
-                  <TableHead className="w-[80px]">매핑</TableHead>
-                  <TableHead className="w-[80px]">검사결과</TableHead>
-                  <TableHead className="w-[250px]">병합할 항목 선택</TableHead>
-                  <TableHead className="w-[60px]">삭제</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.map((item) => {
-                  const isUnmapped = item.is_unmapped
-                  const hasRemapping = selectedRemappings[item.standard_item.id]
-
-                  return (
-                    <TableRow key={item.standard_item.id} className={isUnmapped ? 'bg-orange-50' : ''}>
-                      <TableCell className="font-medium">
-                        {item.standard_item.name}
-                        {isUnmapped && <AlertTriangle className="inline w-4 h-4 ml-2 text-orange-500" />}
-                      </TableCell>
-                      <TableCell>{item.standard_item.display_name_ko}</TableCell>
-                      <TableCell>
-                        <Badge variant={isUnmapped ? 'destructive' : 'outline'}>
-                          {item.standard_item.category || 'N/A'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {item.standard_item.default_unit || '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{item.mapping_count}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={item.result_count > 0 ? "default" : "outline"}>
-                          {item.result_count}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={hasRemapping || ''}
-                          onValueChange={(value) => handleRemapItem(item.standard_item.id, value)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="다른 항목과 병합" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allStandardItems
-                              .filter(si => si.id !== item.standard_item.id && si.category !== 'Unmapped')
-                              .map(stdItem => (
-                                <SelectItem key={stdItem.id} value={stdItem.id}>
-                                  {stdItem.name} ({stdItem.display_name_ko}) - {stdItem.category}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        {isUnmapped && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                disabled={deletingId === item.standard_item.id}
-                                className="text-destructive hover:text-destructive"
-                              >
-                                {deletingId === item.standard_item.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="w-4 h-4" />
-                                )}
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>항목 삭제</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  &quot;{item.standard_item.name}&quot; 항목을 삭제하시겠습니까?
-                                  {item.result_count > 0 && (
-                                    <span className="block mt-2 text-orange-600 font-medium">
-                                      ⚠️ 이 항목에 {item.result_count}개의 검사 결과가 연결되어 있습니다.
-                                      먼저 다른 항목으로 병합해주세요.
-                                    </span>
-                                  )}
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>취소</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteItem(item.standard_item.id, item.standard_item.name)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  삭제
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 저장 버튼 */}
-      {remappingCount > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>재매핑 저장</CardTitle>
-            <CardDescription>
-              {remappingCount}개 항목의 매핑을 업데이트합니다
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={handleSaveRemappings}
-              disabled={saving}
-              className="w-full"
-              size="lg"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  저장 중...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  재매핑 저장 ({remappingCount}개)
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="mt-8 p-4 bg-muted rounded-lg">
-        <h3 className="font-medium mb-2">💡 미분류 항목 정리 안내</h3>
-        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-          <li>미분류(Unmapped) 항목은 OCR에서 표준 항목과 매칭되지 않은 경우 자동 생성됩니다</li>
-          <li>&quot;AI로 정리하기&quot; 버튼을 클릭하면 AI가 자동으로 적절한 표준 항목을 찾아 매핑합니다</li>
-          <li>수동으로 병합할 항목을 선택한 후 &quot;재매핑 저장&quot; 버튼을 클릭하세요</li>
-          <li>병합 시 해당 항목의 모든 검사 결과가 선택한 표준 항목으로 이동됩니다</li>
-          <li>표준 항목 및 별칭 관리는 &quot;표준항목 관리&quot; 페이지에서 할 수 있습니다</li>
-        </ul>
-      </div>
-      </div>
-
-      {/* AI 사용량 제한 에러 모달 */}
-      <Dialog open={rateLimitError} onOpenChange={setRateLimitError}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-orange-500" />
-              AI 사용량 제한
-            </DialogTitle>
-            <DialogDescription className="pt-2">
-              AI 사용량 제한에 도달하였습니다. 잠시 후 다시 시도해주세요.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="pt-4">
-            <Button className="w-full" onClick={() => setRateLimitError(false)}>
-              확인
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

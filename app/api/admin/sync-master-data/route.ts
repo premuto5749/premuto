@@ -38,8 +38,8 @@ interface SyncResult {
  * - migrateOldMappings: boolean - 기존 item_mappings를 item_aliases로 이전
  *
  * 작업:
- * 1. 106개 test_items → standard_items 삽입/업데이트
- * 2. 60개 aliases → item_aliases 삽입
+ * 1. 120개 test_items → standard_items 삽입/업데이트 (description 포함)
+ * 2. 89개 aliases → item_aliases 삽입
  * 3. 기존 item_mappings → item_aliases 이전 (선택적)
  */
 export async function POST(request: NextRequest) {
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   try {
 
     // ============================================
-    // 1. standard_items 동기화 (122개 항목)
+    // 1. standard_items 동기화 (120개 항목, description 포함)
     // ============================================
     const testItems = masterData.test_items;
     result.items.total = testItems.length;
@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
                 default_unit: item.unit,
                 exam_type: item.exam_type,
                 organ_tags: item.organ_tags,
+                description_common: item.description_common || null,
+                description_high: item.description_high || null,
+                description_low: item.description_low || null,
               })
               .eq('id', existingId);
 
@@ -125,6 +128,9 @@ export async function POST(request: NextRequest) {
               category: item.exam_type, // 하위 호환성
               exam_type: item.exam_type,
               organ_tags: item.organ_tags,
+              description_common: item.description_common || null,
+              description_high: item.description_high || null,
+              description_low: item.description_low || null,
             });
 
           if (error) {
@@ -141,7 +147,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 2. item_aliases 동기화 (60개 별칭)
+    // 2. item_aliases 동기화 (89개 별칭)
     // ============================================
     const aliases = masterData.aliases;
     result.aliases.total = aliases.length;
