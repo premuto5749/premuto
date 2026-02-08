@@ -58,7 +58,9 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr)
-    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    const [period, clock] = time.split(' ')
+    return { period, clock }
   }
 
   const formatDateTime = (dateStr: string) => {
@@ -308,8 +310,9 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
               <CardContent className="p-0">
                 <div className="flex items-center">
                   {/* 시간 */}
-                  <div className="w-16 py-3 text-center text-sm text-muted-foreground border-r">
-                    {formatTime(log.logged_at)}
+                  <div className="w-16 py-3 text-center text-muted-foreground border-r">
+                    <div className="text-[11px] leading-tight">{formatTime(log.logged_at).period}</div>
+                    <div className="text-sm leading-tight">{formatTime(log.logged_at).clock}</div>
                   </div>
 
                   {/* 아이콘 */}
