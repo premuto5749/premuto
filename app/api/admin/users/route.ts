@@ -125,7 +125,6 @@ export async function GET() {
     const users = userIds.map(userId => {
       const authUser = authUserMap.get(userId)
       const profile = profileMap.get(userId)
-      const usage = usageMap.get(userId)
       // 관리자 역할 판정: env 기반 > DB 기반
       const dbRole = roleMap.get(userId)
       const envAdmin = isAdminByEnv(userId)
