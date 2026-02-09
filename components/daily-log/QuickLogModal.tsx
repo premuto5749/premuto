@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -66,11 +66,28 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const [weightInput, setWeightInput] = useState('')
   const [isWeightSubmitting, setIsWeightSubmitting] = useState(false)
 
+  // 카테고리 페이지 스와이프 상태
+  const [categoryPage, setCategoryPage] = useState(0) // 0: 6개 카테고리, 1: 체중
+  const touchStartX = useRef<number>(0)
+
+  const handleCategoryTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }, [])
+
+  const handleCategoryTouchEnd = useCallback((e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && categoryPage === 0) setCategoryPage(1)
+      else if (diff < 0 && categoryPage === 1) setCategoryPage(0)
+    }
+  }, [categoryPage])
+
   // 모달이 열릴 때마다 현재 시간으로 초기화 (defaultDate가 있으면 해당 날짜 사용)
   useEffect(() => {
     if (open) {
       setLogTime(getCurrentTime())
       setLogDate(defaultDate || getCurrentDate())
+      setCategoryPage(0)
       setWeightInput(currentWeight?.toString() || '')
     }
   }, [open, defaultDate, currentWeight])
@@ -102,7 +119,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     fetchPresets()
   }, [petId])
 
-  const categories: LogCategory[] = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing', 'weight']
+  const categories: LogCategory[] = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing']
 
   const resetForm = () => {
     setSelectedCategory(null)
@@ -389,22 +406,63 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         </DialogHeader>
 
         {!selectedCategory ? (
-          // 카테고리 선택 화면
-          <div className="grid grid-cols-3 gap-3 py-4">
-            {categories.map((cat) => {
-              const config = LOG_CATEGORY_CONFIG[cat]
-              return (
-                <button
-                  key={cat}
-                  onClick={() => handleCategoryClick(cat)}
-                  disabled={isSubmitting}
-                  className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
-                >
-                  <span className="text-3xl mb-2">{config.icon}</span>
-                  <span className="text-sm font-medium">{config.label}</span>
-                </button>
-              )
-            })}
+          // 카테고리 선택 화면 (스와이프: 페이지1=6개 카테고리, 페이지2=체중)
+          <div
+            onTouchStart={handleCategoryTouchStart}
+            onTouchEnd={handleCategoryTouchEnd}
+          >
+            <div className="overflow-hidden">
+              <div
+                className="flex transition-transform duration-300 ease-in-out"
+                style={{ transform: categoryPage === 1 ? 'translateX(-100%)' : 'translateX(0)' }}
+              >
+                {/* 페이지 1: 6개 카테고리 (3x2) */}
+                <div className="min-w-full">
+                  <div className="grid grid-cols-3 gap-3 py-4">
+                    {categories.map((cat) => {
+                      const config = LOG_CATEGORY_CONFIG[cat]
+                      return (
+                        <button
+                          key={cat}
+                          onClick={() => handleCategoryClick(cat)}
+                          disabled={isSubmitting}
+                          className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
+                        >
+                          <span className="text-3xl mb-2">{config.icon}</span>
+                          <span className="text-sm font-medium">{config.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* 페이지 2: 체중 */}
+                <div className="min-w-full">
+                  <div className="grid grid-cols-3 gap-3 py-4">
+                    <button
+                      onClick={() => handleCategoryClick('weight')}
+                      disabled={isSubmitting}
+                      className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
+                    >
+                      <span className="text-3xl mb-2">{LOG_CATEGORY_CONFIG.weight.icon}</span>
+                      <span className="text-sm font-medium">{LOG_CATEGORY_CONFIG.weight.label}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 페이지 인디케이터 */}
+            <div className="flex justify-center gap-2 pb-2">
+              <button
+                className={`w-2 h-2 rounded-full transition-colors ${categoryPage === 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                onClick={() => setCategoryPage(0)}
+              />
+              <button
+                className={`w-2 h-2 rounded-full transition-colors ${categoryPage === 1 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                onClick={() => setCategoryPage(1)}
+              />
+            </div>
           </div>
         ) : (
           // 입력 화면
