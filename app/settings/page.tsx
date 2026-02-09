@@ -494,17 +494,6 @@ function PetProfileSection() {
                       onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pet_weight_kg">체중 (kg)</Label>
-                    <Input
-                      id="pet_weight_kg"
-                      type="number"
-                      step="0.1"
-                      value={form.weight_kg?.toString() || ''}
-                      onChange={(e) => setForm({ ...form, weight_kg: e.target.value ? parseFloat(e.target.value) : null })}
-                      placeholder="예: 4.5"
-                    />
-                  </div>
                 </div>
 
                 {/* 칼로리 관련 설정 */}
@@ -616,7 +605,6 @@ function PetProfileSection() {
                       <div className="text-sm text-muted-foreground flex flex-wrap gap-x-1">
                         {pet.type && <span>{pet.type}</span>}
                         {pet.breed && <span>· {pet.breed}</span>}
-                        {pet.weight_kg && <span>· {pet.weight_kg}kg</span>}
                       </div>
                     </div>
                   </div>

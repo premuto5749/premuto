@@ -66,15 +66,25 @@ function formatRelativeDateTime(dateStr: string | null): string {
   const d = new Date(dateStr)
   const now = new Date()
   const pad = (n: number) => n < 10 ? '0' + n : String(n)
-  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`
-  const diffMs = now.getTime() - d.getTime()
+
+  // KST 기준으로 날짜 비교
+  const kstOptions: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Seoul' }
+  const dKST = new Date(d.toLocaleString('en-US', kstOptions))
+  const nowKST = new Date(now.toLocaleString('en-US', kstOptions))
+
+  const dDate = `${dKST.getFullYear()}-${pad(dKST.getMonth() + 1)}-${pad(dKST.getDate())}`
+  const nowDate = `${nowKST.getFullYear()}-${pad(nowKST.getMonth() + 1)}-${pad(nowKST.getDate())}`
+  const time = `${pad(dKST.getHours())}:${pad(dKST.getMinutes())}`
+
+  if (dDate === nowDate) return `오늘 ${time}`
+
+  const diffMs = nowKST.getTime() - dKST.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return `오늘 ${time}`
   if (diffDays === 1) return `어제 ${time}`
   if (diffDays < 7) return `${diffDays}일 전 ${time}`
-  if (diffDays < 30) return `${diffDays}일 전`
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`
-  return `${Math.floor(diffDays / 365)}년 전`
+
+  // 7일 이상이면 날짜 표시
+  return `${pad(dKST.getMonth() + 1)}.${pad(dKST.getDate())} ${time}`
 }
 
 const TIER_BADGE: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
@@ -287,8 +297,121 @@ export default function AdminUsersPage() {
           </Card>
         </div>
 
-        {/* 사용자 테이블 */}
-        <Card>
+        {/* 모바일: 카드 리스트 */}
+        <div className="md:hidden space-y-3">
+          {users.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                등록된 사용자가 없습니다
+              </CardContent>
+            </Card>
+          ) : (
+            users.map(user => {
+              const tierInfo = TIER_BADGE[user.tier] || TIER_BADGE.free
+              const roleInfo = user.role ? ROLE_BADGE[user.role] : null
+              const canToggleAdmin = !user.role || user.role === 'admin'
+              return (
+                <Card key={user.user_id}>
+                  <CardContent className="p-4 space-y-2">
+                    {/* 계정 + 역할 + Tier */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className="text-sm font-medium truncate">
+                            {user.email || user.user_id.substring(0, 8) + '...'}
+                          </span>
+                        </div>
+                        {user.pets.length > 0 && (
+                          <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
+                            <PawPrint className="w-3 h-3 flex-shrink-0" />
+                            {user.pets.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {roleInfo && (
+                          <Badge variant="outline" className={`text-[10px] px-1.5 ${roleInfo.className}`}>
+                            {roleInfo.label}
+                          </Badge>
+                        )}
+                        <Badge variant={tierInfo.variant} className="text-[10px]">{tierInfo.label}</Badge>
+                      </div>
+                    </div>
+
+                    {/* 통계 */}
+                    <div className="flex gap-3 text-xs text-muted-foreground">
+                      <span>가입 {formatDate(user.joined_at)}</span>
+                      <span>접속 {formatRelativeDateTime(user.last_active)}</span>
+                    </div>
+                    <div className="flex gap-3 text-xs text-muted-foreground">
+                      <span>OCR {user.total_ocr}</span>
+                      <span>검사 {user.test_records}</span>
+                      <span>일일 {user.daily_logs}</span>
+                    </div>
+
+                    {/* 액션 */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Select
+                        value={user.tier}
+                        onValueChange={(newTier) => {
+                          if (newTier !== user.tier) {
+                            setChangingTier({
+                              userId: user.user_id,
+                              newTier,
+                              email: user.email,
+                              petNames: user.pets,
+                            })
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="h-7 text-xs w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="free">무료</SelectItem>
+                          <SelectItem value="basic">기본</SelectItem>
+                          <SelectItem value="premium">프리미엄</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {!roleInfo && canToggleAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground hover:text-orange-600"
+                          onClick={() => setChangingRole({
+                            userId: user.user_id,
+                            email: user.email,
+                            action: 'grant',
+                          })}
+                        >
+                          + 관리자
+                        </Button>
+                      )}
+                      {user.role === 'admin' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground hover:text-red-600"
+                          onClick={() => setChangingRole({
+                            userId: user.user_id,
+                            email: user.email,
+                            action: 'revoke',
+                          })}
+                        >
+                          관리자 해제
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })
+          )}
+        </div>
+
+        {/* 데스크톱: 테이블 */}
+        <Card className="hidden md:block">
           <CardContent className="p-0">
             <Table>
               <TableHeader>
@@ -297,7 +420,7 @@ export default function AdminUsersPage() {
                   <TableHead className="w-[90px]">역할</TableHead>
                   <TableHead className="w-[70px]">Tier</TableHead>
                   <TableHead className="text-center w-[80px]">가입일</TableHead>
-                  <TableHead className="text-center w-[100px]">마지막 사용</TableHead>
+                  <TableHead className="text-center w-[100px]">마지막 접속</TableHead>
                   <TableHead className="text-center">OCR</TableHead>
                   <TableHead className="text-center">검사</TableHead>
                   <TableHead className="text-center">일일</TableHead>
@@ -315,7 +438,6 @@ export default function AdminUsersPage() {
                   users.map(user => {
                     const tierInfo = TIER_BADGE[user.tier] || TIER_BADGE.free
                     const roleInfo = user.role ? ROLE_BADGE[user.role] : null
-                    // env_admin, super_admin은 토글 불가
                     const canToggleAdmin = !user.role || user.role === 'admin'
                     return (
                       <TableRow key={user.user_id}>

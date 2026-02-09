@@ -62,18 +62,15 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  // 스와이프 체중 페이지 상태
-  const [currentPage, setCurrentPage] = useState<'categories' | 'weight'>('categories')
+  // 체중 입력 상태
   const [weightInput, setWeightInput] = useState('')
   const [isWeightSubmitting, setIsWeightSubmitting] = useState(false)
-  const touchStartX = useRef<number>(0)
 
   // 모달이 열릴 때마다 현재 시간으로 초기화 (defaultDate가 있으면 해당 날짜 사용)
   useEffect(() => {
     if (open) {
       setLogTime(getCurrentTime())
       setLogDate(defaultDate || getCurrentDate())
-      setCurrentPage('categories')
       setWeightInput(currentWeight?.toString() || '')
     }
   }, [open, defaultDate, currentWeight])
@@ -105,7 +102,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     fetchPresets()
   }, [petId])
 
-  const categories: LogCategory[] = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing']
+  const categories: LogCategory[] = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing', 'weight']
 
   const resetForm = () => {
     setSelectedCategory(null)
@@ -330,22 +327,6 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     }
   }
 
-  // 스와이프 핸들러
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const diff = touchStartX.current - e.changedTouches[0].clientX
-    if (Math.abs(diff) > 50) {
-      if (diff > 0 && currentPage === 'categories') {
-        setCurrentPage('weight')
-      } else if (diff < 0 && currentPage === 'weight') {
-        setCurrentPage('categories')
-      }
-    }
-  }
-
   // 체중 기록 제출
   const handleWeightSubmit = async () => {
     if (!weightInput || !petId) return
@@ -408,106 +389,22 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         </DialogHeader>
 
         {!selectedCategory ? (
-          // 카테고리 선택 / 체중 스와이프 화면
-          <div
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-          >
-            <div className="overflow-hidden">
-              <div
-                className="flex transition-transform duration-300 ease-in-out"
-                style={{ transform: currentPage === 'weight' ? 'translateX(-100%)' : 'translateX(0)' }}
-              >
-                {/* 페이지 1: 카테고리 선택 */}
-                <div className="min-w-full">
-                  <div className="grid grid-cols-3 gap-3 py-4">
-                    {categories.map((cat) => {
-                      const config = LOG_CATEGORY_CONFIG[cat]
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => handleCategoryClick(cat)}
-                          disabled={isSubmitting}
-                          className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
-                        >
-                          <span className="text-3xl mb-2">{config.icon}</span>
-                          <span className="text-sm font-medium">{config.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* 페이지 2: 체중 기록 */}
-                <div className="min-w-full">
-                  <div className="space-y-4 py-4">
-                    <div className="text-center">
-                      <span className="text-3xl">⚖️</span>
-                      <h3 className="text-lg font-medium mt-2">체중 기록</h3>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-1.5 block">체중</label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="number"
-                          step="0.1"
-                          placeholder="체중 (kg)"
-                          value={weightInput}
-                          onChange={(e) => setWeightInput(e.target.value)}
-                          className="flex-1"
-                        />
-                        <span className="flex items-center text-muted-foreground px-3 bg-muted rounded-md">
-                          kg
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium mb-1.5 block">날짜/시간</label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="date"
-                          value={logDate}
-                          onChange={(e) => setLogDate(e.target.value)}
-                          className="w-1/2"
-                        />
-                        <Input
-                          type="time"
-                          value={logTime}
-                          onChange={(e) => setLogTime(e.target.value)}
-                          className="w-1/2"
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      onClick={handleWeightSubmit}
-                      disabled={isWeightSubmitting || !weightInput || !petId}
-                      className="w-full"
-                    >
-                      {isWeightSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          저장 중...
-                        </>
-                      ) : (
-                        '체중 저장'
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 페이지 인디케이터 */}
-            <div className="flex justify-center gap-2 pb-2">
-              <button
-                className={`w-2 h-2 rounded-full transition-colors ${currentPage === 'categories' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                onClick={() => setCurrentPage('categories')}
-              />
-              <button
-                className={`w-2 h-2 rounded-full transition-colors ${currentPage === 'weight' ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                onClick={() => setCurrentPage('weight')}
-              />
-            </div>
+          // 카테고리 선택 화면
+          <div className="grid grid-cols-3 gap-3 py-4">
+            {categories.map((cat) => {
+              const config = LOG_CATEGORY_CONFIG[cat]
+              return (
+                <button
+                  key={cat}
+                  onClick={() => handleCategoryClick(cat)}
+                  disabled={isSubmitting}
+                  className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
+                >
+                  <span className="text-3xl mb-2">{config.icon}</span>
+                  <span className="text-sm font-medium">{config.label}</span>
+                </button>
+              )
+            })}
           </div>
         ) : (
           // 입력 화면
@@ -578,8 +475,28 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </div>
             )}
 
-            {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사 제외) */}
-            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && (
+            {/* 체중 입력 */}
+            {selectedCategory === 'weight' && (
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">체중</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    placeholder="체중 (kg)"
+                    value={weightInput}
+                    onChange={(e) => setWeightInput(e.target.value)}
+                    className="flex-1"
+                  />
+                  <span className="flex items-center text-muted-foreground px-3 bg-muted rounded-md">
+                    kg
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/체중 제외) */}
+            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && selectedCategory !== 'weight' && (
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
                   {LOG_CATEGORY_CONFIG[selectedCategory].placeholder || '양'}
@@ -686,7 +603,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </div>
             )}
 
-            {/* 메모 */}
+            {/* 메모 (체중 제외) */}
+            {selectedCategory !== 'weight' && (
             <div>
               <label className="text-sm font-medium mb-1.5 block">메모 (선택)</label>
               <Textarea
@@ -696,8 +614,10 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                 rows={2}
               />
             </div>
+            )}
 
-            {/* 사진 첨부 */}
+            {/* 사진 첨부 (체중 제외) */}
+            {selectedCategory !== 'weight' && (
             <div>
               <label className="text-sm font-medium mb-1.5 block">
                 사진 (선택, 최대 {MAX_PHOTOS}장)
@@ -773,6 +693,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                 </div>
               )}
             </div>
+            )}
 
             {/* 버튼 */}
             <div className="flex gap-2 pt-2">
@@ -785,8 +706,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                 뒤로
               </Button>
               <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting || isUploading}
+                onClick={selectedCategory === 'weight' ? handleWeightSubmit : handleSubmit}
+                disabled={selectedCategory === 'weight' ? (isWeightSubmitting || !weightInput || !petId) : (isSubmitting || isUploading)}
                 className="flex-1"
               >
                 {isUploading ? (
@@ -794,7 +715,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     사진 업로드 중...
                   </>
-                ) : isSubmitting ? (
+                ) : (isSubmitting || isWeightSubmitting) ? (
                   '저장 중...'
                 ) : (
                   '저장'
