@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserTier, getTierConfig } from '@/lib/tier'
 import { cookies } from 'next/headers'
@@ -6,7 +6,7 @@ import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -27,6 +27,23 @@ export async function GET() {
       )
     }
 
+    // 필수 환경변수 확인
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    if (!clientId) {
+      console.error('[GoogleDrive] GOOGLE_CLIENT_ID not configured')
+      return NextResponse.json({ error: 'Google OAuth 클라이언트 ID가 설정되지 않았습니다.' }, { status: 500 })
+    }
+
+    if (!process.env.GOOGLE_CLIENT_SECRET) {
+      console.error('[GoogleDrive] GOOGLE_CLIENT_SECRET not configured')
+      return NextResponse.json({ error: 'Google OAuth 클라이언트 시크릿이 설정되지 않았습니다.' }, { status: 500 })
+    }
+
+    if (!process.env.GOOGLE_DRIVE_TOKEN_SECRET) {
+      console.error('[GoogleDrive] GOOGLE_DRIVE_TOKEN_SECRET not configured')
+      return NextResponse.json({ error: 'Google Drive 토큰 암호화 키가 설정되지 않았습니다.' }, { status: 500 })
+    }
+
     // CSRF state 생성
     const state = crypto.randomBytes(32).toString('hex')
     const cookieStore = await cookies()
@@ -39,12 +56,9 @@ export async function GET() {
     })
 
     // Google OAuth URL 생성
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    if (!clientId) {
-      return NextResponse.json({ error: 'Google OAuth not configured' }, { status: 500 })
-    }
-
-    const redirectUri = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/google-drive/callback`
+    // request에서 origin 자동 추출 (NEXT_PUBLIC_SITE_URL 폴백)
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
+    const redirectUri = `${origin}/api/google-drive/callback`
     const scope = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email'
 
     const params = new URLSearchParams({
@@ -62,6 +76,9 @@ export async function GET() {
     return NextResponse.json({ url })
   } catch (error) {
     console.error('[GoogleDrive] Auth error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

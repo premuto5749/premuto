@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const error = searchParams.get('error')
-  const settingsUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/settings?tab=data`
+  // request에서 origin 자동 추출 (NEXT_PUBLIC_SITE_URL 폴백)
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin
+  const settingsUrl = `${origin}/settings?tab=data`
 
   // Google에서 에러 반환
   if (error) {
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
     }
 
     // authorization code → tokens
-    const redirectUri = `${process.env.NEXT_PUBLIC_SITE_URL || ''}/api/google-drive/callback`
+    const redirectUri = `${origin}/api/google-drive/callback`
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

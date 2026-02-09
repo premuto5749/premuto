@@ -132,7 +132,7 @@ export function GoogleDriveSection() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        toast({ title: '연결 실패', description: '인증 URL을 생성할 수 없습니다.', variant: 'destructive' })
+        toast({ title: '연결 실패', description: data.error || '인증 URL을 생성할 수 없습니다.', variant: 'destructive' })
       }
     } catch (error) {
       console.error('Drive connect error:', error)
