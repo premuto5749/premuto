@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -17,6 +18,7 @@ const CATEGORY_DOT_COLORS: Record<string, string> = {
   poop: 'bg-amber-600',
   pee: 'bg-yellow-400',
   breathing: 'bg-teal-400',
+  weight: 'bg-emerald-500',
 }
 
 const CATEGORY_ORDER = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing'] as const
@@ -25,6 +27,7 @@ interface MonthlyStatsCalendarProps {
   year: number
   month: number // 0-indexed
   statsMap: Record<string, DailyStats> // key: YYYY-MM-DD
+  weightMap?: Record<string, number> // key: YYYY-MM-DD, value: kg
   selectedDate: string | null // YYYY-MM-DD
   onSelectDate: (date: string) => void
   onPrevMonth: () => void
@@ -60,12 +63,15 @@ export function MonthlyStatsCalendar({
   year,
   month,
   statsMap,
+  weightMap = {},
   selectedDate,
   onSelectDate,
   onPrevMonth,
   onNextMonth,
   onGoToThisMonth,
 }: MonthlyStatsCalendarProps) {
+  const [summaryPage, setSummaryPage] = useState(0) // 0: 기본 카테고리, 1: 체중
+  const summaryTouchStartX = useRef<number>(0)
   const today = getKSTToday()
   const todayDate = new Date(today)
   const isCurrentMonth = todayDate.getFullYear() === year && todayDate.getMonth() === month
@@ -96,15 +102,18 @@ export function MonthlyStatsCalendar({
 
   // 해당 날짜에 기록된 카테고리 목록 구하기
   const getCategories = (day: number): string[] => {
-    const stats = statsMap[formatDateKey(day)]
-    if (!stats) return []
+    const dateKey = formatDateKey(day)
+    const stats = statsMap[dateKey]
     const cats: string[] = []
-    if (stats.meal_count > 0) cats.push('meal')
-    if (stats.water_count > 0) cats.push('water')
-    if (stats.medicine_count > 0) cats.push('medicine')
-    if (stats.poop_count > 0) cats.push('poop')
-    if (stats.pee_count > 0) cats.push('pee')
-    if (stats.breathing_count > 0) cats.push('breathing')
+    if (stats) {
+      if (stats.meal_count > 0) cats.push('meal')
+      if (stats.water_count > 0) cats.push('water')
+      if (stats.medicine_count > 0) cats.push('medicine')
+      if (stats.poop_count > 0) cats.push('poop')
+      if (stats.pee_count > 0) cats.push('pee')
+      if (stats.breathing_count > 0) cats.push('breathing')
+    }
+    if (weightMap[dateKey]) cats.push('weight')
     return cats
   }
 
@@ -182,7 +191,7 @@ export function MonthlyStatsCalendar({
               {/* 카테고리 도트 */}
               {categories.length > 0 && (
                 <div className="flex gap-[2px] mt-0.5 flex-wrap justify-center max-w-full">
-                  {CATEGORY_ORDER.filter(c => categories.includes(c)).map((cat) => (
+                  {[...CATEGORY_ORDER, 'weight' as const].filter(c => categories.includes(c)).map((cat) => (
                     <span
                       key={cat}
                       className={cn(
@@ -198,18 +207,62 @@ export function MonthlyStatsCalendar({
         })}
       </div>
 
-      {/* 인라인 요약 */}
+      {/* 인라인 요약 (스와이프) */}
       {selectedDate && (
         <div className="mt-3 pt-3 border-t">
           <p className="text-sm font-medium mb-2">{formatSelectedDate(selectedDate)}</p>
-          {selectedStats ? (
-            <div className="grid grid-cols-3 gap-2">
-              {CATEGORY_ORDER.map((cat) => (
-                <div key={cat} className="flex items-center gap-1.5 text-sm">
-                  <span>{LOG_CATEGORY_CONFIG[cat].icon}</span>
-                  <span className="text-muted-foreground">{formatSummaryValue(selectedStats, cat)}</span>
+          {selectedStats || weightMap[selectedDate] ? (
+            <div
+              onTouchStart={(e) => { summaryTouchStartX.current = e.touches[0].clientX }}
+              onTouchEnd={(e) => {
+                const diff = summaryTouchStartX.current - e.changedTouches[0].clientX
+                if (Math.abs(diff) > 50) {
+                  if (diff > 0 && summaryPage === 0) setSummaryPage(1)
+                  else if (diff < 0 && summaryPage === 1) setSummaryPage(0)
+                }
+              }}
+            >
+              <div className="overflow-hidden">
+                <div
+                  className="flex transition-transform duration-300 ease-in-out"
+                  style={{ transform: summaryPage === 1 ? 'translateX(-100%)' : 'translateX(0)' }}
+                >
+                  {/* 페이지 1: 기본 카테고리 */}
+                  <div className="min-w-full">
+                    <div className="grid grid-cols-3 gap-2">
+                      {CATEGORY_ORDER.map((cat) => (
+                        <div key={cat} className="flex items-center gap-1.5 text-sm">
+                          <span>{LOG_CATEGORY_CONFIG[cat].icon}</span>
+                          <span className="text-muted-foreground">
+                            {selectedStats ? formatSummaryValue(selectedStats, cat) : '-'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* 페이지 2: 체중 */}
+                  <div className="min-w-full">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span>{LOG_CATEGORY_CONFIG.weight.icon}</span>
+                      <span className="font-medium">체중</span>
+                      <span className="text-muted-foreground">
+                        {weightMap[selectedDate] ? `${weightMap[selectedDate]}kg` : '-'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              ))}
+              </div>
+              {/* 페이지 인디케이터 */}
+              <div className="flex justify-center gap-1.5 mt-2">
+                <button
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${summaryPage === 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                  onClick={() => setSummaryPage(0)}
+                />
+                <button
+                  className={`w-1.5 h-1.5 rounded-full transition-colors ${summaryPage === 1 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                  onClick={() => setSummaryPage(1)}
+                />
+              </div>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">기록이 없습니다</p>

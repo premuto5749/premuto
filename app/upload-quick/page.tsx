@@ -236,6 +236,9 @@ export default function UploadQuickPage() {
                 여러 날짜의 검사지를 올려도 자동으로 날짜별로 분리됩니다.
                 분석 후 확인 화면에서 날짜와 병원을 수정할 수 있습니다.
               </p>
+              <p className="text-sm text-blue-700 mt-1">
+                같은 날짜인데 검사결과가 분리되었다면, 저장 후 검사기록 관리 메뉴에서 병합할 수 있습니다.
+              </p>
             </div>
           </div>
         </CardContent>

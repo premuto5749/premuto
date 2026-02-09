@@ -24,6 +24,7 @@ export default function DailyLogCalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(today)
   const [selectedCategory, setSelectedCategory] = useState<LogCategory>('meal')
   const [statsMap, setStatsMap] = useState<Record<string, DailyStats>>({})
+  const [weightMap, setWeightMap] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(true)
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
 
@@ -48,12 +49,13 @@ export default function DailyLogCalendarPage() {
       const endDate = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`
 
       const petParam = currentPet ? `&pet_id=${currentPet.id}` : ''
-      const res = await fetch(
-        `/api/daily-logs?stats=true&start=${startDate}&end=${endDate}${petParam}`
-      )
+      const [statsRes, weightRes] = await Promise.all([
+        fetch(`/api/daily-logs?stats=true&start=${startDate}&end=${endDate}${petParam}`),
+        fetch(`/api/daily-logs?start=${startDate}&end=${endDate}&category=weight${petParam}`),
+      ])
 
-      if (res.ok) {
-        const json = await res.json()
+      if (statsRes.ok) {
+        const json = await statsRes.json()
         const map: Record<string, DailyStats> = {}
         for (const stat of (json.data || []) as DailyStats[]) {
           map[stat.log_date] = stat
@@ -61,6 +63,18 @@ export default function DailyLogCalendarPage() {
         setStatsMap(map)
       } else {
         setStatsMap({})
+      }
+
+      if (weightRes.ok) {
+        const wJson = await weightRes.json()
+        const wMap: Record<string, number> = {}
+        for (const log of (wJson.data || []) as { logged_at: string; amount: number }[]) {
+          const date = log.logged_at.slice(0, 10)
+          wMap[date] = log.amount
+        }
+        setWeightMap(wMap)
+      } else {
+        setWeightMap({})
       }
     } catch (error) {
       console.error('Failed to fetch month stats:', error)
@@ -139,6 +153,7 @@ export default function DailyLogCalendarPage() {
               year={viewYear}
               month={viewMonth}
               statsMap={statsMap}
+              weightMap={weightMap}
               selectedDate={selectedDate}
               onSelectDate={handleSelectDate}
               onPrevMonth={handlePrevMonth}
