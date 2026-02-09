@@ -17,7 +17,7 @@ const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke'
 // ============================================
 
 function getEncryptionKey(): Buffer {
-  const secret = process.env.GOOGLE_DRIVE_TOKEN_SECRET
+  const secret = process.env.GOOGLE_DRIVE_TOKEN_SECRET?.trim()
   if (!secret) throw new Error('GOOGLE_DRIVE_TOKEN_SECRET not configured')
   return crypto.createHash('sha256').update(secret).digest()
 }
@@ -63,8 +63,8 @@ async function refreshAccessToken(connection: DriveConnection): Promise<string> 
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID || '',
-      client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+      client_id: process.env.GOOGLE_CLIENT_ID?.trim() || '',
+      client_secret: process.env.GOOGLE_CLIENT_SECRET?.trim() || '',
       refresh_token: refreshToken,
       grant_type: 'refresh_token',
     }),

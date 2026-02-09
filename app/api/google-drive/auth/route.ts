@@ -27,19 +27,19 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 필수 환경변수 확인
-    const clientId = process.env.GOOGLE_CLIENT_ID
+    // 필수 환경변수 확인 (복사 시 줄바꿈/공백 혼입 방지를 위해 trim)
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim()
     if (!clientId) {
       console.error('[GoogleDrive] GOOGLE_CLIENT_ID not configured')
       return NextResponse.json({ error: 'Google OAuth 클라이언트 ID가 설정되지 않았습니다.' }, { status: 500 })
     }
 
-    if (!process.env.GOOGLE_CLIENT_SECRET) {
+    if (!process.env.GOOGLE_CLIENT_SECRET?.trim()) {
       console.error('[GoogleDrive] GOOGLE_CLIENT_SECRET not configured')
       return NextResponse.json({ error: 'Google OAuth 클라이언트 시크릿이 설정되지 않았습니다.' }, { status: 500 })
     }
 
-    if (!process.env.GOOGLE_DRIVE_TOKEN_SECRET) {
+    if (!process.env.GOOGLE_DRIVE_TOKEN_SECRET?.trim()) {
       console.error('[GoogleDrive] GOOGLE_DRIVE_TOKEN_SECRET not configured')
       return NextResponse.json({ error: 'Google Drive 토큰 암호화 키가 설정되지 않았습니다.' }, { status: 500 })
     }
