@@ -40,8 +40,7 @@ interface UserInfo {
   tier: string
   role: string | null // 'super_admin' | 'admin' | 'env_admin' | null
   pets: string[]
-  today_ocr: number
-  today_photo: number
+  total_ocr: number
   test_records: number
   daily_logs: number
   joined_at: string | null
@@ -51,19 +50,28 @@ interface UserInfo {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
-  const month = d.getMonth() + 1
-  const day = d.getDate()
-  return `${d.getFullYear()}.${month < 10 ? '0' + month : month}.${day < 10 ? '0' + day : day}`
+  const pad = (n: number) => n < 10 ? '0' + n : String(n)
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
 }
 
-function formatRelativeDate(dateStr: string | null): string {
+function formatDateTime(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  const pad = (n: number) => n < 10 ? '0' + n : String(n)
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function formatRelativeDateTime(dateStr: string | null): string {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
   const now = new Date()
+  const pad = (n: number) => n < 10 ? '0' + n : String(n)
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`
   const diffMs = now.getTime() - d.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) return '오늘'
-  if (diffDays === 1) return '어제'
+  if (diffDays === 0) return `오늘 ${time}`
+  if (diffDays === 1) return `어제 ${time}`
+  if (diffDays < 7) return `${diffDays}일 전 ${time}`
   if (diffDays < 30) return `${diffDays}일 전`
   if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`
   return `${Math.floor(diffDays / 365)}년 전`
@@ -285,11 +293,12 @@ export default function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[220px]">계정</TableHead>
+                  <TableHead className="w-[200px]">계정</TableHead>
                   <TableHead className="w-[90px]">역할</TableHead>
-                  <TableHead className="w-[80px]">Tier</TableHead>
+                  <TableHead className="w-[70px]">Tier</TableHead>
                   <TableHead className="text-center w-[80px]">가입일</TableHead>
-                  <TableHead className="text-center w-[80px]">마지막 사용</TableHead>
+                  <TableHead className="text-center w-[100px]">마지막 사용</TableHead>
+                  <TableHead className="text-center">OCR</TableHead>
                   <TableHead className="text-center">검사</TableHead>
                   <TableHead className="text-center">일일</TableHead>
                   <TableHead className="w-[120px]">Tier 변경</TableHead>
@@ -298,7 +307,7 @@ export default function AdminUsersPage() {
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       등록된 사용자가 없습니다
                     </TableCell>
                   </TableRow>
@@ -365,9 +374,12 @@ export default function AdminUsersPage() {
                           {formatDate(user.joined_at)}
                         </TableCell>
                         <TableCell className="text-center text-xs text-muted-foreground">
-                          <span title={user.last_active ? formatDate(user.last_active) : ''}>
-                            {formatRelativeDate(user.last_active)}
+                          <span title={formatDateTime(user.last_active)}>
+                            {formatRelativeDateTime(user.last_active)}
                           </span>
+                        </TableCell>
+                        <TableCell className="text-center text-sm">
+                          {user.total_ocr}
                         </TableCell>
                         <TableCell className="text-center text-sm">
                           {user.test_records}

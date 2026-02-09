@@ -60,25 +60,22 @@ export async function GET() {
       profileMap.set(p.user_id, { tier: p.tier, created_at: p.created_at, updated_at: p.updated_at })
     }
 
-    // 4. 오늘 사용량 (KST 기준)
-    const now = new Date()
-    const kstOffset = 9 * 60 * 60 * 1000
-    const kstNow = new Date(now.getTime() + kstOffset)
-    const todayStart = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate()) - kstOffset)
-
-    const { data: todayUsage } = await supabase
+    // 4. 누적 OCR 사용량 + 마지막 활동 시간 (usage_logs 전체)
+    const { data: allUsage } = await supabase
       .from('usage_logs')
-      .select('user_id, action')
-      .gte('created_at', todayStart.toISOString())
+      .select('user_id, action, created_at')
 
-    const usageMap = new Map<string, { ocr: number; photo: number }>()
-    for (const u of todayUsage || []) {
-      if (!usageMap.has(u.user_id)) {
-        usageMap.set(u.user_id, { ocr: 0, photo: 0 })
+    const totalOcrMap = new Map<string, number>()
+    const usageLastActivityMap = new Map<string, string>()
+    for (const u of allUsage || []) {
+      if (u.action === 'ocr_analysis') {
+        totalOcrMap.set(u.user_id, (totalOcrMap.get(u.user_id) || 0) + 1)
       }
-      const entry = usageMap.get(u.user_id)!
-      if (u.action === 'ocr_analysis') entry.ocr++
-      else if (u.action === 'daily_log_photo') entry.photo++
+      // usage_logs의 최근 활동도 last_active에 반영
+      const existing = usageLastActivityMap.get(u.user_id)
+      if (!existing || u.created_at > existing) {
+        usageLastActivityMap.set(u.user_id, u.created_at)
+      }
     }
 
     // 5. user_roles에서 관리자 역할 정보
@@ -139,15 +136,15 @@ export async function GET() {
         role = dbRole
       }
 
-      // 마지막 활동일: 데이터 기록 vs 마지막 로그인 중 최신
-      const lastDataActivity = lastActivityMap.get(userId) || null
-      const lastSignIn = authUser?.last_sign_in_at || null
-      let lastActive: string | null = null
-      if (lastDataActivity && lastSignIn) {
-        lastActive = lastDataActivity > lastSignIn ? lastDataActivity : lastSignIn
-      } else {
-        lastActive = lastDataActivity || lastSignIn
-      }
+      // 마지막 활동: 데이터 기록 / usage_logs / 마지막 로그인 중 최신
+      const candidates = [
+        lastActivityMap.get(userId),
+        usageLastActivityMap.get(userId),
+        authUser?.last_sign_in_at,
+      ].filter((v): v is string => !!v)
+      const lastActive = candidates.length > 0
+        ? candidates.reduce((a, b) => a > b ? a : b)
+        : null
 
       return {
         user_id: userId,
@@ -155,8 +152,7 @@ export async function GET() {
         tier: profile?.tier || 'free',
         role,
         pets: userPetsMap.get(userId) || [],
-        today_ocr: usage?.ocr || 0,
-        today_photo: usage?.photo || 0,
+        total_ocr: totalOcrMap.get(userId) || 0,
         test_records: testCountMap.get(userId) || 0,
         daily_logs: dailyCountMap.get(userId) || 0,
         joined_at: authUser?.created_at || profile?.created_at || null,
