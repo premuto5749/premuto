@@ -10,11 +10,12 @@ interface MonthlyStatsCardProps {
   year: number
   month: number // 0-indexed
   statsMap: Record<string, DailyStats> // key: YYYY-MM-DD
+  weightMap?: Record<string, number> // key: YYYY-MM-DD, value: kg
   selectedCategory: LogCategory
   onSelectCategory: (category: LogCategory) => void
 }
 
-export function MonthlyStatsCard({ year, month, statsMap, selectedCategory, onSelectCategory }: MonthlyStatsCardProps) {
+export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, selectedCategory, onSelectCategory }: MonthlyStatsCardProps) {
   const statsArray = Object.values(statsMap)
   const daysWithRecords = statsArray.length
 
@@ -46,6 +47,15 @@ export function MonthlyStatsCard({ year, month, statsMap, selectedCategory, onSe
     ? breathingDays.reduce((sum, s) => sum + (s.avg_breathing_rate || 0), 0) / breathingDays.length
     : 0
 
+  // 체중: weightMap에서 마지막(최신) 기록 가져오기
+  const weightEntries = Object.entries(weightMap)
+    .filter(([dateKey]) => {
+      const d = new Date(dateKey)
+      return d.getFullYear() === year && d.getMonth() === month
+    })
+    .sort(([a], [b]) => b.localeCompare(a)) // 최신 날짜 먼저
+  const latestWeight = weightEntries.length > 0 ? weightEntries[0][1] : null
+
   const items: { category: LogCategory; label: string; value: string }[] = [
     {
       category: 'meal',
@@ -76,6 +86,11 @@ export function MonthlyStatsCard({ year, month, statsMap, selectedCategory, onSe
       category: 'breathing',
       label: '호흡수',
       value: avgBreathing > 0 ? `${Math.round(avgBreathing)}회/분` : '-',
+    },
+    {
+      category: 'weight',
+      label: '체중',
+      value: latestWeight !== null ? `${latestWeight}kg` : '-',
     },
   ]
 

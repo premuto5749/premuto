@@ -10,6 +10,7 @@ interface DailyTrendChartProps {
   year: number
   month: number // 0-indexed
   statsMap: Record<string, DailyStats>
+  weightMap?: Record<string, number> // key: YYYY-MM-DD, value: kg
   selectedCategory: LogCategory
 }
 
@@ -38,7 +39,7 @@ function getCategoryValue(stats: DailyStats, category: LogCategory): number | nu
     case 'breathing':
       return stats.breathing_count > 0 && stats.avg_breathing_rate ? Math.round(stats.avg_breathing_rate) : null
     case 'weight':
-      return null // 체중은 daily_stats에서 집계하지 않음
+      return null // 체중은 weightMap에서 별도 처리
   }
 }
 
@@ -54,8 +55,22 @@ function getCategoryUnit(category: LogCategory): string {
   }
 }
 
-export function DailyTrendChart({ year, month, statsMap, selectedCategory }: DailyTrendChartProps) {
+export function DailyTrendChart({ year, month, statsMap, weightMap = {}, selectedCategory }: DailyTrendChartProps) {
   const chartData = useMemo(() => {
+    // 체중은 weightMap에서 별도 처리
+    if (selectedCategory === 'weight') {
+      return Object.entries(weightMap)
+        .filter(([dateKey]) => {
+          const d = new Date(dateKey)
+          return d.getFullYear() === year && d.getMonth() === month
+        })
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([dateKey, value]) => ({
+          dateLabel: `${new Date(dateKey).getDate()}일`,
+          value,
+        }))
+    }
+
     const entries = Object.entries(statsMap)
       .filter(([dateKey]) => {
         const d = new Date(dateKey)
@@ -72,7 +87,7 @@ export function DailyTrendChart({ year, month, statsMap, selectedCategory }: Dai
       }
     }
     return points
-  }, [statsMap, year, month, selectedCategory])
+  }, [statsMap, weightMap, year, month, selectedCategory])
 
   const color = CATEGORY_COLORS[selectedCategory]
   const unit = getCategoryUnit(selectedCategory)

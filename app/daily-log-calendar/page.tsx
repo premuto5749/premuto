@@ -136,6 +136,7 @@ export default function DailyLogCalendarPage() {
               year={viewYear}
               month={viewMonth}
               statsMap={statsMap}
+              weightMap={weightMap}
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}
             />
@@ -145,6 +146,7 @@ export default function DailyLogCalendarPage() {
               year={viewYear}
               month={viewMonth}
               statsMap={statsMap}
+              weightMap={weightMap}
               selectedCategory={selectedCategory}
             />
 
