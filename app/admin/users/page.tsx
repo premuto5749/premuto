@@ -45,6 +45,28 @@ interface UserInfo {
   test_records: number
   daily_logs: number
   joined_at: string | null
+  last_active: string | null
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  const month = d.getMonth() + 1
+  const day = d.getDate()
+  return `${d.getFullYear()}.${month < 10 ? '0' + month : month}.${day < 10 ? '0' + day : day}`
+}
+
+function formatRelativeDate(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return '오늘'
+  if (diffDays === 1) return '어제'
+  if (diffDays < 30) return `${diffDays}일 전`
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`
+  return `${Math.floor(diffDays / 365)}년 전`
 }
 
 const TIER_BADGE: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
@@ -263,19 +285,20 @@ export default function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[240px]">계정</TableHead>
-                  <TableHead className="w-[100px]">역할</TableHead>
-                  <TableHead className="w-[100px]">Tier</TableHead>
-                  <TableHead className="text-center">오늘 OCR</TableHead>
-                  <TableHead className="text-center">검사기록</TableHead>
-                  <TableHead className="text-center">일일기록</TableHead>
-                  <TableHead className="w-[140px]">Tier 변경</TableHead>
+                  <TableHead className="w-[220px]">계정</TableHead>
+                  <TableHead className="w-[90px]">역할</TableHead>
+                  <TableHead className="w-[80px]">Tier</TableHead>
+                  <TableHead className="text-center w-[80px]">가입일</TableHead>
+                  <TableHead className="text-center w-[80px]">마지막 사용</TableHead>
+                  <TableHead className="text-center">검사</TableHead>
+                  <TableHead className="text-center">일일</TableHead>
+                  <TableHead className="w-[120px]">Tier 변경</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       등록된 사용자가 없습니다
                     </TableCell>
                   </TableRow>
@@ -338,8 +361,13 @@ export default function AdminUsersPage() {
                         <TableCell>
                           <Badge variant={tierInfo.variant}>{tierInfo.label}</Badge>
                         </TableCell>
-                        <TableCell className="text-center text-sm">
-                          {user.today_ocr}
+                        <TableCell className="text-center text-xs text-muted-foreground">
+                          {formatDate(user.joined_at)}
+                        </TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">
+                          <span title={user.last_active ? formatDate(user.last_active) : ''}>
+                            {formatRelativeDate(user.last_active)}
+                          </span>
                         </TableCell>
                         <TableCell className="text-center text-sm">
                           {user.test_records}

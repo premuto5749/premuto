@@ -25,9 +25,13 @@ export async function GET() {
     }
 
     const authUsers = authData?.users || []
-    const authUserMap = new Map<string, { email: string; created_at: string }>()
+    const authUserMap = new Map<string, { email: string; created_at: string; last_sign_in_at: string | null }>()
     for (const u of authUsers) {
-      authUserMap.set(u.id, { email: u.email || '', created_at: u.created_at })
+      authUserMap.set(u.id, {
+        email: u.email || '',
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at ?? null,
+      })
     }
 
     const userIds = authUsers.map(u => u.id)
@@ -92,23 +96,32 @@ export async function GET() {
       }
     }
 
-    // 6. 검사기록 수 / 일일기록 수
+    // 6. 검사기록 수 + 최근 활동일 / 일일기록 수 + 최근 활동일
     const { data: testRecords } = await supabase
       .from('test_records')
-      .select('user_id')
+      .select('user_id, created_at')
 
     const testCountMap = new Map<string, number>()
+    const lastActivityMap = new Map<string, string>()
     for (const r of testRecords || []) {
       testCountMap.set(r.user_id, (testCountMap.get(r.user_id) || 0) + 1)
+      const existing = lastActivityMap.get(r.user_id)
+      if (!existing || r.created_at > existing) {
+        lastActivityMap.set(r.user_id, r.created_at)
+      }
     }
 
     const { data: dailyLogs } = await supabase
       .from('daily_logs')
-      .select('user_id')
+      .select('user_id, created_at')
 
     const dailyCountMap = new Map<string, number>()
     for (const r of dailyLogs || []) {
       dailyCountMap.set(r.user_id, (dailyCountMap.get(r.user_id) || 0) + 1)
+      const existing = lastActivityMap.get(r.user_id)
+      if (!existing || r.created_at > existing) {
+        lastActivityMap.set(r.user_id, r.created_at)
+      }
     }
 
     // 6. 결과 조합
@@ -126,6 +139,16 @@ export async function GET() {
         role = dbRole
       }
 
+      // 마지막 활동일: 데이터 기록 vs 마지막 로그인 중 최신
+      const lastDataActivity = lastActivityMap.get(userId) || null
+      const lastSignIn = authUser?.last_sign_in_at || null
+      let lastActive: string | null = null
+      if (lastDataActivity && lastSignIn) {
+        lastActive = lastDataActivity > lastSignIn ? lastDataActivity : lastSignIn
+      } else {
+        lastActive = lastDataActivity || lastSignIn
+      }
+
       return {
         user_id: userId,
         email: authUser?.email || '',
@@ -137,6 +160,7 @@ export async function GET() {
         test_records: testCountMap.get(userId) || 0,
         daily_logs: dailyCountMap.get(userId) || 0,
         joined_at: authUser?.created_at || profile?.created_at || null,
+        last_active: lastActive,
       }
     })
 
