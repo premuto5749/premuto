@@ -12,6 +12,7 @@ interface PopupAnnouncement {
   startDate: string
   endDate: string
   priority: number
+  type: 'general' | 'stray_dog'
   createdAt: string
   updatedAt: string
 }
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
       startDate: body.startDate,
       endDate: body.endDate,
       priority: body.priority ?? 0,
+      type: body.type || 'general',
       createdAt: now,
       updatedAt: now,
     }
@@ -145,6 +147,7 @@ export async function PUT(request: NextRequest) {
       startDate: body.startDate ?? existing.startDate,
       endDate: body.endDate ?? existing.endDate,
       priority: body.priority ?? existing.priority,
+      type: body.type ?? existing.type ?? 'general',
       updatedAt: new Date().toISOString(),
     }
 
