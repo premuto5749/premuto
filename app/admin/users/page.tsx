@@ -31,25 +31,62 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Loader2, Users, ShieldCheck, PawPrint, Mail } from 'lucide-react'
+import { Loader2, Users, ShieldCheck, PawPrint, Mail, Shield } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 interface UserInfo {
   user_id: string
   email: string
   tier: string
+  role: string | null // 'super_admin' | 'admin' | 'env_admin' | null
   pets: string[]
-  today_ocr: number
-  today_photo: number
+  total_ocr: number
   test_records: number
   daily_logs: number
   joined_at: string | null
+  last_active: string | null
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  const pad = (n: number) => n < 10 ? '0' + n : String(n)
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`
+}
+
+function formatDateTime(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  const pad = (n: number) => n < 10 ? '0' + n : String(n)
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function formatRelativeDateTime(dateStr: string | null): string {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  const now = new Date()
+  const pad = (n: number) => n < 10 ? '0' + n : String(n)
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const diffMs = now.getTime() - d.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return `오늘 ${time}`
+  if (diffDays === 1) return `어제 ${time}`
+  if (diffDays < 7) return `${diffDays}일 전 ${time}`
+  if (diffDays < 30) return `${diffDays}일 전`
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)}개월 전`
+  return `${Math.floor(diffDays / 365)}년 전`
 }
 
 const TIER_BADGE: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
   premium: { label: '프리미엄', variant: 'default' },
   basic: { label: '기본', variant: 'secondary' },
   free: { label: '무료', variant: 'outline' },
+}
+
+const ROLE_BADGE: Record<string, { label: string; className: string }> = {
+  super_admin: { label: 'Super Admin', className: 'bg-red-100 text-red-800 border-red-200' },
+  env_admin: { label: 'Admin (ENV)', className: 'bg-purple-100 text-purple-800 border-purple-200' },
+  admin: { label: 'Admin', className: 'bg-orange-100 text-orange-800 border-orange-200' },
 }
 
 export default function AdminUsersPage() {
@@ -59,6 +96,7 @@ export default function AdminUsersPage() {
   const [authorized, setAuthorized] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [changingTier, setChangingTier] = useState<{ userId: string; newTier: string; email: string; petNames: string[] } | null>(null)
+  const [changingRole, setChangingRole] = useState<{ userId: string; email: string; action: 'grant' | 'revoke' } | null>(null)
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
 
@@ -124,6 +162,43 @@ export default function AdminUsersPage() {
     }
   }
 
+  const handleRoleChange = async () => {
+    if (!changingRole) return
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: changingRole.userId,
+          action: changingRole.action,
+        }),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+
+      setUsers(prev =>
+        prev.map(u =>
+          u.user_id === changingRole.userId
+            ? { ...u, role: changingRole.action === 'grant' ? 'admin' : null }
+            : u
+        )
+      )
+      toast({
+        title: changingRole.action === 'grant' ? '관리자 권한 부여 완료' : '관리자 권한 해제 완료',
+      })
+    } catch (err) {
+      toast({
+        title: '권한 변경 실패',
+        description: err instanceof Error ? err.message : '알 수 없는 오류',
+        variant: 'destructive',
+      })
+    } finally {
+      setSaving(false)
+      setChangingRole(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-muted">
@@ -165,6 +240,7 @@ export default function AdminUsersPage() {
     basic: users.filter(u => u.tier === 'basic').length,
     premium: users.filter(u => u.tier === 'premium').length,
   }
+  const adminCount = users.filter(u => u.role).length
 
   return (
     <div className="min-h-screen bg-muted">
@@ -172,7 +248,7 @@ export default function AdminUsersPage() {
 
       <div className="container max-w-6xl mx-auto py-6 px-4">
         {/* 요약 카드 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -180,6 +256,15 @@ export default function AdminUsersPage() {
                 전체
               </div>
               <div className="text-2xl font-bold">{users.length}명</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Shield className="w-4 h-4" />
+                관리자
+              </div>
+              <div className="text-2xl font-bold text-orange-600">{adminCount}명</div>
             </CardContent>
           </Card>
           <Card>
@@ -208,24 +293,30 @@ export default function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[240px]">계정</TableHead>
-                  <TableHead className="w-[120px]">Tier</TableHead>
-                  <TableHead className="text-center">오늘 OCR</TableHead>
-                  <TableHead className="text-center">검사기록</TableHead>
-                  <TableHead className="text-center">일일기록</TableHead>
-                  <TableHead className="w-[140px]">Tier 변경</TableHead>
+                  <TableHead className="w-[200px]">계정</TableHead>
+                  <TableHead className="w-[90px]">역할</TableHead>
+                  <TableHead className="w-[70px]">Tier</TableHead>
+                  <TableHead className="text-center w-[80px]">가입일</TableHead>
+                  <TableHead className="text-center w-[100px]">마지막 사용</TableHead>
+                  <TableHead className="text-center">OCR</TableHead>
+                  <TableHead className="text-center">검사</TableHead>
+                  <TableHead className="text-center">일일</TableHead>
+                  <TableHead className="w-[120px]">Tier 변경</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       등록된 사용자가 없습니다
                     </TableCell>
                   </TableRow>
                 ) : (
                   users.map(user => {
                     const tierInfo = TIER_BADGE[user.tier] || TIER_BADGE.free
+                    const roleInfo = user.role ? ROLE_BADGE[user.role] : null
+                    // env_admin, super_admin은 토글 불가
+                    const canToggleAdmin = !user.role || user.role === 'admin'
                     return (
                       <TableRow key={user.user_id}>
                         <TableCell>
@@ -243,10 +334,52 @@ export default function AdminUsersPage() {
                           )}
                         </TableCell>
                         <TableCell>
+                          {roleInfo ? (
+                            <Badge variant="outline" className={roleInfo.className}>
+                              {roleInfo.label}
+                            </Badge>
+                          ) : canToggleAdmin ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs text-muted-foreground hover:text-orange-600"
+                              onClick={() => setChangingRole({
+                                userId: user.user_id,
+                                email: user.email,
+                                action: 'grant',
+                              })}
+                            >
+                              + 관리자
+                            </Button>
+                          ) : null}
+                          {user.role === 'admin' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 text-[10px] text-muted-foreground hover:text-red-600 px-1 mt-0.5"
+                              onClick={() => setChangingRole({
+                                userId: user.user_id,
+                                email: user.email,
+                                action: 'revoke',
+                              })}
+                            >
+                              해제
+                            </Button>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Badge variant={tierInfo.variant}>{tierInfo.label}</Badge>
                         </TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">
+                          {formatDate(user.joined_at)}
+                        </TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">
+                          <span title={formatDateTime(user.last_active)}>
+                            {formatRelativeDateTime(user.last_active)}
+                          </span>
+                        </TableCell>
                         <TableCell className="text-center text-sm">
-                          {user.today_ocr}
+                          {user.total_ocr}
                         </TableCell>
                         <TableCell className="text-center text-sm">
                           {user.test_records}
@@ -311,6 +444,43 @@ export default function AdminUsersPage() {
             <AlertDialogAction onClick={handleTierChange} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               변경
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 관리자 권한 변경 확인 다이얼로그 */}
+      <AlertDialog open={!!changingRole} onOpenChange={(open) => !open && setChangingRole(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {changingRole?.action === 'grant' ? '관리자 권한을 부여하시겠습니까?' : '관리자 권한을 해제하시겠습니까?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {changingRole && (
+                  <>
+                    <p>
+                      <strong>{changingRole.email || changingRole.userId.substring(0, 8)}</strong>
+                      {changingRole.action === 'grant'
+                        ? ' 사용자에게 관리자 권한을 부여합니다.'
+                        : ' 사용자의 관리자 권한을 해제합니다.'}
+                    </p>
+                    {changingRole.action === 'grant' && (
+                      <p className="mt-2 text-orange-600">
+                        관리자는 마스터 데이터, 사용자 관리 등 모든 관리 기능에 접근할 수 있습니다.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRoleChange} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              {changingRole?.action === 'grant' ? '부여' : '해제'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

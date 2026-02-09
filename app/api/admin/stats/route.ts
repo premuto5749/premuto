@@ -32,12 +32,9 @@ export async function GET() {
       supabase.from('daily_logs').select('*', { count: 'exact', head: true })
     ])
 
-    // 고유 사용자 수 (pets 테이블에서 user_id 기준)
-    const { data: petsData } = await supabase
-      .from('pets')
-      .select('user_id')
-    const uniqueUserIds = new Set(petsData?.map(r => r.user_id) || [])
-    const usersCount = uniqueUserIds.size
+    // 전체 사용자 수 (auth 기준 - /api/admin/users와 동일한 소스)
+    const { data: authData } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+    const usersCount = authData?.users?.length || 0
 
     // 사용자별 커스텀 데이터 통계
     const { data: userCustomStats } = await supabase
