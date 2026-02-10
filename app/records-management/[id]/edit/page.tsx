@@ -608,7 +608,7 @@ export default function EditRecordPage() {
             {/* 표준 항목 선택 */}
             <div className="space-y-2">
               <Label>검사 항목 *</Label>
-              <Command className="border rounded-md">
+              <Command className="border rounded-md" shouldFilter={false}>
                 <CommandInput
                   placeholder="항목 검색..."
                   value={searchQuery}
