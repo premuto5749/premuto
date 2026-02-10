@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { BatchSaveRequest } from '@/types'
 import { parseValue } from '@/lib/ocr/value-parser'
+import { triggerOcrSourceDriveBackupFromStaging } from '@/lib/google-drive-upload'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
       batch_id,
       test_date,
       hospital_name,
+      ocr_batch_id,
       uploaded_files,
       results,
       pet_id
@@ -199,6 +201,18 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(`✅ Created ${resultsData?.length || 0} test_results`)
+
+      // Google Drive 백업 트리거 (fire-and-forget) — 스테이징에서 최종 날짜/병원으로 업로드
+      if (ocr_batch_id && finalPetId) {
+        triggerOcrSourceDriveBackupFromStaging(
+          user.id,
+          finalPetId,
+          test_date,
+          hospital_name || null,
+          ocr_batch_id,
+          uploaded_files || []
+        ).catch(err => console.error('[GoogleDrive] Staging-to-Drive backup failed:', err))
+      }
 
       return NextResponse.json({
         success: true,

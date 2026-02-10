@@ -14,10 +14,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, CalendarIcon, Sparkles } from 'lucide-react'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, CalendarIcon, Sparkles, Merge, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
@@ -95,6 +97,13 @@ function PreviewContent() {
     garbage: number
     unmapped: number
   } | null>(null)
+
+  // 병합 관련 상태
+  const [mergeMode, setMergeMode] = useState(false)
+  const [mergeSelected, setMergeSelected] = useState<string[]>([]) // tabId 2개까지
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false)
+  const [mergeTargetDate, setMergeTargetDate] = useState<'first' | 'second'>('first')
+  const [mergeTargetHospital, setMergeTargetHospital] = useState<'first' | 'second'>('first')
 
   useEffect(() => {
     // 세션 스토리지에서 OCR 배치 결과 로드
@@ -240,6 +249,84 @@ function PreviewContent() {
 
   const handleHospitalCreated = (hospital: Hospital) => {
     setHospitals(prev => [...prev, hospital])
+  }
+
+  // 병합 탭 선택 토글
+  const handleMergeSelect = (tabId: string) => {
+    setMergeSelected(prev => {
+      if (prev.includes(tabId)) {
+        return prev.filter(id => id !== tabId)
+      }
+      if (prev.length >= 2) return prev
+      const next = [...prev, tabId]
+      // 2개 선택 완료 시 병합 다이얼로그 열기
+      if (next.length === 2) {
+        setMergeTargetDate('first')
+        setMergeTargetHospital('first')
+        setMergeDialogOpen(true)
+      }
+      return next
+    })
+  }
+
+  // 병합 실행: source 그룹 items의 test_date/hospital_name을 target 그룹 값으로 변경
+  const handleMergeConfirm = () => {
+    if (mergeSelected.length !== 2) return
+
+    const firstGroup = dateGroups.find(g =>
+      `${g.originalDate}-${g.originalHospital}-${g.sequence}` === mergeSelected[0]
+    )
+    const secondGroup = dateGroups.find(g =>
+      `${g.originalDate}-${g.originalHospital}-${g.sequence}` === mergeSelected[1]
+    )
+    if (!firstGroup || !secondGroup) return
+
+    // 병합 대상 (target) 선택
+    const targetGroup = mergeTargetDate === 'first' ? firstGroup : secondGroup
+    const sourceGroup = mergeTargetDate === 'first' ? secondGroup : firstGroup
+
+    // 병원은 별도 선택 가능
+    const finalHospital = mergeTargetHospital === 'first'
+      ? firstGroup.hospital
+      : secondGroup.hospital
+
+    // source 그룹의 items를 target 그룹의 원래 test_date/hospital_name으로 변경
+    setAllItems(prev => prev.map(item => {
+      if (sourceGroup.items.includes(item)) {
+        return {
+          ...item,
+          test_date: targetGroup.originalDate,
+          hospital_name: targetGroup.originalHospital
+        }
+      }
+      return item
+    }))
+
+    // 병원 override도 target 그룹에 적용
+    const targetTabId = `${targetGroup.originalDate}-${targetGroup.originalHospital}-${targetGroup.sequence}`
+    if (finalHospital !== targetGroup.originalHospital) {
+      setGroupHospitalOverrides(prev => {
+        const updated = new Map(prev)
+        updated.set(targetTabId, finalHospital)
+        return updated
+      })
+    }
+
+    // 상태 정리
+    setMergeDialogOpen(false)
+    setMergeSelected([])
+    setMergeMode(false)
+    setActiveTab(targetTabId)
+  }
+
+  const handleMergeModeToggle = () => {
+    if (mergeMode) {
+      setMergeMode(false)
+      setMergeSelected([])
+    } else {
+      setMergeMode(true)
+      setMergeSelected([])
+    }
   }
 
   // AI 정리 (매핑) 실행
@@ -419,6 +506,7 @@ function PreviewContent() {
             batch_id: `${batchData.batch_id}_${group.date}_${group.sequence}`,
             test_date: group.date,
             hospital_name: group.hospital,
+            ocr_batch_id: batchData.batch_id,
             uploaded_files: uploadedFiles,
             results: allResults
           })
@@ -568,7 +656,34 @@ function PreviewContent() {
       </Card>
 
       {/* 날짜별 탭 */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
+      {dateGroups.length >= 2 && (
+        <div className="flex items-center gap-2 mb-3">
+          <Button
+            variant={mergeMode ? "default" : "outline"}
+            size="sm"
+            onClick={handleMergeModeToggle}
+          >
+            {mergeMode ? (
+              <>
+                <X className="w-4 h-4 mr-1" />
+                병합 취소
+              </>
+            ) : (
+              <>
+                <Merge className="w-4 h-4 mr-1" />
+                탭 병합
+              </>
+            )}
+          </Button>
+          {mergeMode && (
+            <span className="text-sm text-muted-foreground">
+              병합할 탭 2개를 선택하세요 ({mergeSelected.length}/2)
+            </span>
+          )}
+        </div>
+      )}
+
+      <Tabs value={mergeMode ? '' : activeTab} onValueChange={mergeMode ? undefined : setActiveTab} className="w-full mb-6">
         <TabsList className="w-full flex flex-wrap gap-1 h-auto mb-4">
           {dateGroups.map((group) => {
             // 탭 ID는 원래 날짜와 병원명 기반 (변경해도 안정적)
@@ -577,6 +692,29 @@ function PreviewContent() {
             const displayName = group.sequence > 1
               ? `${displayDate} (${group.hospital}) (${group.sequence})`
               : `${displayDate} (${group.hospital})`
+
+            if (mergeMode) {
+              const isSelected = mergeSelected.includes(tabId)
+              const selectionOrder = mergeSelected.indexOf(tabId) + 1
+              return (
+                <button
+                  key={tabId}
+                  onClick={() => handleMergeSelect(tabId)}
+                  className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors border-2 ${
+                    isSelected
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : mergeSelected.length >= 2
+                        ? 'border-transparent bg-muted text-muted-foreground/50 cursor-not-allowed'
+                        : 'border-transparent bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                  disabled={!isSelected && mergeSelected.length >= 2}
+                >
+                  {isSelected && <span className="mr-1.5 bg-primary-foreground text-primary rounded-full w-5 h-5 inline-flex items-center justify-center text-xs font-bold">{selectionOrder}</span>}
+                  {displayName}
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1">{group.items.length}</Badge>
+                </button>
+              )
+            }
 
             return (
               <TabsTrigger key={tabId} value={tabId}>
@@ -848,6 +986,133 @@ function PreviewContent() {
         </ul>
       </div>
       </div>
+
+      {/* 병합 확인 다이얼로그 */}
+      <Dialog open={mergeDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setMergeDialogOpen(false)
+          setMergeSelected([])
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>탭 병합</DialogTitle>
+            <DialogDescription>
+              두 그룹을 하나로 합칩니다. 사용할 날짜와 병원을 선택하세요.
+            </DialogDescription>
+          </DialogHeader>
+
+          {mergeSelected.length === 2 && (() => {
+            const g1 = dateGroups.find(g => `${g.originalDate}-${g.originalHospital}-${g.sequence}` === mergeSelected[0])
+            const g2 = dateGroups.find(g => `${g.originalDate}-${g.originalHospital}-${g.sequence}` === mergeSelected[1])
+            if (!g1 || !g2) return null
+
+            const dateDifferent = g1.date !== g2.date
+            const hospitalDifferent = g1.hospital !== g2.hospital
+
+            return (
+              <div className="space-y-4 py-2">
+                {/* 병합 대상 요약 */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-muted/50 rounded-lg text-center">
+                    <div className="text-xs text-muted-foreground mb-1">그룹 1</div>
+                    <div className="text-sm font-medium">{g1.date === 'Unknown' ? '날짜 미인식' : g1.date}</div>
+                    <div className="text-xs text-muted-foreground">{g1.hospital === 'Unknown' ? '병원 미인식' : g1.hospital}</div>
+                    <Badge variant="secondary" className="mt-1 text-xs">{g1.items.length}개 항목</Badge>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg text-center">
+                    <div className="text-xs text-muted-foreground mb-1">그룹 2</div>
+                    <div className="text-sm font-medium">{g2.date === 'Unknown' ? '날짜 미인식' : g2.date}</div>
+                    <div className="text-xs text-muted-foreground">{g2.hospital === 'Unknown' ? '병원 미인식' : g2.hospital}</div>
+                    <Badge variant="secondary" className="mt-1 text-xs">{g2.items.length}개 항목</Badge>
+                  </div>
+                </div>
+
+                {/* 날짜 선택 */}
+                {dateDifferent ? (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">검사일 선택</Label>
+                    <RadioGroup
+                      value={mergeTargetDate}
+                      onValueChange={(v) => setMergeTargetDate(v as 'first' | 'second')}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="first" id="merge-date-1" />
+                        <Label htmlFor="merge-date-1" className="font-normal text-sm">
+                          {g1.date === 'Unknown' ? '날짜 미인식' : g1.date}
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="second" id="merge-date-2" />
+                        <Label htmlFor="merge-date-2" className="font-normal text-sm">
+                          {g2.date === 'Unknown' ? '날짜 미인식' : g2.date}
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    검사일: <span className="font-medium text-foreground">{g1.date === 'Unknown' ? '날짜 미인식' : g1.date}</span>
+                  </div>
+                )}
+
+                {/* 병원 선택 */}
+                {hospitalDifferent ? (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">병원 선택</Label>
+                    <RadioGroup
+                      value={mergeTargetHospital}
+                      onValueChange={(v) => setMergeTargetHospital(v as 'first' | 'second')}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="first" id="merge-hospital-1" />
+                        <Label htmlFor="merge-hospital-1" className="font-normal text-sm">
+                          {g1.hospital === 'Unknown' ? '병원 미인식' : g1.hospital}
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="second" id="merge-hospital-2" />
+                        <Label htmlFor="merge-hospital-2" className="font-normal text-sm">
+                          {g2.hospital === 'Unknown' ? '병원 미인식' : g2.hospital}
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    병원: <span className="font-medium text-foreground">{g1.hospital === 'Unknown' ? '병원 미인식' : g1.hospital}</span>
+                  </div>
+                )}
+
+                {!dateDifferent && !hospitalDifferent && (
+                  <div className="p-3 bg-green-50 text-green-700 rounded-lg text-sm">
+                    날짜와 병원이 동일합니다. 바로 병합할 수 있습니다.
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setMergeDialogOpen(false)
+              setMergeSelected([])
+            }}>
+              취소
+            </Button>
+            <Button onClick={handleMergeConfirm}>
+              <Merge className="w-4 h-4 mr-1" />
+              병합 ({mergeSelected.length === 2 ? (() => {
+                const g1 = dateGroups.find(g => `${g.originalDate}-${g.originalHospital}-${g.sequence}` === mergeSelected[0])
+                const g2 = dateGroups.find(g => `${g.originalDate}-${g.originalHospital}-${g.sequence}` === mergeSelected[1])
+                return (g1?.items.length ?? 0) + (g2?.items.length ?? 0)
+              })() : 0}개 항목)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* AI 사용량 제한 에러 모달 */}
       <Dialog open={rateLimitError} onOpenChange={setRateLimitError}>
