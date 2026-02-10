@@ -280,11 +280,22 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
  * 커스텀 항목을 마스터 테이블에 승격 (promote)
  * 이미 같은 이름의 마스터 항목이 있으면 그 ID를 반환.
  * 없으면 새로 생성하고, 원래 커스텀 항목의 master_item_id를 연결.
+ *
+ * 승격된 항목은 cachedStandardItems에 즉시 추가하여
+ * 같은 배치 내 동일 항목의 반복 DB 호출을 방지.
  */
 async function ensureItemInMaster(
   customItem: StandardItem,
   supabase: SupabaseClientType
 ): Promise<string | null> {
+  const normalizedName = normalizeForMatching(customItem.name);
+
+  // 이미 이번 배치에서 승격되어 마스터 캐시에 있는지 확인 (DB 호출 생략)
+  const alreadyPromoted = cachedStandardItems?.get(normalizedName);
+  if (alreadyPromoted) {
+    return alreadyPromoted.id;
+  }
+
   // 같은 이름이 이미 마스터에 있는지 확인
   const { data: existing } = await supabase
     .from('standard_items_master')
@@ -294,7 +305,9 @@ async function ensureItemInMaster(
 
   if (existing) {
     // 이미 마스터에 있으면 커스텀 항목을 오버라이드로 연결
-    await linkCustomToMaster(customItem.id, existing.id, supabase);
+    await linkCustomToMaster(customItem.id, existing.id);
+    // 마스터 캐시에 추가 (같은 배치에서 재조회 방지)
+    addToMasterCache(normalizedName, { ...customItem, id: existing.id });
     return existing.id;
   }
 
@@ -326,23 +339,36 @@ async function ensureItemInMaster(
   }
 
   // 커스텀 항목을 마스터 오버라이드로 연결 (중복 방지)
-  await linkCustomToMaster(customItem.id, data.id, supabase);
+  await linkCustomToMaster(customItem.id, data.id);
+  // 마스터 캐시에 추가
+  addToMasterCache(normalizedName, { ...customItem, id: data.id });
 
   return data.id;
+}
+
+/**
+ * 승격된 항목을 마스터 캐시에 즉시 추가 + 커스텀 캐시에서 제거
+ * 같은 배치 내 동일 항목의 반복 DB 호출 방지
+ */
+function addToMasterCache(normalizedName: string, item: StandardItem): void {
+  cachedStandardItems?.set(normalizedName, item);
+  cachedCustomItems?.delete(normalizedName);
 }
 
 /**
  * 커스텀 항목의 master_item_id를 설정하여 오버라이드로 전환
  * 이렇게 하면 get_user_standard_items RPC에서 UNION ALL 중복이 사라짐
  * (master_item_id IS NULL 조건에서 제외되므로)
+ *
+ * service_role 클라이언트 사용: RLS가 master_item_id 업데이트를 차단할 수 있으므로
  */
 async function linkCustomToMaster(
   customItemId: string,
   masterItemId: string,
-  supabase: SupabaseClientType
 ): Promise<void> {
   try {
-    const { error } = await supabase
+    const serviceClient = createServiceClient();
+    const { error } = await serviceClient
       .from('user_standard_items')
       .update({ master_item_id: masterItemId })
       .eq('id', customItemId);
