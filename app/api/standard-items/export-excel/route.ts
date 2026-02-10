@@ -128,7 +128,7 @@ export async function GET() {
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
 
     // 응답 반환
-    const filename = `standard-items-${new Date().toISOString().split('T')[0]}.xlsx`
+    const filename = `standard-items-${new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })}.xlsx`
 
     return new NextResponse(buf, {
       headers: {

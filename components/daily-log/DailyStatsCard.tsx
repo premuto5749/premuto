@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DailyStats, LogCategory } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
-import { formatNumber } from '@/lib/utils'
+import { formatNumber, formatLocalDate } from '@/lib/utils'
 
 interface CalorieData {
   intake: number
@@ -27,9 +27,9 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
 
-    if (dateStr === today.toISOString().split('T')[0]) {
+    if (dateStr === formatLocalDate(today)) {
       return '오늘'
-    } else if (dateStr === yesterday.toISOString().split('T')[0]) {
+    } else if (dateStr === formatLocalDate(yesterday)) {
       return '어제'
     }
 

@@ -14,6 +14,7 @@ import Link from 'next/link'
 import { PivotTable } from '@/components/dashboard/PivotTable'
 import { TrendChart } from '@/components/dashboard/TrendChart'
 import { ViewOptions, type SortType } from '@/components/dashboard/ViewOptions'
+import { formatLocalDate } from '@/lib/utils'
 
 interface TestResult {
   id: string
@@ -255,7 +256,7 @@ function DashboardContent() {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `mimo-test-results-${new Date().toISOString().split('T')[0]}.xlsx`
+      link.download = `mimo-test-results-${formatLocalDate(new Date())}.xlsx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)

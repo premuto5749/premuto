@@ -46,6 +46,7 @@ import {
   AlertTriangle, Info, CheckCircle, AlertCircle, ChevronDown, ChevronRight
 } from 'lucide-react'
 import Link from 'next/link'
+import { formatLocalDate } from '@/lib/utils'
 
 interface StandardItem {
   id: string
@@ -275,7 +276,7 @@ export default function AdminMasterDataPage() {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `master-standard-items-${new Date().toISOString().split('T')[0]}.xlsx`
+      link.download = `master-standard-items-${formatLocalDate(new Date())}.xlsx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)

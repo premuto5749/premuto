@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 
     // 최근 체중 조회 (carry-forward)
     if (latestWeight === 'true' && petId) {
-      const targetDate = date || new Date().toISOString().split('T')[0]
+      const targetDate = date || new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 
       // 해당 날짜 이전의 가장 최근 weight 기록
       const { data: weightLog } = await supabase

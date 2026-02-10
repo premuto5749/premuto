@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
 import { createClient } from '@/lib/supabase/client'
+import { formatLocalDate } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { GoogleDriveSection } from '@/components/settings/GoogleDriveSection'
 
@@ -1199,7 +1200,7 @@ function DataManagementSection() {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `mimo-test-results-${new Date().toISOString().split('T')[0]}.xlsx`
+      link.download = `mimo-test-results-${formatLocalDate(new Date())}.xlsx`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
