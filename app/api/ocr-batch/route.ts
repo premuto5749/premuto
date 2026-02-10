@@ -557,9 +557,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 파일명 중복 방어: 동일 파일명이 있으면 인덱스 접미사 추가
+    const filenameCounts = new Map<string, number>()
+    const uniqueFiles: File[] = []
+    for (const file of files) {
+      let name = file.name
+      const count = filenameCounts.get(name) || 0
+      if (count > 0) {
+        const dotIdx = name.lastIndexOf('.')
+        const base = dotIdx > 0 ? name.slice(0, dotIdx) : name
+        const ext = dotIdx > 0 ? name.slice(dotIdx) : ''
+        name = `${base}_${count + 1}${ext}`
+      }
+      filenameCounts.set(file.name, count + 1)
+      uniqueFiles.push(new File([file], name, { type: file.type }))
+    }
+
     // 파일 버퍼 캡처 (스테이징 저장용 - OCR 처리 전에 캡처해야 함)
     const fileBuffers = new Map<string, { buffer: Buffer; mimeType: string }>()
-    for (const file of files) {
+    for (const file of uniqueFiles) {
       try {
         const arrBuf = await file.arrayBuffer()
         fileBuffers.set(file.name, {
@@ -573,12 +589,12 @@ export async function POST(request: NextRequest) {
 
     // DB에서 max_tokens 설정 조회
     const maxTokens = await getOcrMaxTokens()
-    console.log(`🚀 Processing ${files.length} files with Claude API (parallel, max_tokens=${maxTokens})...`)
+    console.log(`🚀 Processing ${uniqueFiles.length} files with Claude API (parallel, max_tokens=${maxTokens})...`)
 
     // 병렬 처리
     const nestedResults = await Promise.all(
-      files.map((file, index) => {
-        console.log(`📄 Starting file ${index + 1}/${files.length}: ${file.name}`)
+      uniqueFiles.map((file, index) => {
+        console.log(`📄 Starting file ${index + 1}/${uniqueFiles.length}: ${file.name}`)
         return processFile(file, index, maxTokens)
       })
     )
@@ -683,8 +699,8 @@ export async function POST(request: NextRequest) {
             })
         )
       }
-      // 스테이징 업로드는 응답을 지연시키지 않도록 fire-and-forget
-      Promise.all(stagingPromises).catch(err =>
+      // 스테이징 업로드 완료를 보장 (빠른 저장 시에도 Drive 백업 동작)
+      await Promise.all(stagingPromises).catch(err =>
         console.error('[Staging] Batch upload error:', err)
       )
     }

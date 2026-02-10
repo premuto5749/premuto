@@ -131,7 +131,7 @@ export default function UploadQuickPage() {
         }
 
         totalSize += processedFile.size
-        formData.append(`file${i}`, processedFile)
+        formData.append(`file${i}`, processedFile, file.name)
       }
 
       // 압축 후 전체 크기 체크
