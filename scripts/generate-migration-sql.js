@@ -72,7 +72,7 @@ BEGIN
 END $$;
 
 -- =====================================================
--- 3단계: standard_items_master INSERT (120개)
+-- 3단계: standard_items_master INSERT (${data.stats.test_items}개)
 -- =====================================================
 
 INSERT INTO standard_items_master (
@@ -90,7 +90,7 @@ const itemValues = data.test_items.map((item, index) => {
 sql += itemValues.join(',\n') + ';\n\n';
 
 sql += `-- =====================================================
--- 4단계: item_aliases_master INSERT (76개)
+-- 4단계: item_aliases_master INSERT (${data.stats.aliases}개)
 -- canonical_name으로 standard_item_id 조회하여 연결
 -- =====================================================
 
