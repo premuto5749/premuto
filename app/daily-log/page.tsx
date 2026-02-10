@@ -18,7 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import type { DailyLog, DailyStats, LogCategory } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
-import { formatNumber } from '@/lib/utils'
+import { formatNumber, formatLocalDate } from '@/lib/utils'
 import { calculateCalories, calculateIntake } from '@/lib/calorie'
 import {
   Popover,
@@ -159,16 +159,16 @@ export default function DailyLogPage() {
   }
 
   const goToPrevDay = () => {
-    const d = new Date(selectedDate)
+    const d = new Date(selectedDate + 'T00:00:00')
     d.setDate(d.getDate() - 1)
-    setSelectedDate(d.toISOString().split('T')[0])
+    setSelectedDate(formatLocalDate(d))
     setSelectedCategory(null) // 날짜 변경 시 필터 해제
   }
 
   const goToNextDay = () => {
-    const d = new Date(selectedDate)
+    const d = new Date(selectedDate + 'T00:00:00')
     d.setDate(d.getDate() + 1)
-    setSelectedDate(d.toISOString().split('T')[0])
+    setSelectedDate(formatLocalDate(d))
     setSelectedCategory(null) // 날짜 변경 시 필터 해제
   }
 
@@ -180,12 +180,12 @@ export default function DailyLogPage() {
   const formatDateHeader = (dateStr: string) => {
     const d = new Date(dateStr)
     const today = getKSTToday()
-    const yesterdayDate = new Date(today)
+    const yesterdayDate = new Date(today + 'T00:00:00')
     yesterdayDate.setDate(yesterdayDate.getDate() - 1)
-    const yesterday = yesterdayDate.toISOString().split('T')[0]
-    const tomorrowDate = new Date(today)
+    const yesterday = formatLocalDate(yesterdayDate)
+    const tomorrowDate = new Date(today + 'T00:00:00')
     tomorrowDate.setDate(tomorrowDate.getDate() + 1)
-    const tomorrow = tomorrowDate.toISOString().split('T')[0]
+    const tomorrow = formatLocalDate(tomorrowDate)
 
     if (dateStr === today) {
       return '오늘'
@@ -201,7 +201,7 @@ export default function DailyLogPage() {
   const isToday = selectedDate === getKSTToday()
 
   const handleCalendarSelect = (date: Date) => {
-    setSelectedDate(date.toISOString().split('T')[0])
+    setSelectedDate(formatLocalDate(date))
     setIsCalendarOpen(false)
     setSelectedCategory(null) // 날짜 변경 시 필터 해제
   }

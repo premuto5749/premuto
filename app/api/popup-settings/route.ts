@@ -32,10 +32,7 @@ export async function GET() {
     const announcements: PopupAnnouncement[] = data.value?.announcements || []
 
     // KST 기준 현재 날짜 (YYYY-MM-DD)
-    const now = new Date()
-    const kstOffset = 9 * 60 * 60 * 1000
-    const kstDate = new Date(now.getTime() + kstOffset)
-    const todayStr = kstDate.toISOString().split('T')[0]
+    const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 
     // 필터링: enabled=true && startDate <= today <= endDate
     const active = announcements

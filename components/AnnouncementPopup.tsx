@@ -141,10 +141,7 @@ export function AnnouncementPopup() {
     if (!currentAnnouncement) return
 
     // KST 기준 오늘 23:59:59
-    const now = new Date()
-    const kstOffset = 9 * 60 * 60 * 1000
-    const kstNow = new Date(now.getTime() + kstOffset)
-    const kstDateStr = kstNow.toISOString().split('T')[0]
+    const kstDateStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
     const dismissUntil = new Date(kstDateStr + 'T23:59:59+09:00')
 
     const newState: DismissState = {
