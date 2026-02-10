@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { HospitalSelector } from '@/components/ui/hospital-selector'
-import { Loader2, Trash2, Plus, Save, CalendarIcon, ArrowUp, ArrowDown } from 'lucide-react'
+import { Loader2, Trash2, Plus, Save, CalendarIcon, ArrowUp, ArrowDown, Search } from 'lucide-react'
 import { formatLocalDate } from '@/lib/utils'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
@@ -38,14 +38,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
 import { useToast } from '@/hooks/use-toast'
 import type { Hospital, StandardItem } from '@/types'
 
@@ -609,20 +601,25 @@ export default function EditRecordPage() {
             {/* 표준 항목 선택 */}
             <div className="space-y-2">
               <Label>검사 항목 *</Label>
-              <Command className="border rounded-md" shouldFilter={false}>
-                <CommandInput
-                  placeholder="항목 검색..."
-                  value={searchQuery}
-                  onValueChange={setSearchQuery}
-                />
-                <CommandList className="max-h-[200px]">
-                  <CommandEmpty>항목을 찾을 수 없습니다.</CommandEmpty>
-                  <CommandGroup>
-                    {filteredStandardItems.slice(0, 50).map((item) => (
-                      <CommandItem
+              <div className="border rounded-md">
+                <div className="flex items-center border-b px-3">
+                  <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                  <input
+                    className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                    placeholder="항목 검색..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <div className="max-h-[200px] overflow-y-auto p-1">
+                  {filteredStandardItems.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">항목을 찾을 수 없습니다.</p>
+                  ) : (
+                    filteredStandardItems.slice(0, 50).map((item) => (
+                      <div
                         key={item.id}
-                        value={item.id}
-                        onSelect={() => {
+                        className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => {
                           setNewItem(prev => ({
                             ...prev,
                             standard_item_id: item.id,
@@ -635,11 +632,11 @@ export default function EditRecordPage() {
                         {item.display_name_ko && (
                           <span className="ml-2 text-xs text-muted-foreground">{item.name}</span>
                         )}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
               {selectedStandardItem && (
                 <p className="text-sm text-muted-foreground">
                   선택됨: {selectedStandardItem.display_name_ko || selectedStandardItem.name}
