@@ -151,7 +151,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md mx-auto">
           {/* 로고 */}
           {siteSettings.logoUrl && (
-            <div className="mb-8">
+            <div className="mb-8 flex justify-center">
               <Image
                 src={siteSettings.logoUrl}
                 alt="Logo"
@@ -168,7 +168,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => switchMode('login')}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors mx-auto"
             >
               <ArrowLeft className="w-4 h-4" />
               로그인으로 돌아가기
@@ -176,10 +176,10 @@ export default function LoginPage() {
           )}
 
           {/* 타이틀 */}
-          <h1 className="text-3xl font-bold mb-2">
+          <h1 className="text-3xl font-bold mb-2 text-center">
             {getTitle()}
           </h1>
-          <p className="text-muted-foreground mb-8">
+          <p className="text-muted-foreground mb-8 text-center">
             {getDescription()}
           </p>
 

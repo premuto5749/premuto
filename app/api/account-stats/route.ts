@@ -35,8 +35,9 @@ export async function GET() {
     if (dailyLogsRes.data) {
       const dateSet = new Set<string>()
       for (const row of dailyLogsRes.data) {
-        const kst = new Date(new Date(row.logged_at).getTime() + 9 * 60 * 60 * 1000)
-        dateSet.add(kst.toISOString().split('T')[0])
+        // KST 기준 날짜 추출 (toLocaleDateString 사용)
+        const logDate = new Date(row.logged_at)
+        dateSet.add(logDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }))
       }
       logDates.push(...Array.from(dateSet).sort().reverse())
     }
@@ -45,14 +46,12 @@ export async function GET() {
       lastRecordDate = logDates[0]
 
       // streak 계산: 오늘(KST)부터 연속된 날짜 수
-      const now = new Date()
-      const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000)
-      const todayStr = kstNow.toISOString().split('T')[0]
+      const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 
       // 오늘 또는 어제부터 시작
       let checkDate = todayStr
       if (logDates[0] !== todayStr) {
-        const yesterday = new Date(kstNow)
+        const yesterday = new Date(todayStr + 'T00:00:00Z')
         yesterday.setUTCDate(yesterday.getUTCDate() - 1)
         checkDate = yesterday.toISOString().split('T')[0]
       }

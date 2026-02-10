@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { Loader2, Trash2, Merge, CalendarIcon, Pencil } from 'lucide-react'
+import { formatLocalDate } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -505,7 +506,7 @@ function RecordsManagementContent() {
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           selected={targetDate ? new Date(targetDate) : undefined}
-                          onSelect={(date) => setTargetDate(date.toISOString().split('T')[0])}
+                          onSelect={(date) => setTargetDate(formatLocalDate(date))}
                           maxDate={new Date()}
                         />
                       </PopoverContent>

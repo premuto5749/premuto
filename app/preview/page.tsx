@@ -23,6 +23,7 @@ import { AlertCircle, Loader2, Edit2, Check, ArrowUp, ArrowDown, CalendarIcon, S
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
+import { formatLocalDate } from '@/lib/utils'
 import type { OcrBatchResponse, OcrResult, Hospital } from '@/types'
 
 // 이상여부 배지 컴포넌트
@@ -239,7 +240,7 @@ function PreviewContent() {
   }
 
   const handleDateChange = (groupKey: string, date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = formatLocalDate(date)
     setGroupDateOverrides(prev => {
       const updated = new Map(prev)
       updated.set(groupKey, dateStr)
@@ -506,6 +507,7 @@ function PreviewContent() {
             batch_id: `${batchData.batch_id}_${group.date}_${group.sequence}`,
             test_date: group.date,
             hospital_name: group.hospital,
+            ocr_batch_id: batchData.batch_id,
             uploaded_files: uploadedFiles,
             results: allResults
           })

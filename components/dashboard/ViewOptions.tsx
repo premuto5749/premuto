@@ -212,7 +212,7 @@ export function groupItemsBySortType(
     'Senior': ['WBC', 'RBC', 'HGB', 'HCT', 'PLT', 'ALT', 'AST', 'ALKP', 'GGT', 'BUN', 'Creatinine', 'SDMA', 'Glucose', 'Protein-Total', 'Albumin', 'T.Cholesterol', 'Triglycerides', 'T.Bilirubin', 'Phosphorus', 'Calcium', 'Na', 'K', 'Cl', 'CRP', 'UPC', '요비중'],
     'Pancreatitis': ['cPL', 'Lipase', 'Amylase', 'Glucose', 'Triglycerides', 'Calcium', 'CRP', 'WBC'],
     'Coagulation': ['PLT', 'PT', 'APTT', 'Fibrinogen', 'D-dimer', 'TEG_R', 'TEG_K', 'TEG_Angle', 'TEG_MA'],
-    'Emergency': ['pH', 'pCO2', 'pO2', 'cHCO3', 'BE', 'Lactate', 'Na', 'K', 'Cl', 'Calcium', 'HCT', 'HGB', 'Glucose'],
+    'Emergency': ['pH', 'pCO2', 'pO2', 'cHCO3', 'BE', 'Lactate', 'Lactate(BG)', 'Na', 'Na(BG)', 'K', 'K(BG)', 'Cl', 'Cl(BG)', 'Calcium', 'Ca(BG)', 'HCT', 'HCT(BG)', 'HGB', 'tHb(BG)', 'Glucose', 'Glucose(BG)'],
     'Cardiac': ['proBNP', '심장사상충', 'E', 'LVIDd', 'Systolic BP', 'CK'],
     'Kidney': ['BUN', 'Creatinine', 'BUN:Cr Ratio', 'SDMA', 'Phosphorus', 'Calcium', 'UPC', 'PH(뇨)', '요비중', 'mOsm', 'K', 'Na', 'Albumin'],
   }

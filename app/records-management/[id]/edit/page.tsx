@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { HospitalSelector } from '@/components/ui/hospital-selector'
 import { Loader2, Trash2, Plus, Save, CalendarIcon, ArrowUp, ArrowDown } from 'lucide-react'
+import { formatLocalDate } from '@/lib/utils'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import {
@@ -423,7 +424,7 @@ export default function EditRecordPage() {
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       selected={testDate && testDate !== 'Unknown' ? new Date(testDate) : undefined}
-                      onSelect={(date) => setTestDate(date.toISOString().split('T')[0])}
+                      onSelect={(date) => setTestDate(formatLocalDate(date))}
                       maxDate={new Date()}
                     />
                   </PopoverContent>
@@ -608,7 +609,7 @@ export default function EditRecordPage() {
             {/* 표준 항목 선택 */}
             <div className="space-y-2">
               <Label>검사 항목 *</Label>
-              <Command className="border rounded-md">
+              <Command className="border rounded-md" shouldFilter={false}>
                 <CommandInput
                   placeholder="항목 검색..."
                   value={searchQuery}

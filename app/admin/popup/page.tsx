@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { RichTextEditor } from '@/components/editors/RichTextEditor'
 import { Loader2, ShieldCheck, Save, Plus, Trash2, Pencil, ArrowLeft, ChevronDown, ChevronUp, Eye } from 'lucide-react'
+import { formatLocalDate } from '@/lib/utils'
 
 interface PopupAnnouncement {
   id: string
@@ -103,8 +104,8 @@ export default function PopupManagementPage() {
       enabled: true,
       title: '',
       content: '',
-      startDate: today.toISOString().split('T')[0],
-      endDate: thirtyDaysLater.toISOString().split('T')[0],
+      startDate: formatLocalDate(today),
+      endDate: formatLocalDate(thirtyDaysLater),
       priority: 0,
     })
     setEditingId('new')
@@ -188,7 +189,7 @@ export default function PopupManagementPage() {
   }
 
   const isExpired = (endDate: string) => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = formatLocalDate(new Date())
     return endDate < today
   }
 

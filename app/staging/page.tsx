@@ -197,6 +197,7 @@ function StagingV2Content() {
             batch_id: `${batchData.batch_id}_${group.date}_${group.sequence}`,
             test_date: group.date,
             hospital_name: group.hospital,
+            ocr_batch_id: batchData.batch_id,
             uploaded_files: uploadedFiles,
             results: groupMappingItems.map(item => ({
               standard_item_id: item.selected_standard_item_id!,

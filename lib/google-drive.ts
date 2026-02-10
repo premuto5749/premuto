@@ -280,6 +280,33 @@ export async function createRootFolder(accessToken: string): Promise<string> {
 }
 
 // ============================================
+// 파일 이동 (폴더 변경)
+// ============================================
+
+export async function moveFile(
+  accessToken: string,
+  fileId: string,
+  newParentId: string,
+  oldParentId: string
+): Promise<void> {
+  const res = await fetch(
+    `${GOOGLE_DRIVE_API}/files/${fileId}?addParents=${newParentId}&removeParents=${oldParentId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  )
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Failed to move file ${fileId}: ${err}`)
+  }
+}
+
+// ============================================
 // 토큰 취소
 // ============================================
 
