@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { moveDriveFilesToFolder } from '@/lib/google-drive-upload'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,13 @@ export async function POST(request: NextRequest) {
 
     const body: MergeRequest = await request.json()
     const { sourceRecordId, targetRecordId, targetDate, targetHospital, conflictResolutions } = body
+
+    // 0. source 레코드의 batch_upload_id, pet_id 조회 (Drive 파일 이동용)
+    const { data: sourceRecord } = await supabase
+      .from('test_records')
+      .select('batch_upload_id, pet_id')
+      .eq('id', sourceRecordId)
+      .single()
 
     // 1. 두 레코드의 결과 가져오기
     const [sourceResults, targetResults] = await Promise.all([
@@ -99,6 +107,17 @@ export async function POST(request: NextRequest) {
 
     if (deleteError) {
       throw new Error('원본 레코드 삭제에 실패했습니다')
+    }
+
+    // 5. Drive 파일 이동 (fire-and-forget) — source의 Drive 파일을 target 폴더로
+    if (sourceRecord?.batch_upload_id && sourceRecord?.pet_id) {
+      moveDriveFilesToFolder(
+        user.id,
+        sourceRecord.pet_id,
+        sourceRecord.batch_upload_id,
+        targetDate,
+        targetHospital || null
+      ).catch(err => console.error('[GoogleDrive] Merge file move failed:', err))
     }
 
     return NextResponse.json({
