@@ -146,6 +146,34 @@ export async function POST(request: NextRequest) {
 
       console.log(`📊 Deduplicated: ${results.length} → ${testResultsToInsert.length} items`)
 
+      // 2.5. standard_item_id가 실제 standard_items_master에 존재하는지 검증
+      // user_standard_items의 커스텀 항목 ID가 유입되면 FK 제약 위반 발생 방지
+      const uniqueItemIds = [...new Set(testResultsToInsert.map(r => r.standard_item_id))]
+      const { data: validItems, error: validItemsError } = await supabase
+        .from('standard_items_master')
+        .select('id')
+        .in('id', uniqueItemIds)
+
+      if (validItemsError) {
+        console.error('❌ Failed to validate standard_item_ids:', validItemsError)
+        throw new Error(`Failed to validate standard items: ${validItemsError.message}`)
+      }
+
+      const validIdSet = new Set((validItems || []).map(item => item.id))
+      const invalidIds = uniqueItemIds.filter(id => !validIdSet.has(id))
+
+      if (invalidIds.length > 0) {
+        console.warn(`⚠️ Filtering out ${invalidIds.length} items with invalid standard_item_id (not in standard_items_master): ${invalidIds.join(', ')}`)
+        // FK 위반을 방지하기 위해 유효하지 않은 ID를 가진 결과 제거
+        const filteredResults = testResultsToInsert.filter(r => validIdSet.has(r.standard_item_id))
+        if (filteredResults.length === 0) {
+          throw new Error('모든 항목의 standard_item_id가 유효하지 않습니다')
+        }
+        console.log(`📊 After filtering: ${testResultsToInsert.length} → ${filteredResults.length} items`)
+        testResultsToInsert.length = 0
+        testResultsToInsert.push(...filteredResults)
+      }
+
       // 3. test_results 일괄 삽입 (upsert로 중복 방지)
       const { data: resultsData, error: resultsError } = await supabase
         .from('test_results')
