@@ -19,7 +19,6 @@ interface PopupAnnouncement {
   startDate: string
   endDate: string
   priority: number
-  type: 'general' | 'stray_dog'
   createdAt: string
   updatedAt: string
 }
@@ -44,7 +43,6 @@ export default function PopupManagementPage() {
     startDate: '',
     endDate: '',
     priority: 0,
-    type: 'general' as 'general' | 'stray_dog',
   })
 
   useEffect(() => {
@@ -76,7 +74,7 @@ export default function PopupManagementPage() {
   }, [])
 
   const resetForm = () => {
-    setForm({ enabled: true, title: '', content: '', startDate: '', endDate: '', priority: 0, type: 'general' })
+    setForm({ enabled: true, title: '', content: '', startDate: '', endDate: '', priority: 0 })
     setEditingId(null)
     setShowPreview(false)
   }
@@ -89,7 +87,6 @@ export default function PopupManagementPage() {
       startDate: announcement.startDate,
       endDate: announcement.endDate,
       priority: announcement.priority,
-      type: announcement.type || 'general',
     })
     setEditingId(announcement.id)
     setShowPreview(false)
@@ -110,7 +107,6 @@ export default function PopupManagementPage() {
       startDate: formatLocalDate(today),
       endDate: formatLocalDate(thirtyDaysLater),
       priority: 0,
-      type: 'general',
     })
     setEditingId('new')
     setShowPreview(false)
@@ -298,9 +294,6 @@ export default function PopupManagementPage() {
                               announcement.enabled ? 'bg-green-500' : 'bg-gray-300'
                             }`} />
                             <span className="font-medium truncate">{announcement.title}</span>
-                            {announcement.type === 'stray_dog' && (
-                              <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded">유기견</span>
-                            )}
                             {isExpired(announcement.endDate) && (
                               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">만료</span>
                             )}
@@ -355,20 +348,6 @@ export default function PopupManagementPage() {
                   className="w-4 h-4 rounded border-gray-300"
                 />
                 <Label htmlFor="enabled">활성화</Label>
-              </div>
-
-              {/* 유형 */}
-              <div className="space-y-2">
-                <Label htmlFor="type">유형</Label>
-                <select
-                  id="type"
-                  value={form.type}
-                  onChange={e => setForm(prev => ({ ...prev, type: e.target.value as 'general' | 'stray_dog' }))}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <option value="general">일반 공지</option>
-                  <option value="stray_dog">유기견 안내</option>
-                </select>
               </div>
 
               {/* 제목 */}

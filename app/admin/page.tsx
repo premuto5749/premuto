@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle, Sliders, Globe, Megaphone } from 'lucide-react'
+import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle, Sliders, Globe, Megaphone, PawPrint } from 'lucide-react'
 import Link from 'next/link'
 
 interface AdminStats {
@@ -289,6 +289,26 @@ export default function AdminPage() {
                 <div className="flex gap-2">
                   <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">다중 공지</span>
                   <span className="text-xs bg-muted px-2 py-1 rounded">기간 설정</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/admin/lost-animals">
+            <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <PawPrint className="w-5 h-5" />
+                  유실 동물 전단지
+                </CardTitle>
+                <CardDescription>
+                  유실 동물 전단지를 업로드하고 활성/종료 상태를 관리합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">전단지 관리</span>
+                  <span className="text-xs bg-muted px-2 py-1 rounded">팝업 노출</span>
                 </div>
               </CardContent>
             </Card>

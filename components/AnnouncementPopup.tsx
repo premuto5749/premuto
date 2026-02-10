@@ -18,7 +18,6 @@ interface PopupAnnouncement {
   title: string
   content: string
   updatedAt: string
-  type?: 'general' | 'stray_dog'
 }
 
 interface DismissState {
@@ -137,36 +136,6 @@ export function AnnouncementPopup() {
     }
   }
 
-  const handleDismissToday = () => {
-    if (!currentAnnouncement) return
-
-    // KST 기준 오늘 23:59:59
-    const kstDateStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
-    const dismissUntil = new Date(kstDateStr + 'T23:59:59+09:00')
-
-    const newState: DismissState = {
-      ...dismissState,
-      [currentAnnouncement.id]: {
-        contentKey: currentAnnouncement.updatedAt,
-        dismissUntil: dismissUntil.toISOString(),
-      }
-    }
-    setDismissState(newState)
-    saveDismissState(newState)
-
-    // 다음 공지 확인
-    const next = findNextAnnouncement(
-      announcements.filter(a => a.id !== currentAnnouncement.id),
-      newState
-    )
-    if (next) {
-      setCurrentAnnouncement(next)
-    } else {
-      setOpen(false)
-      setCurrentAnnouncement(null)
-    }
-  }
-
   const handleClose = () => {
     // 닫기: dismiss 저장 없이 닫기 (다음 방문 시 다시 표시)
     setOpen(false)
@@ -187,46 +156,26 @@ export function AnnouncementPopup() {
           dangerouslySetInnerHTML={{ __html: currentAnnouncement.content }}
         />
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          {currentAnnouncement.type === 'stray_dog' ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDismissToday}
-              >
-                오늘은 그만 보기
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleClose}
-              >
-                닫기
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleDismiss(7)}
-              >
-                7일간 보지 않기
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleDismiss(1)}
-              >
-                1일간 보지 않기
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleClose}
-              >
-                닫기
-              </Button>
-            </>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleDismiss(7)}
+          >
+            7일간 보지 않기
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleDismiss(1)}
+          >
+            1일간 보지 않기
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleClose}
+          >
+            닫기
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
