@@ -367,41 +367,45 @@ npx supabase db push # DB 마이그레이션
 - 기능 개발: `feat/기능명` (예: `feat/user-auth`)
 - 버그 수정: `fix/이슈번호-설명` (예: `fix/123-login-error`)
 
-### 작업 순서 (반드시 준수)
+### 작업 순서 (반드시 준수 — Worktree 방식)
 
 ```
-1. main 최신화        git checkout main && git pull
-2. 새 브랜치 생성      git checkout -b feat/기능명
-3. 코드 작업           (파일 수정)
-4. 커밋               git add <파일들> && git commit -m "..."
-5. 푸시               git push -u origin feat/기능명
-6. PR 생성            gh pr create ...
-7. 머지               gh pr merge ... --squash --delete-branch
-8. main 복귀          git checkout main && git pull
+1. main 최신화           cd C:/Dev/premuto-1 && git pull
+2. worktree 생성         git worktree add ../premuto-1-<브랜치명> -b feat/기능명
+3. worktree에서 작업     cd ../premuto-1-<브랜치명>
+4. 커밋                  git add <파일들> && git commit -m "..."
+5. 푸시                  git push -u origin feat/기능명
+6. PR 생성               gh pr create ...
+7. 머지                  gh pr merge ... --squash --delete-branch
+8. worktree 정리         cd C:/Dev/premuto-1 && git worktree remove ../premuto-1-<브랜치명>
 ```
 
-- **⚠️ 절대 규칙: 어떤 코드 수정이든 반드시 브랜치를 먼저 생성한 후 진행**할 것. 이 규칙은 예외 없이 적용된다.
-  - 백그라운드 에이전트(Task tool)에게 작업을 위임할 때도 브랜치 생성을 먼저 지시할 것
-  - 단 한 줄의 수정이라도 main에서 직접 파일을 수정하지 않는다
-  - 브랜치 생성 전에 파일을 수정하는 것은 금지 — 반드시 `git checkout -b` 후 편집
+- **⚠️ 절대 규칙: 어떤 코드 수정이든 반드시 worktree를 생성한 후 해당 디렉토리에서 진행**할 것. 이 규칙은 예외 없이 적용된다.
+  - 백그라운드 에이전트(Task tool)에게 작업을 위임할 때도 worktree 생성을 먼저 지시할 것
+  - 단 한 줄의 수정이라도 main worktree(`C:/Dev/premuto-1`)에서 직접 파일을 수정하지 않는다
+  - worktree 생성 전에 파일을 수정하는 것은 금지 — 반드시 `git worktree add` 후 편집
 - **항상 main에서 새 브랜치를 생성**할 것. 다른 브랜치에서 분기하지 않는다.
 - **어떤 작업이든 반드시 PR을 생성**할 것. main에 직접 커밋/푸시하지 않는다. (docs, fix, feat 모두 포함)
 - 머지 시 `--squash`로 커밋을 정리하고 `--delete-branch`로 원격 브랜치를 삭제한다.
+- 머지 후 반드시 `git worktree remove`로 worktree를 정리한다.
 
 ### 여러 기능 동시 작업
 
 ```bash
-# 기능1 작업 중 → 기능2를 시작해야 할 때
-git stash                          # 현재 작업 임시 보관
-git checkout main && git pull      # main 최신화
-git checkout -b feat/기능2          # 새 브랜치 생성
-# ... 기능2 작업 ...
+# Worktree는 각 브랜치가 별도 디렉토리이므로 stash 없이 동시 작업 가능
+# 기능1 worktree
+git worktree add ../premuto-1-feat-기능1 -b feat/기능1
+# 기능2 worktree (동시에 생성 가능)
+git worktree add ../premuto-1-feat-기능2 -b feat/기능2
 
-# 다시 기능1로 돌아올 때
-git checkout feat/기능1
-git stash pop                      # 임시 보관한 작업 복원
+# 각 디렉토리에서 독립적으로 작업
+# cd ../premuto-1-feat-기능1  → 기능1 작업
+# cd ../premuto-1-feat-기능2  → 기능2 작업
+
+# 작업 완료 후 정리
+git worktree remove ../premuto-1-feat-기능1
+git worktree remove ../premuto-1-feat-기능2
 ```
 
-- 각 브랜치는 독립적이므로 여러 개 동시 진행 가능
-- `git stash`로 미완성 작업을 임시 보관 후 브랜치 전환
-- 전환 후 `git stash pop`으로 복원
+- 각 worktree는 독립된 디렉토리이므로 `git stash` 없이 여러 작업 동시 진행 가능
+- worktree 간 전환은 단순히 디렉토리 이동 (`cd`)으로 처리
