@@ -1,10 +1,10 @@
 {
-  "version": "v4.2",
-  "updated_at": "2026-02-06",
+  "version": "v4.3",
+  "updated_at": "2026-02-10",
   "stats": {
-    "test_items": 120,
-    "aliases": 89,
-    "total_recognizable_names": 209
+    "test_items": 129,
+    "aliases": 107,
+    "total_recognizable_names": 236
   },
   "test_items": [
     {
@@ -1619,6 +1619,105 @@
       "description_common": "좌심실의 이완기 내경입니다. 심비대와 확장성 심근병증 평가에 사용됩니다.",
       "description_high": "확장성 심근병증, 승모판 폐쇄부전, 용적 과부하",
       "description_low": "저혈량증, 탈수"
+    },
+    {
+      "item_id": "ITEM_121",
+      "name": "HCT(BG)",
+      "display_name_ko": "적혈구용적률(혈액가스)",
+      "unit": "%",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["혈액"],
+      "description_common": "혈액가스 장비로 측정한 적혈구용적률. CBC의 HCT와 측정 방법이 달라 값 차이가 있을 수 있음.",
+      "description_high": "탈수, 적혈구증다증",
+      "description_low": "빈혈, 출혈, 수액과다"
+    },
+    {
+      "item_id": "ITEM_122",
+      "name": "Na(BG)",
+      "display_name_ko": "나트륨(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "혈액가스 장비로 측정한 나트륨. 전혈 직접 측정으로 Chemistry와 약간 차이 가능.",
+      "description_high": "탈수, 고나트륨혈증",
+      "description_low": "저나트륨혈증, 수분 과잉"
+    },
+    {
+      "item_id": "ITEM_123",
+      "name": "K(BG)",
+      "display_name_ko": "칼륨(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "혈액가스 장비로 측정한 칼륨. 전혈 직접 측정으로 Chemistry와 약간 차이 가능.",
+      "description_high": "고칼륨혈증 (신부전, 요로폐색, 애디슨병)",
+      "description_low": "저칼륨혈증 (구토, 설사, 수액치료 중)"
+    },
+    {
+      "item_id": "ITEM_124",
+      "name": "Ca(BG)",
+      "display_name_ko": "칼슘(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "혈액가스 장비로 측정한 이온화 칼슘. Chemistry의 총칼슘과 단위·의미가 다름.",
+      "description_high": "고칼슘혈증 (종양, 부갑상선항진증)",
+      "description_low": "저칼슘혈증 (산욕기, 저알부민혈증, 신부전)"
+    },
+    {
+      "item_id": "ITEM_125",
+      "name": "Cl(BG)",
+      "display_name_ko": "염소(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "혈액가스 장비로 측정한 염소. 전혈 직접 측정.",
+      "description_high": "고염소혈증 (탈수, 대사성 산증)",
+      "description_low": "저염소혈증 (구토, 대사성 알칼리증)"
+    },
+    {
+      "item_id": "ITEM_126",
+      "name": "Glucose(BG)",
+      "display_name_ko": "혈당(혈액가스)",
+      "unit": "mg/dL",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["대사"],
+      "description_common": "혈액가스 장비로 측정한 혈당. 전혈 직접 측정으로 Chemistry 혈당과 약간 차이 가능.",
+      "description_high": "고혈당 (당뇨, 스트레스, 쿠싱)",
+      "description_low": "저혈당 (인슐린과다, 패혈증, 간부전)"
+    },
+    {
+      "item_id": "ITEM_127",
+      "name": "Lactate(BG)",
+      "display_name_ko": "젖산(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["대사"],
+      "description_common": "혈액가스 장비로 측정한 젖산. 조직 저산소 상태 평가.",
+      "description_high": "조직 저산소증, 쇼크, 패혈증, 장허혈",
+      "description_low": ""
+    },
+    {
+      "item_id": "ITEM_128",
+      "name": "tHb(BG)",
+      "display_name_ko": "총헤모글로빈(혈액가스)",
+      "unit": "g/dL",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["혈액"],
+      "description_common": "혈액가스 장비로 측정한 총헤모글로빈. CBC의 HGB와 측정 원리가 달라 값 차이 가능.",
+      "description_high": "탈수, 적혈구증다증",
+      "description_low": "빈혈, 출혈"
+    },
+    {
+      "item_id": "ITEM_129",
+      "name": "Ca(7.4)(BG)",
+      "display_name_ko": "보정칼슘(pH7.4)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "pH 7.4로 보정한 이온화 칼슘. 산염기 상태에 따른 칼슘 변동을 보정한 값.",
+      "description_high": "고칼슘혈증 (종양, 부갑상선항진증)",
+      "description_low": "저칼슘혈증 (산욕기, 저알부민혈증)"
     }
   ],
   "aliases": [
@@ -1659,7 +1758,7 @@
     },
     {
       "alias": "HGB(Gas)",
-      "canonical": "HGB",
+      "canonical": "tHb(BG)",
       "source_hint": "Blood Gas"
     },
     {
@@ -2066,6 +2165,96 @@
       "alias": "tCa",
       "canonical": "Calcium",
       "source_hint": ""
+    },
+    {
+      "alias": "HCT (GEM)",
+      "canonical": "HCT(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "HCT(GEM)",
+      "canonical": "HCT(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Na (GEM)",
+      "canonical": "Na(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Na(GEM)",
+      "canonical": "Na(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "K (GEM)",
+      "canonical": "K(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "K(GEM)",
+      "canonical": "K(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Ca (GEM)",
+      "canonical": "Ca(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Ca(GEM)",
+      "canonical": "Ca(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Cl (GEM)",
+      "canonical": "Cl(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Cl(GEM)",
+      "canonical": "Cl(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "GLU (GEM)",
+      "canonical": "Glucose(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "GLU(GEM)",
+      "canonical": "Glucose(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "LAC (GEM)",
+      "canonical": "Lactate(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "LAC(GEM)",
+      "canonical": "Lactate(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "tHb (GEM)",
+      "canonical": "tHb(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "tHb(GEM)",
+      "canonical": "tHb(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Ca(7.4) (GEM)",
+      "canonical": "Ca(7.4)(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Ca(7.4)(GEM)",
+      "canonical": "Ca(7.4)(BG)",
+      "source_hint": "GEM"
     }
   ],
   "sort_orders": {
@@ -2419,13 +2608,21 @@
             "cHCO3",
             "BE",
             "Lactate",
+            "Lactate(BG)",
             "Na",
+            "Na(BG)",
             "K",
+            "K(BG)",
             "Cl",
+            "Cl(BG)",
             "Calcium",
+            "Ca(BG)",
             "HCT",
+            "HCT(BG)",
             "HGB",
-            "Glucose"
+            "tHb(BG)",
+            "Glucose",
+            "Glucose(BG)"
           ]
         },
         {
