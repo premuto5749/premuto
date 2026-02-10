@@ -5,7 +5,6 @@ import { extractRefMinMax } from '@/lib/ocr/ref-range-parser'
 import { removeThousandsSeparator } from '@/lib/ocr/value-parser'
 import { createClient } from '@/lib/supabase/server'
 import { checkUsageLimit, logUsage } from '@/lib/tier'
-import { triggerOcrSourceDriveBackup } from '@/lib/google-drive-upload'
 
 export const dynamic = 'force-dynamic'
 
@@ -514,7 +513,6 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const files: File[] = []
-    const petId = formData.get('pet_id') as string | null
 
     // FormData에서 모든 파일 추출
     for (const [key, value] of Array.from(formData.entries())) {
@@ -559,19 +557,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Google Drive 백업용 파일 버퍼 캡처 (OCR 처리 전)
-    const fileBuffersForDrive = new Map<string, { buffer: Buffer; mimeType: string }>()
-    if (petId) {
-      for (const file of files) {
-        try {
-          const arrBuf = await file.arrayBuffer()
-          fileBuffersForDrive.set(file.name, {
-            buffer: Buffer.from(arrBuf),
-            mimeType: file.type,
-          })
-        } catch {
-          // 버퍼 캡처 실패는 무시 (Drive 백업만 안 됨)
-        }
+    // 파일 버퍼 캡처 (스테이징 저장용 - OCR 처리 전에 캡처해야 함)
+    const fileBuffers = new Map<string, { buffer: Buffer; mimeType: string }>()
+    for (const file of files) {
+      try {
+        const arrBuf = await file.arrayBuffer()
+        fileBuffers.set(file.name, {
+          buffer: Buffer.from(arrBuf),
+          mimeType: file.type,
+        })
+      } catch {
+        // 버퍼 캡처 실패는 무시
       }
     }
 
@@ -672,12 +668,25 @@ export async function POST(request: NextRequest) {
       item_count: totalItems,
     })
 
-    // Google Drive 백업 트리거 (fire-and-forget)
-    if (petId && fileBuffersForDrive.size > 0) {
-      const testDate = primaryMetadata.test_date || ''
-      const hospitalName = primaryMetadata.hospital_name || null
-      triggerOcrSourceDriveBackup(user.id, petId, testDate, hospitalName, fileBuffersForDrive, batchId)
-        .catch(err => console.error('[GoogleDrive] OCR source backup failed:', err))
+    // 파일을 Supabase Storage 스테이징에 저장 (저장 시점에 Drive 업로드를 위해)
+    if (fileBuffers.size > 0) {
+      const stagingPromises: Promise<void>[] = []
+      for (const [fileName, { buffer, mimeType }] of fileBuffers) {
+        const storagePath = `${user.id}/${batchId}/${fileName}`
+        stagingPromises.push(
+          supabaseAuth.storage
+            .from('ocr-staging')
+            .upload(storagePath, buffer, { contentType: mimeType, upsert: true })
+            .then(({ error }) => {
+              if (error) console.error(`[Staging] Failed to upload ${fileName}:`, error.message)
+              else console.log(`[Staging] Uploaded: ${storagePath}`)
+            })
+        )
+      }
+      // 스테이징 업로드는 응답을 지연시키지 않도록 fire-and-forget
+      Promise.all(stagingPromises).catch(err =>
+        console.error('[Staging] Batch upload error:', err)
+      )
     }
 
     return NextResponse.json({

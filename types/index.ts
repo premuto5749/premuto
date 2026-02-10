@@ -165,6 +165,7 @@ export interface BatchSaveRequest {
   batch_id: string
   test_date: string
   hospital_name: string
+  ocr_batch_id?: string  // 원본 OCR batch_id (스테이징에서 파일 조회용)
   uploaded_files: Array<{
     filename: string
     size: number

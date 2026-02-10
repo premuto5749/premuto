@@ -277,16 +277,17 @@ export async function triggerDailyLogDriveBackup(
 }
 
 /**
- * OCR 원본 → Drive 백업 트리거
- * 메모리에 캡처한 파일 버퍼를 직접 업로드
+ * OCR 원본 → Drive 백업 트리거 (스테이징에서)
+ * Supabase Storage 스테이징에서 파일을 다운로드 → Drive 업로드 → 스테이징 삭제
+ * 저장 시점에 호출되므로 최종 날짜/병원 정보가 정확함
  */
-export async function triggerOcrSourceDriveBackup(
+export async function triggerOcrSourceDriveBackupFromStaging(
   userId: string,
   petId: string,
   testDate: string,
   hospitalName: string | null,
-  fileBuffers: Map<string, { buffer: Buffer; mimeType: string }>,
-  batchId: string
+  ocrBatchId: string,
+  uploadedFiles: Array<{ filename: string }>
 ): Promise<void> {
   try {
     if (!(await hasActiveDriveConnection(userId))) return
@@ -301,19 +302,181 @@ export async function triggerOcrSourceDriveBackup(
 
     if (!pet) return
 
-    for (const [fileName, { buffer, mimeType }] of fileBuffers) {
+    // 각 파일을 스테이징에서 다운로드 → Drive 업로드
+    for (const file of uploadedFiles) {
+      const storagePath = `${userId}/${ocrBatchId}/${file.filename}`
+
+      // 스테이징에서 다운로드
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('ocr-staging')
+        .download(storagePath)
+
+      if (downloadError || !fileData) {
+        console.error(`[GoogleDrive] Failed to download staging file: ${storagePath}`, downloadError?.message)
+        continue
+      }
+
+      const buffer = Buffer.from(await fileData.arrayBuffer())
+      const mimeType = file.filename.endsWith('.pdf') ? 'application/pdf'
+        : file.filename.endsWith('.png') ? 'image/png'
+        : 'image/jpeg'
+
       await uploadOcrSourceToDrive(
         userId,
         pet.name,
         testDate,
         hospitalName,
-        fileName,
+        file.filename,
         buffer,
         mimeType,
-        batchId
+        ocrBatchId
       )
     }
+
+    // 스테이징 파일 정리
+    await cleanupStagingFiles(userId, ocrBatchId)
   } catch (err) {
-    console.error('[GoogleDrive] triggerOcrSourceDriveBackup error:', err)
+    console.error('[GoogleDrive] triggerOcrSourceDriveBackupFromStaging error:', err)
+    // 에러가 나도 스테이징 정리 시도
+    try { await cleanupStagingFiles(userId, ocrBatchId) } catch { /* ignore */ }
+  }
+}
+
+/**
+ * 스테이징 파일 정리
+ * Drive 업로드 완료 후 또는 에러 시 호출
+ */
+export async function cleanupStagingFiles(
+  userId: string,
+  ocrBatchId: string
+): Promise<void> {
+  try {
+    const supabase = await createClient()
+    const prefix = `${userId}/${ocrBatchId}/`
+
+    // 스테이징 폴더 내 파일 목록 조회
+    const { data: files, error: listError } = await supabase.storage
+      .from('ocr-staging')
+      .list(`${userId}/${ocrBatchId}`)
+
+    if (listError || !files || files.length === 0) return
+
+    // 모든 파일 삭제
+    const filePaths = files.map(f => `${prefix}${f.name}`)
+    const { error: deleteError } = await supabase.storage
+      .from('ocr-staging')
+      .remove(filePaths)
+
+    if (deleteError) {
+      console.error('[Staging] Cleanup failed:', deleteError.message)
+    } else {
+      console.log(`[Staging] Cleaned up ${filePaths.length} files for batch ${ocrBatchId}`)
+    }
+  } catch (err) {
+    console.error('[Staging] Cleanup error:', err)
+  }
+}
+
+/**
+ * Drive 파일을 새 폴더로 이동 (병합 시 사용)
+ * google_drive_sync_log에서 파일 정보 조회 → Drive API로 이동
+ */
+export async function moveDriveFilesToFolder(
+  userId: string,
+  petId: string,
+  sourceBatchUploadId: string,
+  targetDate: string,
+  targetHospital: string | null
+): Promise<void> {
+  try {
+    if (!(await hasActiveDriveConnection(userId))) return
+    if (!(await isDriveEnabledForUser(userId))) return
+
+    const { moveFile } = await import('@/lib/google-drive')
+
+    const supabase = await createClient()
+
+    // pet 이름 조회
+    const { data: pet } = await supabase
+      .from('pets')
+      .select('name')
+      .eq('id', petId)
+      .single()
+
+    if (!pet) return
+
+    // source record의 Drive 파일 조회
+    const { data: syncLogs, error: logError } = await supabase
+      .from('google_drive_sync_log')
+      .select('id, drive_file_id, drive_folder_path')
+      .eq('user_id', userId)
+      .eq('source_type', 'ocr_source')
+      .eq('source_id', sourceBatchUploadId)
+      .eq('status', 'success')
+
+    if (logError || !syncLogs || syncLogs.length === 0) {
+      console.log('[GoogleDrive] No Drive files found for merge source:', sourceBatchUploadId)
+      return
+    }
+
+    const accessToken = await getClient(userId)
+    if (!accessToken) return
+
+    // root folder 조회
+    const { data: conn } = await supabase
+      .from('google_drive_connections')
+      .select('root_folder_id')
+      .eq('user_id', userId)
+      .single()
+
+    if (!conn?.root_folder_id) return
+
+    // target 폴더 확보
+    const dateStr = targetDate.split('T')[0] || 'unknown-date'
+    const folderName = targetHospital ? `${dateStr}_${targetHospital}` : dateStr
+    const targetFolderId = await ensureFolderPath(accessToken, conn.root_folder_id, [
+      pet.name,
+      '혈액검사',
+      folderName,
+    ])
+    const targetFolderPath = `MIMOHARU/${pet.name}/혈액검사/${folderName}`
+
+    // 각 파일 이동
+    for (const log of syncLogs) {
+      if (!log.drive_file_id) continue
+
+      try {
+        // 기존 폴더 경로에서 부모 폴더 ID 추출 (현재 폴더에서 제거하기 위해)
+        // 기존 폴더 경로로 ID를 찾기보다, Drive API의 파일 parents 조회
+        const fileRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${log.drive_file_id}?fields=parents`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        )
+
+        if (!fileRes.ok) {
+          console.error(`[GoogleDrive] Failed to get file parents: ${log.drive_file_id}`)
+          continue
+        }
+
+        const fileData = await fileRes.json()
+        const oldParentId = fileData.parents?.[0]
+
+        if (!oldParentId || oldParentId === targetFolderId) continue // 이미 같은 폴더
+
+        await moveFile(accessToken, log.drive_file_id, targetFolderId, oldParentId)
+
+        // sync_log 업데이트
+        await supabase
+          .from('google_drive_sync_log')
+          .update({ drive_folder_path: targetFolderPath })
+          .eq('id', log.id)
+
+        console.log(`[GoogleDrive] Moved file ${log.drive_file_id} to ${targetFolderPath}`)
+      } catch (err) {
+        console.error(`[GoogleDrive] Failed to move file ${log.drive_file_id}:`, err)
+      }
+    }
+  } catch (err) {
+    console.error('[GoogleDrive] moveDriveFilesToFolder error:', err)
   }
 }
