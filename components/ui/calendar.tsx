@@ -89,10 +89,10 @@ export function Calendar({ selected, onSelect, maxDate, className }: CalendarPro
   }
 
   return (
-    <div className={cn("p-3", className)}>
+    <div className={cn("p-4", className)}>
       {/* 헤더: 월 네비게이션 */}
       <div className="flex items-center justify-between mb-4">
-        <Button variant="ghost" size="icon" onClick={prevMonth} className="h-7 w-7">
+        <Button variant="ghost" size="icon" onClick={prevMonth} className="h-9 w-9">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="font-medium text-sm">
@@ -103,7 +103,7 @@ export function Calendar({ selected, onSelect, maxDate, className }: CalendarPro
           size="icon"
           onClick={nextMonth}
           disabled={!canGoNext()}
-          className="h-7 w-7"
+          className="h-9 w-9"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -115,7 +115,7 @@ export function Calendar({ selected, onSelect, maxDate, className }: CalendarPro
           <div
             key={day}
             className={cn(
-              "text-center text-xs font-medium py-1",
+              "text-center text-xs font-medium h-9 flex items-center justify-center",
               i === 0 && "text-red-500",
               i === 6 && "text-blue-500"
             )}
@@ -128,13 +128,13 @@ export function Calendar({ selected, onSelect, maxDate, className }: CalendarPro
       {/* 날짜 그리드 */}
       <div className="grid grid-cols-7 gap-1">
         {days.map((day, index) => (
-          <div key={index} className="aspect-square">
-            {day !== null && (
+          <div key={index} className="flex items-center justify-center">
+            {day !== null ? (
               <button
                 onClick={() => selectDate(day)}
                 disabled={isDisabled(day)}
                 className={cn(
-                  "w-full h-full flex items-center justify-center text-sm rounded-full transition-colors",
+                  "h-9 w-9 flex items-center justify-center text-sm rounded-full transition-colors",
                   isSelected(day) && "bg-primary text-primary-foreground",
                   !isSelected(day) && isToday(day) && "bg-muted font-semibold",
                   !isSelected(day) && !isToday(day) && "hover:bg-muted",
@@ -147,6 +147,8 @@ export function Calendar({ selected, onSelect, maxDate, className }: CalendarPro
               >
                 {day}
               </button>
+            ) : (
+              <div className="h-9 w-9" />
             )}
           </div>
         ))}
