@@ -10,6 +10,7 @@
  */
 
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // Supabase client type (awaited)
 type SupabaseClientType = Awaited<ReturnType<typeof createServerClient>>;
@@ -224,6 +225,9 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
     if (!itemsError && items) {
       cachedStandardItems = new Map();
       for (const item of items) {
+        // 커스텀 항목(user_standard_items에만 존재, master_item_id IS NULL)은 제외
+        // 이들의 ID는 standard_items_master에 없으므로 test_results FK 제약 위반 발생
+        if ((item as Record<string, unknown>).is_custom) continue;
         cachedStandardItems.set(normalizeForMatching(item.name), item as StandardItem);
       }
     }
@@ -451,10 +455,11 @@ export async function registerNewStandardItem(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _userId?: string
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const client = supabase || (await createServerClient());
+  // 읽기는 전달받은 클라이언트 사용 (RLS SELECT 허용)
+  const readClient = supabase || (await createServerClient());
 
   // 동일 이름 항목이 이미 존재하는지 확인 (name 또는 display_name_ko)
-  const { data: existingByName } = await client
+  const { data: existingByName } = await readClient
     .from('standard_items_master')
     .select('id')
     .ilike('name', item.name)
@@ -466,7 +471,7 @@ export async function registerNewStandardItem(
 
   // 한글명으로도 중복 체크 (AI가 영문명을 다르게 추천해도 한글명이 같으면 중복)
   if (item.displayNameKo) {
-    const { data: existingByKo } = await client
+    const { data: existingByKo } = await readClient
       .from('standard_items_master')
       .select('id')
       .ilike('display_name_ko', item.displayNameKo)
@@ -478,7 +483,16 @@ export async function registerNewStandardItem(
   }
 
   // standard_items_master에 저장 (test_results FK 호환)
-  const { data, error } = await client
+  // RLS 정책이 service_role만 쓰기를 허용하므로 서비스 클라이언트 사용
+  let serviceClient;
+  try {
+    serviceClient = createServiceClient();
+  } catch (e) {
+    console.error('❌ Service client not available for standard_items_master insert:', e);
+    return { success: false, error: 'Service client not configured' };
+  }
+
+  const { data, error } = await serviceClient
     .from('standard_items_master')
     .insert({
       name: item.name,
