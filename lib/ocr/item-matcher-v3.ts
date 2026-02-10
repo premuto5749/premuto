@@ -71,6 +71,7 @@ export interface ItemAlias {
 
 // 캐시 (서버 사이드에서 재사용, 사용자별로 구분)
 let cachedStandardItems: Map<string, StandardItem> | null = null;
+let cachedCustomItems: Map<string, StandardItem> | null = null; // 커스텀 항목 별도 캐시 (FK 안전 + 중복 방지)
 let cachedAliases: Map<string, ItemAlias> | null = null;
 let cacheTimestamp: number = 0;
 let cachedUserId: string | null = null;
@@ -224,11 +225,15 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
 
     if (!itemsError && items) {
       cachedStandardItems = new Map();
+      cachedCustomItems = new Map();
       for (const item of items) {
-        // 커스텀 항목(user_standard_items에만 존재, master_item_id IS NULL)은 제외
-        // 이들의 ID는 standard_items_master에 없으므로 test_results FK 제약 위반 발생
-        if ((item as Record<string, unknown>).is_custom) continue;
-        cachedStandardItems.set(normalizeForMatching(item.name), item as StandardItem);
+        if ((item as Record<string, unknown>).is_custom) {
+          // 커스텀 항목은 별도 캐시에 저장 (ID가 standard_items_master에 없으므로 FK용으로 직접 사용 불가)
+          // Step 1b에서 매칭 감지 후 마스터로 승격하여 중복 생성 방지
+          cachedCustomItems.set(normalizeForMatching(item.name), item as StandardItem);
+        } else {
+          cachedStandardItems.set(normalizeForMatching(item.name), item as StandardItem);
+        }
       }
     }
 
@@ -269,6 +274,111 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
 
   cachedUserId = null;
   cacheTimestamp = now;
+}
+
+/**
+ * 커스텀 항목을 마스터 테이블에 승격 (promote)
+ * 이미 같은 이름의 마스터 항목이 있으면 그 ID를 반환.
+ * 없으면 새로 생성하고, 원래 커스텀 항목의 master_item_id를 연결.
+ *
+ * 승격된 항목은 cachedStandardItems에 즉시 추가하여
+ * 같은 배치 내 동일 항목의 반복 DB 호출을 방지.
+ */
+async function ensureItemInMaster(
+  customItem: StandardItem,
+  supabase: SupabaseClientType
+): Promise<string | null> {
+  const normalizedName = normalizeForMatching(customItem.name);
+
+  // 이미 이번 배치에서 승격되어 마스터 캐시에 있는지 확인 (DB 호출 생략)
+  const alreadyPromoted = cachedStandardItems?.get(normalizedName);
+  if (alreadyPromoted) {
+    return alreadyPromoted.id;
+  }
+
+  // 같은 이름이 이미 마스터에 있는지 확인
+  const { data: existing } = await supabase
+    .from('standard_items_master')
+    .select('id')
+    .ilike('name', customItem.name)
+    .single();
+
+  if (existing) {
+    // 이미 마스터에 있으면 커스텀 항목을 오버라이드로 연결
+    await linkCustomToMaster(customItem.id, existing.id);
+    // 마스터 캐시에 추가 (같은 배치에서 재조회 방지)
+    addToMasterCache(normalizedName, { ...customItem, id: existing.id });
+    return existing.id;
+  }
+
+  // 마스터에 없으면 새로 생성
+  let serviceClient;
+  try {
+    serviceClient = createServiceClient();
+  } catch {
+    console.error('❌ Service client not available for custom item promotion');
+    return null;
+  }
+
+  const { data, error } = await serviceClient
+    .from('standard_items_master')
+    .insert({
+      name: customItem.name,
+      display_name_ko: customItem.display_name_ko,
+      default_unit: customItem.default_unit,
+      category: customItem.category,
+      exam_type: customItem.exam_type,
+      organ_tags: customItem.organ_tags,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('❌ Failed to promote custom item to master:', error);
+    return null;
+  }
+
+  // 커스텀 항목을 마스터 오버라이드로 연결 (중복 방지)
+  await linkCustomToMaster(customItem.id, data.id);
+  // 마스터 캐시에 추가
+  addToMasterCache(normalizedName, { ...customItem, id: data.id });
+
+  return data.id;
+}
+
+/**
+ * 승격된 항목을 마스터 캐시에 즉시 추가 + 커스텀 캐시에서 제거
+ * 같은 배치 내 동일 항목의 반복 DB 호출 방지
+ */
+function addToMasterCache(normalizedName: string, item: StandardItem): void {
+  cachedStandardItems?.set(normalizedName, item);
+  cachedCustomItems?.delete(normalizedName);
+}
+
+/**
+ * 커스텀 항목의 master_item_id를 설정하여 오버라이드로 전환
+ * 이렇게 하면 get_user_standard_items RPC에서 UNION ALL 중복이 사라짐
+ * (master_item_id IS NULL 조건에서 제외되므로)
+ *
+ * service_role 클라이언트 사용: RLS가 master_item_id 업데이트를 차단할 수 있으므로
+ */
+async function linkCustomToMaster(
+  customItemId: string,
+  masterItemId: string,
+): Promise<void> {
+  try {
+    const serviceClient = createServiceClient();
+    const { error } = await serviceClient
+      .from('user_standard_items')
+      .update({ master_item_id: masterItemId })
+      .eq('id', customItemId);
+
+    if (error) {
+      console.warn('⚠️ Failed to link custom item to master (non-fatal):', error.message);
+    }
+  } catch (e) {
+    console.warn('⚠️ Failed to link custom item to master (non-fatal):', e);
+  }
 }
 
 /**
@@ -343,7 +453,32 @@ export async function matchItemV3(
     }
   }
 
-  // Step 1, 2 모두 실패 → Step 3 (AI 판단) 필요
+  // ============================================
+  // Step 1b: 커스텀 항목 매칭 (중복 생성 방지)
+  // 사용자가 등록한 커스텀 항목과 같은 이름이면 AI Step 3을 건너뛰고
+  // 마스터 테이블에 승격(promote)하여 FK-safe한 ID 반환
+  // ============================================
+  if (cachedCustomItems) {
+    const customMatch = cachedCustomItems.get(normalizedRaw);
+    if (customMatch) {
+      const masterId = await ensureItemInMaster(customMatch, supabase);
+      if (masterId) {
+        console.log(`📍 Custom item promoted to master: "${customMatch.name}" → ${masterId}`);
+        return {
+          standardItemId: masterId,
+          standardItemName: customMatch.name,
+          displayNameKo: customMatch.display_name_ko,
+          examType: customMatch.exam_type || customMatch.category,
+          organTags: customMatch.organ_tags,
+          confidence: 100,
+          method: 'exact',
+          matchedAgainst: customMatch.name,
+        };
+      }
+    }
+  }
+
+  // Step 1, 1b, 2 모두 실패 → Step 3 (AI 판단) 필요
   // 닫히지 않은 괄호 정보 포함하여 반환
   return {
     ...createEmptyResult(),
@@ -618,6 +753,7 @@ function createEmptyResult(): MatchResultV3 {
  */
 export function clearCacheV3() {
   cachedStandardItems = null;
+  cachedCustomItems = null;
   cachedAliases = null;
   cacheTimestamp = 0;
 }

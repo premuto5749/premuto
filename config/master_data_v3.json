@@ -1,10 +1,10 @@
 {
-  "version": "v4.2",
-  "updated_at": "2026-02-06",
+  "version": "v4.3",
+  "updated_at": "2026-02-10",
   "stats": {
-    "test_items": 120,
-    "aliases": 89,
-    "total_recognizable_names": 209
+    "test_items": 129,
+    "aliases": 107,
+    "total_recognizable_names": 236
   },
   "test_items": [
     {

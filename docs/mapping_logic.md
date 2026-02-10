@@ -5,7 +5,7 @@
 1. **OCR 직후** — 검사 결과지 인식 후 자동 매핑
 2. **Unmapped 정리** — 매핑 실패 항목을 나중에 수동/반자동 처리
 
-참조 데이터: `standard_items_master.json` v4.2 (정규항목 120개, alias 89개 = 209개 이름 인식)
+참조 데이터: `standard_items_master.json` v4.3 (정규항목 129개, alias 107개 = 236개 이름 인식)
 
 ---
 
@@ -237,6 +237,59 @@ OCR 시점에 매핑 실패한 항목 + AI confidence 낮은 항목이 Unmapped�
    - 같은 이름의 중복 Unmapped → 하나로 합치고 매핑
    - AI 일괄 판단 요청 → 결과 검토 후 확정
 ```
+
+---
+
+## 장비별 항목 분리 (Blood Gas Overlay)
+
+같은 검사 대상이지만 **측정 장비/방법이 달라 값이 다를 수 있는 항목**은 별도 표준항목으로 관리한다.
+
+### 배경
+
+CBC 장비의 HCT(임피던스)와 혈액가스 장비의 HCT(전도도)는 1~3% 차이가 나며,
+Chemistry의 혈청 전해질(간접법)과 혈액가스의 전혈 전해질(직접법)도 값이 다르다.
+같은 항목으로 합치면 하나가 버려지므로, 별도 항목으로 분리하여 두 값 모두 보존.
+
+### 분리 대상 (v4.3 추가)
+
+| CBC/Chemistry 항목 | Blood Gas 항목 | 차이 원인 |
+|---|---|---|
+| HCT (%) | HCT(BG) (%) | 임피던스 vs 전도도 |
+| Na (mmol/L) | Na(BG) (mmol/L) | 간접 ISE vs 직접 ISE |
+| K (mmol/L) | K(BG) (mmol/L) | 혈청 vs 전혈 |
+| Calcium (mg/dL) | Ca(BG) (mmol/L) | 총칼슘 vs 이온화칼슘 |
+| Cl (mmol/L) | Cl(BG) (mmol/L) | 간접 ISE vs 직접 ISE |
+| Glucose (mg/dL) | Glucose(BG) (mg/dL) | 혈청 vs 전혈 (10~15% 차이) |
+| Lactate (mmol/L) | Lactate(BG) (mmol/L) | 별도 장비 vs 혈액가스 내장 |
+| HGB (g/dL) | tHb(BG) (g/dL) | 시안메트Hb법 vs CO-oximetry |
+| — | Ca(7.4)(BG) (mmol/L) | pH 7.4 보정 이온화칼슘 (BG 전용) |
+
+### 매핑 예시
+
+```
+검사지: 서울대 동물병원 GEM5000 결과
+  "HCT (GEM)" → Step 2 alias 매칭 → HCT(BG) (Blood Gas)
+  "Na (GEM)"  → Step 2 alias 매칭 → Na(BG) (Blood Gas)
+
+검사지: 서울대 동물병원 CBC 결과
+  "PCV-"      → Step 3 AI 매칭 → HCT (CBC)
+  "Hb-"       → Step 2 alias 매칭 → HGB (CBC)
+```
+
+같은 날 같은 병원이지만 장비별로 다른 표준항목에 매핑되어, 대시보드에서 별도 행으로 표시됨.
+
+### 등록된 별칭 (GEM 장비)
+
+각 항목에 공백 유무 2가지 변형 등록:
+- `HCT (GEM)` / `HCT(GEM)` → `HCT(BG)`
+- `Na (GEM)` / `Na(GEM)` → `Na(BG)`
+- `K (GEM)` / `K(GEM)` → `K(BG)`
+- `Ca (GEM)` / `Ca(GEM)` → `Ca(BG)`
+- `Cl (GEM)` / `Cl(GEM)` → `Cl(BG)`
+- `GLU (GEM)` / `GLU(GEM)` → `Glucose(BG)`
+- `LAC (GEM)` / `LAC(GEM)` → `Lactate(BG)`
+- `tHb (GEM)` / `tHb(GEM)` → `tHb(BG)`
+- `Ca(7.4) (GEM)` / `Ca(7.4)(GEM)` → `Ca(7.4)(BG)`
 
 ---
 
