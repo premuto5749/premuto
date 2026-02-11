@@ -241,6 +241,11 @@ export async function triggerDailyLogDriveBackup(
 
     const BUCKET_NAME = 'daily-log-photos'
 
+    // Drive 파일명 생성: {날짜}_{시분}_{순번}.{확장자}
+    const dateStr = loggedAt.split('T')[0] || 'unknown-date'
+    const timePart = loggedAt.includes('T') ? loggedAt.split('T')[1]?.slice(0, 5).replace(':', '') : ''
+    const timeStr = timePart ? `_${timePart}` : ''
+
     for (let i = 0; i < photoUrls.length; i++) {
       const pathOrUrl = photoUrls[i]
 
@@ -258,14 +263,19 @@ export async function triggerDailyLogDriveBackup(
       }
 
       const buffer = Buffer.from(await fileData.arrayBuffer())
-      const fileName = pathOrUrl.split('/').pop() || `photo_${i}.jpg`
-      const mimeType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg'
+      const origName = pathOrUrl.split('/').pop() || ''
+      const ext = origName.includes('.') ? origName.slice(origName.lastIndexOf('.')) : '.jpg'
+      const mimeType = ext === '.png' ? 'image/png' : 'image/jpeg'
+
+      // Drive 파일명: 2025-12-08_1430_1.jpg
+      const seq = photoUrls.length > 1 ? `_${i + 1}` : ''
+      const driveFileName = `${dateStr}${timeStr}${seq}${ext}`
 
       await uploadDailyLogPhotoToDrive(
         userId,
         pet.name,
         loggedAt,
-        fileName,
+        driveFileName,
         buffer,
         mimeType,
         logId
