@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { BatchSaveRequest } from '@/types'
 import { parseValue } from '@/lib/ocr/value-parser'
 import { triggerOcrSourceDriveBackupFromStaging } from '@/lib/google-drive-upload'
+import { waitUntil } from '@vercel/functions'
 
 export const dynamic = 'force-dynamic'
 
@@ -202,16 +203,18 @@ export async function POST(request: NextRequest) {
 
       console.log(`✅ Created ${resultsData?.length || 0} test_results`)
 
-      // Google Drive 백업 (서버리스 환경에서 응답 후 런타임 종료 방지를 위해 await)
+      // Google Drive 백업 (waitUntil: 응답 즉시 반환 + 런타임 수명 연장으로 백업 보장)
       if (ocr_batch_id && finalPetId) {
-        await triggerOcrSourceDriveBackupFromStaging(
-          user.id,
-          finalPetId,
-          test_date,
-          hospital_name || null,
-          ocr_batch_id,
-          uploaded_files || []
-        ).catch(err => console.error('[GoogleDrive] Staging-to-Drive backup failed:', err))
+        waitUntil(
+          triggerOcrSourceDriveBackupFromStaging(
+            user.id,
+            finalPetId,
+            test_date,
+            hospital_name || null,
+            ocr_batch_id,
+            uploaded_files || []
+          ).catch(err => console.error('[GoogleDrive] Staging-to-Drive backup failed:', err))
+        )
       }
 
       return NextResponse.json({
