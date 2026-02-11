@@ -389,6 +389,11 @@ npx supabase db push # DB 마이그레이션
 - 머지 시 `--squash`로 커밋을 정리하고 `--delete-branch`로 원격 브랜치를 삭제한다.
 - 머지 후 반드시 `git worktree remove`로 worktree를 정리한다.
 
+### 사용자 확인 규칙
+
+- **파일 생성/수정, 패키지 설치, 빌드, Vercel 설정 등** → 확인 없이 바로 진행
+- **git commit, push, PR 생성, merge** → 실행 전에 반드시 사용자 확인을 받을 것
+
 ### 여러 기능 동시 작업
 
 ```bash
