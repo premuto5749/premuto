@@ -38,3 +38,6 @@ setup-env.sh
 nul
 .claude/settings.local.json
 blog-*.md
+
+# sentry
+.sentryclirc

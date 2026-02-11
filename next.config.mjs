@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -11,4 +13,16 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // 소스맵을 Sentry에 업로드하되 브라우저에서는 숨김
+  hideSourceMaps: true,
+
+  // 광고 차단기 우회를 위한 tunnel route
+  tunnelRoute: '/monitoring',
+
+  // CI 환경이 아니면 빌드 로그 숨김
+  silent: !process.env.CI,
+
+  // 빌드 시 Sentry CLI 텔레메트리 비활성화
+  telemetry: false,
+})
