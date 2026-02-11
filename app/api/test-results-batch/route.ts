@@ -202,9 +202,9 @@ export async function POST(request: NextRequest) {
 
       console.log(`✅ Created ${resultsData?.length || 0} test_results`)
 
-      // Google Drive 백업 트리거 (fire-and-forget) — 스테이징에서 최종 날짜/병원으로 업로드
+      // Google Drive 백업 (서버리스 환경에서 응답 후 런타임 종료 방지를 위해 await)
       if (ocr_batch_id && finalPetId) {
-        triggerOcrSourceDriveBackupFromStaging(
+        await triggerOcrSourceDriveBackupFromStaging(
           user.id,
           finalPetId,
           test_date,

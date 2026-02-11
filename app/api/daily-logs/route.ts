@@ -264,9 +264,9 @@ export async function POST(request: NextRequest) {
       photo_urls: await convertPathsToSignedUrls(supabase, data.photo_urls)
     }
 
-    // Google Drive 백업 트리거 (fire-and-forget)
+    // Google Drive 백업 (서버리스 환경에서 응답 후 런타임 종료 방지를 위해 await)
     if (data.photo_urls?.length > 0 && pet_id) {
-      triggerDailyLogDriveBackup(user.id, pet_id, data.logged_at, data.photo_urls, data.id)
+      await triggerDailyLogDriveBackup(user.id, pet_id, data.logged_at, data.photo_urls, data.id)
         .catch(err => console.error('[GoogleDrive] Daily log backup failed:', err))
     }
 
