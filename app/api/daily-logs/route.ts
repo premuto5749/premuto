@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import type { DailyLog, DailyLogInput, DailyStats } from '@/types'
-import { SupabaseClient } from '@supabase/supabase-js'
 import { triggerDailyLogDriveBackup } from '@/lib/google-drive-upload'
 import { waitUntil } from '@vercel/functions'
 
@@ -11,12 +11,14 @@ const BUCKET_NAME = 'daily-log-photos'
 const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 7 // 7일
 
 // 파일 경로를 Signed URL로 변환 (하위 호환: 이미 URL이면 그대로 반환)
+// Service Role 클라이언트 사용: Storage RLS를 우회하여 안정적으로 Signed URL 생성
+// (API 레벨에서 이미 사용자 인증 검증 완료)
 async function convertPathsToSignedUrls(
-  supabase: SupabaseClient,
   photoUrls: string[] | null
 ): Promise<string[]> {
   if (!photoUrls || photoUrls.length === 0) return []
 
+  const serviceClient = createServiceClient()
   const results: string[] = []
   for (const pathOrUrl of photoUrls) {
     // 이미 URL이면 그대로 사용 (하위 호환)
@@ -26,8 +28,7 @@ async function convertPathsToSignedUrls(
     }
 
     // 파일 경로면 Signed URL 생성
-    console.log('Creating signed URL for path:', pathOrUrl)
-    const { data: signedUrl, error } = await supabase.storage
+    const { data: signedUrl, error } = await serviceClient.storage
       .from(BUCKET_NAME)
       .createSignedUrl(pathOrUrl, SIGNED_URL_EXPIRY)
 
@@ -40,7 +41,6 @@ async function convertPathsToSignedUrls(
       // 실패 시 경로 그대로 반환 (디버깅용)
       results.push(pathOrUrl)
     } else {
-      console.log('Signed URL created:', signedUrl.signedUrl.substring(0, 100) + '...')
       results.push(signedUrl.signedUrl)
     }
   }
@@ -178,7 +178,7 @@ export async function GET(request: NextRequest) {
     const processedData = await Promise.all(
       (data || []).map(async (log) => ({
         ...log,
-        photo_urls: await convertPathsToSignedUrls(supabase, log.photo_urls)
+        photo_urls: await convertPathsToSignedUrls(log.photo_urls)
       }))
     )
 
@@ -262,7 +262,7 @@ export async function POST(request: NextRequest) {
     // photo_urls를 Signed URL로 변환
     const processedData = {
       ...data,
-      photo_urls: await convertPathsToSignedUrls(supabase, data.photo_urls)
+      photo_urls: await convertPathsToSignedUrls(data.photo_urls)
     }
 
     // Google Drive 백업 (waitUntil: 응답 즉시 반환 + 런타임 수명 연장으로 백업 보장)
@@ -395,7 +395,7 @@ export async function PATCH(request: NextRequest) {
 
       const processedData = {
         ...data,
-        photo_urls: await convertPathsToSignedUrls(supabase, data.photo_urls)
+        photo_urls: await convertPathsToSignedUrls(data.photo_urls)
       }
 
       return NextResponse.json({
@@ -437,7 +437,7 @@ export async function PATCH(request: NextRequest) {
     // photo_urls를 Signed URL로 변환
     const processedData = {
       ...data,
-      photo_urls: await convertPathsToSignedUrls(supabase, data.photo_urls)
+      photo_urls: await convertPathsToSignedUrls(data.photo_urls)
     }
 
     return NextResponse.json({
