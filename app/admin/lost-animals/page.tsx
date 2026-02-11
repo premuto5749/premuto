@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, ShieldCheck, Plus, Trash2, ArrowLeft, Upload, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Loader2, ShieldCheck, Plus, Trash2, ArrowLeft, Upload, ToggleLeft, ToggleRight, Archive } from 'lucide-react'
 
 interface Flyer {
   id: string
@@ -23,8 +23,10 @@ interface Flyer {
 export default function LostAnimalsAdminPage() {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const zipInputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [bulkUploading, setBulkUploading] = useState(false)
   const [authorized, setAuthorized] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -33,6 +35,10 @@ export default function LostAnimalsAdminPage() {
   const [title, setTitle] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  // Bulk upload state
+  const [zipFile, setZipFile] = useState<File | null>(null)
+  const [bulkTitle, setBulkTitle] = useState('소중한 우리 가족을 찾습니다')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -108,6 +114,54 @@ export default function LostAnimalsAdminPage() {
       setError('업로드 중 오류가 발생했습니다')
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleBulkUpload = async () => {
+    if (!zipFile) {
+      setError('ZIP 파일을 선택해주세요')
+      return
+    }
+
+    setBulkUploading(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('zipFile', zipFile)
+      formData.append('title', bulkTitle.trim())
+
+      const res = await fetch('/api/admin/lost-animals/bulk', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setError(data.error || '일괄 업로드 실패')
+        return
+      }
+
+      setFlyers(prev => [...prev, ...data.data])
+
+      const successCount = data.data?.length || 0
+      const failedCount = data.failed?.length || 0
+      let msg = `${successCount}개 전단지 등록 완료`
+      if (failedCount > 0) {
+        msg += ` (실패 ${failedCount}개: ${data.failed.join(', ')})`
+      }
+      setSuccess(msg)
+
+      setZipFile(null)
+      setBulkTitle('소중한 우리 가족을 찾습니다')
+      if (zipInputRef.current) zipInputRef.current.value = ''
+    } catch (err) {
+      console.error('Bulk upload error:', err)
+      setError('일괄 업로드 중 오류가 발생했습니다')
+    } finally {
+      setBulkUploading(false)
     }
   }
 
@@ -269,6 +323,53 @@ export default function LostAnimalsAdminPage() {
             <Button onClick={handleUpload} disabled={uploading || !selectedFile || !title.trim()}>
               {uploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
               업로드
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* 일괄 업로드 (ZIP) */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Archive className="w-5 h-5" />
+              일괄 업로드 (ZIP)
+            </CardTitle>
+            <CardDescription>
+              여러 전단지 이미지를 ZIP 파일로 묶어 한 번에 업로드합니다 (최대 50MB, 개별 이미지 5MB)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulkTitle">공통 제목</Label>
+              <Input
+                id="bulkTitle"
+                value={bulkTitle}
+                onChange={e => setBulkTitle(e.target.value)}
+                placeholder="소중한 우리 가족을 찾습니다"
+                maxLength={100}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="zipFile">ZIP 파일</Label>
+              <Input
+                id="zipFile"
+                ref={zipInputRef}
+                type="file"
+                accept=".zip"
+                onChange={e => setZipFile(e.target.files?.[0] || null)}
+              />
+            </div>
+
+            {zipFile && (
+              <p className="text-sm text-muted-foreground">
+                선택된 파일: {zipFile.name} ({(zipFile.size / 1024 / 1024).toFixed(1)}MB)
+              </p>
+            )}
+
+            <Button onClick={handleBulkUpload} disabled={bulkUploading || !zipFile}>
+              {bulkUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Archive className="w-4 h-4 mr-2" />}
+              일괄 업로드
             </Button>
           </CardContent>
         </Card>
