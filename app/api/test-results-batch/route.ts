@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { BatchSaveRequest } from '@/types'
 import { parseValue } from '@/lib/ocr/value-parser'
 import { triggerOcrSourceDriveBackupFromStaging } from '@/lib/google-drive-upload'
+import { waitUntil } from '@vercel/functions'
 
 export const dynamic = 'force-dynamic'
 
@@ -202,16 +203,18 @@ export async function POST(request: NextRequest) {
 
       console.log(`✅ Created ${resultsData?.length || 0} test_results`)
 
-      // Google Drive 백업 트리거 (fire-and-forget) — 스테이징에서 최종 날짜/병원으로 업로드
+      // Google Drive 백업 (waitUntil: 응답 즉시 반환 + 런타임 수명 연장으로 백업 보장)
       if (ocr_batch_id && finalPetId) {
-        triggerOcrSourceDriveBackupFromStaging(
-          user.id,
-          finalPetId,
-          test_date,
-          hospital_name || null,
-          ocr_batch_id,
-          uploaded_files || []
-        ).catch(err => console.error('[GoogleDrive] Staging-to-Drive backup failed:', err))
+        waitUntil(
+          triggerOcrSourceDriveBackupFromStaging(
+            user.id,
+            finalPetId,
+            test_date,
+            hospital_name || null,
+            ocr_batch_id,
+            uploaded_files || []
+          ).catch(err => console.error('[GoogleDrive] Staging-to-Drive backup failed:', err))
+        )
       }
 
       return NextResponse.json({
