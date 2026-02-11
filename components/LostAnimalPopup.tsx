@@ -112,7 +112,7 @@ export function LostAnimalPopup() {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose() }}>
-      <DialogContent className="sm:max-w-sm p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-sm p-0 overflow-hidden" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader className="p-4 pb-0">
           <DialogTitle className="text-base">{flyer.title}</DialogTitle>
           <DialogDescription className="sr-only">유실 동물 전단지</DialogDescription>
