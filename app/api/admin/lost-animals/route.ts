@@ -1,47 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkCurrentUserIsAdmin } from '@/lib/auth/admin'
+import { BUCKET_NAME, FOLDER, getFlyerSettings, saveFlyerSettings, Flyer } from './shared'
 
 export const dynamic = 'force-dynamic'
 
-const BUCKET_NAME = 'site-assets'
-const FOLDER = 'lost-animals'
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-
-interface Flyer {
-  id: string
-  imagePath: string
-  imageUrl?: string
-  title: string
-  status: 'active' | 'closed'
-  createdAt: string
-  updatedAt: string
-}
-
-interface FlyerSettings {
-  flyers: Flyer[]
-}
-
-async function getFlyerSettings(supabase: Awaited<ReturnType<typeof createClient>>): Promise<FlyerSettings> {
-  const { data } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', 'lost_animal_flyers')
-    .single()
-
-  return data?.value || { flyers: [] }
-}
-
-async function saveFlyerSettings(supabase: Awaited<ReturnType<typeof createClient>>, settings: FlyerSettings) {
-  return supabase
-    .from('app_settings')
-    .upsert({
-      key: 'lost_animal_flyers',
-      value: settings,
-      description: '유실 동물 전단지 설정'
-    }, { onConflict: 'key' })
-}
 
 // POST: 새 전단지 업로드
 export async function POST(request: NextRequest) {
