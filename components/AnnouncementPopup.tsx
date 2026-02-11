@@ -146,7 +146,7 @@ export function AnnouncementPopup() {
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) handleClose() }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{currentAnnouncement.title}</DialogTitle>
           <DialogDescription className="sr-only">공지사항</DialogDescription>
