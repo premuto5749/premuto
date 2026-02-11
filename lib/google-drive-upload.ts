@@ -302,8 +302,13 @@ export async function triggerOcrSourceDriveBackupFromStaging(
 
     if (!pet) return
 
+    // Drive 파일명 생성: {날짜}_{병원}_{순번}.{확장자}
+    const dateStr = testDate.split('T')[0] || 'unknown-date'
+    const hospitalSuffix = hospitalName ? `_${hospitalName}` : ''
+
     // 각 파일을 스테이징에서 다운로드 → Drive 업로드
-    for (const file of uploadedFiles) {
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const file = uploadedFiles[i]
       const storagePath = `${userId}/${ocrBatchId}/${file.filename}`
 
       // 스테이징에서 다운로드
@@ -317,16 +322,21 @@ export async function triggerOcrSourceDriveBackupFromStaging(
       }
 
       const buffer = Buffer.from(await fileData.arrayBuffer())
-      const mimeType = file.filename.endsWith('.pdf') ? 'application/pdf'
-        : file.filename.endsWith('.png') ? 'image/png'
+      const ext = file.filename.includes('.') ? file.filename.slice(file.filename.lastIndexOf('.')) : '.jpg'
+      const mimeType = ext === '.pdf' ? 'application/pdf'
+        : ext === '.png' ? 'image/png'
         : 'image/jpeg'
+
+      // Drive 파일명: 2025-12-08_서울동물병원_1.jpg
+      const seq = uploadedFiles.length > 1 ? `_${i + 1}` : ''
+      const driveFileName = `${dateStr}${hospitalSuffix}${seq}${ext}`
 
       await uploadOcrSourceToDrive(
         userId,
         pet.name,
         testDate,
         hospitalName,
-        file.filename,
+        driveFileName,
         buffer,
         mimeType,
         ocrBatchId
