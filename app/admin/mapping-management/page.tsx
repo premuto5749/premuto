@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Loader2, Trash2, ShieldCheck, ArrowRight, RefreshCw } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Loader2, Trash2, ShieldCheck, ArrowRight, RefreshCw, Search } from 'lucide-react'
 
 interface UnmappedItem {
   id: string
@@ -39,6 +41,78 @@ interface AnalysisSummary {
   totalTestResults: number
 }
 
+function ManualMappingButton({
+  itemId,
+  standardItems,
+  excludeId,
+  onSelect,
+}: {
+  itemId: string
+  standardItems: Array<{ id: string; name: string; display_name_ko: string | null }>
+  excludeId: string
+  onSelect: (itemId: string, targetId: string, targetName: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const filteredItems = standardItems
+    .filter(item => item.id !== excludeId)
+    .filter(item => {
+      if (!searchValue) return true
+      const query = searchValue.toLowerCase()
+      return (
+        item.name.toLowerCase().includes(query) ||
+        (item.display_name_ko?.toLowerCase().includes(query) ?? false)
+      )
+    })
+    .slice(0, 50)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+          <Search className="w-3 h-3 mr-1" />
+          수동 매핑
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[350px] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            ref={inputRef}
+            placeholder="표준항목 검색..."
+            value={searchValue}
+            onValueChange={setSearchValue}
+          />
+          <CommandList>
+            <CommandEmpty>일치하는 항목이 없습니다</CommandEmpty>
+            <CommandGroup>
+              {filteredItems.map(item => (
+                <CommandItem
+                  key={item.id}
+                  value={item.id}
+                  onSelect={() => {
+                    onSelect(itemId, item.id, item.name)
+                    setOpen(false)
+                    setSearchValue('')
+                  }}
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium">{item.name}</span>
+                    {item.display_name_ko && (
+                      <span className="text-xs text-muted-foreground">{item.display_name_ko}</span>
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function MappingManagementContent() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
@@ -56,6 +130,11 @@ function MappingManagementContent() {
   const [analyzing, setAnalyzing] = useState(false)
   const [selectedForCleanup, setSelectedForCleanup] = useState<Set<string>>(new Set())
   const [bulkCleaning, setBulkCleaning] = useState(false)
+
+  // 표준항목 목록 (수동 매핑용)
+  const [standardItems, setStandardItems] = useState<Array<{ id: string; name: string; display_name_ko: string | null }>>([])
+  // 수동 매핑 오버라이드 (itemId → { targetId, targetName })
+  const [manualMappings, setManualMappings] = useState<Record<string, { targetId: string; targetName: string }>>({})
 
   useEffect(() => {
     const init = async () => {
@@ -95,6 +174,11 @@ function MappingManagementContent() {
 
       setTotalItemCount(standardItems.length)
       setUnmappedCount(standardItems.filter((item: { category?: string }) => item.category === 'Unmapped').length)
+      setStandardItems(standardItems.map((item: { id: string; name: string; display_name_ko: string | null }) => ({
+        id: item.id,
+        name: item.name,
+        display_name_ko: item.display_name_ko
+      })))
     } catch (error) {
       console.error('Failed to fetch mapping data:', error)
     } finally {
@@ -152,12 +236,22 @@ function MappingManagementContent() {
 
     // 선택된 항목 분류
     const deleteActions = analyzedItems
-      .filter(i => selectedForCleanup.has(i.id) && i.suggested_action === 'delete')
+      .filter(i => selectedForCleanup.has(i.id) && !manualMappings[i.id] && i.suggested_action === 'delete')
       .map(i => ({ action: 'delete' as const, itemId: i.id }))
 
     const mergeActions = analyzedItems
-      .filter(i => selectedForCleanup.has(i.id) && i.suggested_action === 'merge' && i.merge_candidate)
-      .map(i => ({ action: 'merge' as const, itemId: i.id, targetItemId: i.merge_candidate!.id }))
+      .filter(i => {
+        if (!selectedForCleanup.has(i.id)) return false
+        // 수동 매핑이 있으면 merge로 처리
+        if (manualMappings[i.id]) return true
+        // 기존 merge 액션
+        return i.suggested_action === 'merge' && i.merge_candidate
+      })
+      .map(i => ({
+        action: 'merge' as const,
+        itemId: i.id,
+        targetItemId: manualMappings[i.id]?.targetId || i.merge_candidate!.id
+      }))
 
     const totalActions = deleteActions.length + mergeActions.length
 
@@ -208,6 +302,29 @@ function MappingManagementContent() {
       case 'keep': return <Badge variant="secondary">유지</Badge>
       default: return <Badge variant="outline">검토 필요</Badge>
     }
+  }
+
+  // 수동 매핑 선택 핸들러
+  const handleManualMapping = (itemId: string, targetId: string, targetName: string) => {
+    setManualMappings(prev => ({
+      ...prev,
+      [itemId]: { targetId, targetName }
+    }))
+    // 자동으로 선택 상태에 추가
+    setSelectedForCleanup(prev => {
+      const newSet = new Set(prev)
+      newSet.add(itemId)
+      return newSet
+    })
+  }
+
+  // 수동 매핑 제거 핸들러
+  const handleRemoveManualMapping = (itemId: string) => {
+    setManualMappings(prev => {
+      const newMap = { ...prev }
+      delete newMap[itemId]
+      return newMap
+    })
   }
 
   if (loading) {
@@ -393,7 +510,6 @@ function MappingManagementContent() {
                         <Checkbox
                           checked={selectedForCleanup.has(item.id)}
                           onCheckedChange={() => toggleSelection(item.id)}
-                          disabled={item.suggested_action === 'keep' || item.suggested_action === 'review'}
                         />
                       </TableCell>
                       <TableCell className="font-medium">
@@ -416,17 +532,35 @@ function MappingManagementContent() {
                       </TableCell>
                       <TableCell>{getActionBadge(item.suggested_action)}</TableCell>
                       <TableCell>
-                        {item.merge_candidate ? (
-                          <div className="flex items-center gap-1 text-sm">
-                            <ArrowRight className="w-4 h-4 text-blue-500" />
-                            <span className="font-medium">{item.merge_candidate.name}</span>
-                            <Badge variant="secondary" className="ml-1">
-                              {item.merge_candidate.similarity}%
-                            </Badge>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {manualMappings[item.id] ? (
+                            <div className="flex items-center gap-1 text-sm">
+                              <ArrowRight className="w-4 h-4 text-green-500" />
+                              <span className="font-medium text-green-700">{manualMappings[item.id].targetName}</span>
+                              <Badge variant="secondary" className="ml-1">수동</Badge>
+                              <button
+                                onClick={() => handleRemoveManualMapping(item.id)}
+                                className="text-xs text-red-500 hover:text-red-700 ml-1"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ) : item.merge_candidate ? (
+                            <div className="flex items-center gap-1 text-sm">
+                              <ArrowRight className="w-4 h-4 text-blue-500" />
+                              <span className="font-medium">{item.merge_candidate.name}</span>
+                              <Badge variant="secondary" className="ml-1">
+                                {item.merge_candidate.similarity}%
+                              </Badge>
+                            </div>
+                          ) : null}
+                          <ManualMappingButton
+                            itemId={item.id}
+                            standardItems={standardItems}
+                            excludeId={item.id}
+                            onSelect={handleManualMapping}
+                          />
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {item.reason}

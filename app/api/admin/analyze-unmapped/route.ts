@@ -185,9 +185,19 @@ export async function GET() {
           ? masterData.aliases.find(a => bestMatch!.name.includes(a.alias))?.canonical
           : bestMatch.name
 
-        const targetItem = (dbItems || []).find(
+        // 1차: exact name match (case-insensitive)
+        let targetItem = (dbItems || []).find(
           i => i.name.toLowerCase() === targetName?.toLowerCase()
         )
+
+        // 2차: normalized name match fallback (특수문자/공백 무시)
+        if (!targetItem && targetName) {
+          const normalizedTarget = normalizeName(targetName)
+          targetItem = (dbItems || []).find(
+            i => normalizeName(i.name) === normalizedTarget
+          )
+        }
+
         if (targetItem) {
           mergeCandidate = {
             id: targetItem.id,
