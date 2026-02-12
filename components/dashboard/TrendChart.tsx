@@ -4,6 +4,8 @@ import { useMemo } from 'react'
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatNumber } from '@/lib/utils'
+import { convertUnit, getStandardUnit } from '@/lib/ocr/unit-converter'
+import { unitsAreEquivalent } from '@/lib/ocr/unit-normalizer'
 
 interface TestResult {
   id: string
@@ -58,8 +60,42 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
         const result = matchingResults[matchingResults.length - 1]
         if (!result) return null
 
-        // standard_items_master.default_unit 우선, 없으면 test_results.unit 사용
-        const displayUnit = result.standard_items_master.default_unit || result.unit
+        const measuredUnit = result.unit
+        let value = result.value
+        let refMin = result.ref_min
+        let refMax = result.ref_max
+        let displayUnit: string | null = result.standard_items_master.default_unit || measuredUnit
+        let originalValue: number | null = null
+        let originalUnit: string | null = null
+        let isConverted = false
+
+        // 표준 단위로 변환 시도
+        if (itemName && measuredUnit) {
+          const standardUnit = getStandardUnit(itemName)
+          if (standardUnit && !unitsAreEquivalent(measuredUnit, standardUnit)) {
+            const conv = convertUnit(itemName, result.value, measuredUnit)
+            if (conv.success && conv.convertedValue !== null && conv.standardUnit) {
+              originalValue = result.value
+              originalUnit = measuredUnit
+              value = conv.convertedValue
+              displayUnit = conv.standardUnit
+              isConverted = true
+              // 참고치도 동일하게 변환
+              if (refMin !== null) {
+                const refConv = convertUnit(itemName, refMin, measuredUnit)
+                if (refConv.success && refConv.convertedValue !== null) {
+                  refMin = refConv.convertedValue
+                }
+              }
+              if (refMax !== null) {
+                const refConv = convertUnit(itemName, refMax, measuredUnit)
+                if (refConv.success && refConv.convertedValue !== null) {
+                  refMax = refConv.convertedValue
+                }
+              }
+            }
+          }
+        }
 
         return {
           date: record.test_date,
@@ -68,13 +104,16 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
             month: 'numeric',
             day: 'numeric'
           }),
-          value: result.value,
-          ref_min: result.ref_min,
-          ref_max: result.ref_max,
+          value,
+          ref_min: refMin,
+          ref_max: refMax,
           status: result.status,
           unit: displayUnit,
           displayName: result.standard_items_master.display_name_ko || result.standard_items_master.name,
           hospitalName: record.hospital_name || null,
+          originalValue,
+          originalUnit,
+          isConverted,
           descriptionCommon: result.standard_items_master.description_common || null,
           descriptionHigh: result.standard_items_master.description_high || null,
           descriptionLow: result.standard_items_master.description_low || null,
@@ -146,6 +185,8 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
       yMax + yPadding
     ]
 
+    const hasAnyConversion = dataPoints.some(d => d.isConverted)
+
     return {
       data: dataPoints,
       refMin,
@@ -153,6 +194,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
       refRangeSegments,
       hasMultipleRefRanges,
       hasAnyRefRange,
+      hasAnyConversion,
       yDomain,
       unit: latestPoint?.unit || '',
       displayName: latestPoint?.displayName || itemName,
@@ -221,6 +263,11 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                         <p className="text-sm mt-1">
                           값: <span className="font-semibold">{formatNumber(data.value)} {data.unit}</span>
                         </p>
+                        {data.isConverted && data.originalValue !== null && (
+                          <p className="text-xs text-amber-600">
+                            원본: {formatNumber(data.originalValue)} {data.originalUnit}
+                          </p>
+                        )}
                         {(data.ref_min !== null || data.ref_max !== null) && (
                           <p className="text-xs text-muted-foreground">
                             참고치: {data.ref_min !== null ? formatNumber(data.ref_min) : '-'} ~ {data.ref_max !== null ? formatNumber(data.ref_max) : '-'} {data.unit}
@@ -451,6 +498,11 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
                 </div>
               )}
             </div>
+            {chartData.hasAnyConversion && (
+              <p className="mt-2 text-xs text-amber-600">
+                * 일부 데이터가 비교를 위해 표준 단위({chartData.unit})로 변환되었습니다. 툴팁에서 원본 값을 확인할 수 있습니다.
+              </p>
+            )}
           </div>
         </div>
       </DialogContent>

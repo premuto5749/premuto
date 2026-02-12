@@ -36,8 +36,14 @@ const UNIT_ALIASES: Record<string, string[]> = {
   'mOsm/L': ['mOsm/L', 'mosm/L', 'mosm/l'],
 
   // 전해질
-  'mEq/L': ['mEq/L', 'meq/L', 'mEq/l', 'meq/l', 'mmol/L'],
+  'mEq/L': ['mEq/L', 'meq/L', 'mEq/l', 'meq/l'],
   'mmol/L': ['mmol/L', 'mmol/l', 'mM'],
+  'μmol/L': ['μmol/L', 'umol/L', 'μmol/l', 'umol/l', 'mcmol/L'],
+  'pmol/L': ['pmol/L', 'pmol/l'],
+
+  // 압력
+  'mmHg': ['mmHg', 'mmhg', 'mm Hg'],
+  'kPa': ['kPa', 'kpa', 'KPa'],
 
   // 시간
   'sec': ['sec', 's', 'seconds', 'secs'],
