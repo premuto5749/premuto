@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ArrowRightLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DailyStats, LogCategory } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
@@ -149,38 +150,44 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
           })}
         </div>
         {/* 칼로리 프로그레스 바 (탭하면 kcal ↔ 사료량g 토글) */}
-        {calorieData && (
-          <div
-            className="p-3 bg-muted/50 rounded-lg cursor-pointer active:scale-[0.99] transition-all"
-            onClick={() => setShowGrams(prev => !prev)}
-          >
-            <div className="flex items-center justify-between text-sm mb-1.5">
-              <span className="text-muted-foreground">
-                {showGrams ? '사료량' : '칼로리'}
-              </span>
-              <span className={`font-medium ${calorieData.percentage > 100 ? 'text-red-600' : ''}`}>
-                {showGrams
-                  ? <>
-                      {formatNumber(calorieData.intakeGrams ?? 0)}g / {formatNumber(calorieData.targetGrams ?? 0)}g
-                      {calorieData.percentage > 100 && ' (초과)'}
-                    </>
-                  : <>
-                      {formatNumber(calorieData.intake)} / {formatNumber(calorieData.target)} kcal
-                      {calorieData.percentage > 100 && ' (초과)'}
-                    </>
-                }
-              </span>
+        {calorieData && (() => {
+          const diffKcal = calorieData.intake - calorieData.target
+          const diffGrams = (calorieData.intakeGrams ?? 0) - (calorieData.targetGrams ?? 0)
+          const isOver = diffKcal > 0
+          const diffLabel = (diff: number, unit: string) =>
+            diff > 0 ? `(+${formatNumber(diff)}${unit})` : `(${formatNumber(diff)}${unit})`
+          return (
+            <div
+              className="p-3 bg-muted/50 rounded-lg cursor-pointer active:scale-[0.99] transition-all"
+              onClick={() => setShowGrams(prev => !prev)}
+            >
+              <div className="flex items-center justify-between text-sm mb-1.5">
+                <span className="text-muted-foreground flex items-center gap-1">
+                  {showGrams ? '사료량' : '칼로리'}
+                  <ArrowRightLeft className="w-3 h-3" />
+                </span>
+                <span className={`font-medium ${isOver ? 'text-red-600' : ''}`}>
+                  {showGrams
+                    ? <>
+                        {formatNumber(calorieData.intakeGrams ?? 0)}g / {formatNumber(calorieData.targetGrams ?? 0)}g {diffLabel(diffGrams, 'g')}
+                      </>
+                    : <>
+                        {formatNumber(calorieData.intake)} / {formatNumber(calorieData.target)} kcal {diffLabel(diffKcal, 'kcal')}
+                      </>
+                  }
+                </span>
+              </div>
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    isOver ? 'bg-red-500' : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${Math.min(calorieData.percentage, 100)}%` }}
+                />
+              </div>
             </div>
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  calorieData.percentage > 100 ? 'bg-red-500' : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(calorieData.percentage, 100)}%` }}
-              />
-            </div>
-          </div>
-        )}
+          )
+        })()}
       </CardContent>
     </Card>
   )
