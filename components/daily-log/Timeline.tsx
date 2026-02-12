@@ -380,15 +380,19 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       </AlertDialog>
 
       {/* 상세 정보 모달 */}
-      <Dialog open={!!selectedLog} onOpenChange={handleCloseDialog}>
+      <Dialog
+        open={!!selectedLog}
+        onOpenChange={(open) => {
+          // 수정 모드에서는 자동 닫기 차단 (카메라 앱 전환 시 포커스 변경 방어)
+          if (!open && isEditing) return
+          if (!open) handleCloseDialog()
+        }}
+      >
         <DialogContent
           className="sm:max-w-md"
-          onPointerDownOutside={(e) => {
-            if (isEditing) e.preventDefault()
-          }}
-          onFocusOutside={(e) => {
-            if (isEditing) e.preventDefault()
-          }}
+          onPointerDownOutside={(e) => { if (isEditing) e.preventDefault() }}
+          onFocusOutside={(e) => { if (isEditing) e.preventDefault() }}
+          onEscapeKeyDown={(e) => { if (isEditing) e.preventDefault() }}
         >
           {selectedLog && (
             <>
@@ -547,16 +551,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                       ))}
                     </div>
 
-                    {/* 사진 추가 버튼 */}
+                    {/* 사진 추가 버튼 (file input은 Dialog 바깥에 위치 — focus trap 충돌 방지) */}
                     <div className="flex gap-2">
-                      <input
-                        ref={editCameraInputRef}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={(e) => handlePhotoSelect(e, true)}
-                        className="hidden"
-                      />
                       <Button
                         type="button"
                         variant="outline"
@@ -566,14 +562,6 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                         <Camera className="w-4 h-4 mr-2" />
                         촬영
                       </Button>
-                      <input
-                        ref={editGalleryInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => handlePhotoSelect(e, false)}
-                        className="hidden"
-                      />
                       <Button
                         type="button"
                         variant="outline"
@@ -725,6 +713,24 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* 사진 첨부용 file input — Dialog 바깥에 위치하여 focus trap 충돌 방지 */}
+      <input
+        ref={editCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={(e) => handlePhotoSelect(e, true)}
+        className="hidden"
+      />
+      <input
+        ref={editGalleryInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(e) => handlePhotoSelect(e, false)}
+        className="hidden"
+      />
 
       {/* 이미지 확대 보기 (Lightbox Carousel) */}
       <Dialog open={lightboxPhotos.length > 0} onOpenChange={() => setLightboxPhotos([])}>
