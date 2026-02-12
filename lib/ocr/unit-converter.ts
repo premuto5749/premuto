@@ -408,6 +408,64 @@ const CONVERSION_RULES: Record<string, ConversionRule> = {
     ]
   },
 
+  // ── WBC 감별 절대수 (WBC와 동일한 변환) ────────
+  'NEU': {
+    standardUnit: 'K/μL',
+    conversions: [
+      { fromUnit: 'K/μL', multiplier: 1 },
+      { fromUnit: '/μL', multiplier: 0.001, formula: '/μL ÷ 1000 = K/μL' },
+    ]
+  },
+  'LYM': {
+    standardUnit: 'K/μL',
+    conversions: [
+      { fromUnit: 'K/μL', multiplier: 1 },
+      { fromUnit: '/μL', multiplier: 0.001, formula: '/μL ÷ 1000 = K/μL' },
+    ]
+  },
+  'MONO': {
+    standardUnit: 'K/μL',
+    conversions: [
+      { fromUnit: 'K/μL', multiplier: 1 },
+      { fromUnit: '/μL', multiplier: 0.001, formula: '/μL ÷ 1000 = K/μL' },
+    ]
+  },
+  'EOS': {
+    standardUnit: 'K/μL',
+    conversions: [
+      { fromUnit: 'K/μL', multiplier: 1 },
+      { fromUnit: '/μL', multiplier: 0.001, formula: '/μL ÷ 1000 = K/μL' },
+    ]
+  },
+  'BASO': {
+    standardUnit: 'K/μL',
+    conversions: [
+      { fromUnit: 'K/μL', multiplier: 1 },
+      { fromUnit: '/μL', multiplier: 0.001, formula: '/μL ÷ 1000 = K/μL' },
+    ]
+  },
+  'BAND': {
+    standardUnit: 'K/μL',
+    conversions: [
+      { fromUnit: 'K/μL', multiplier: 1 },
+      { fromUnit: '/μL', multiplier: 0.001, formula: '/μL ÷ 1000 = K/μL' },
+    ]
+  },
+  'RETIC': {
+    standardUnit: 'K/μL',
+    conversions: [
+      { fromUnit: 'K/μL', multiplier: 1 },
+      { fromUnit: '/μL', multiplier: 0.001, formula: '/μL ÷ 1000 = K/μL' },
+    ]
+  },
+  'LUC': {
+    standardUnit: 'K/μL',
+    conversions: [
+      { fromUnit: 'K/μL', multiplier: 1 },
+      { fromUnit: '/μL', multiplier: 0.001, formula: '/μL ÷ 1000 = K/μL' },
+    ]
+  },
+
   // ── CBC 농도 항목 ─────────────────────────────
   'MCHC': {
     standardUnit: 'g/dL',
