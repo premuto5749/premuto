@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DailyStats, LogCategory } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
@@ -9,6 +10,8 @@ interface CalorieData {
   intake: number
   target: number
   percentage: number
+  intakeGrams?: number
+  targetGrams?: number
 }
 
 interface DailyStatsCardProps {
@@ -21,6 +24,7 @@ interface DailyStatsCardProps {
 }
 
 export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick, currentWeight, calorieData }: DailyStatsCardProps) {
+  const [showGrams, setShowGrams] = useState(false)
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
     const today = new Date()
@@ -144,14 +148,27 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
             )
           })}
         </div>
-        {/* 칼로리 프로그레스 바 */}
+        {/* 칼로리 프로그레스 바 (탭하면 kcal ↔ 사료량g 토글) */}
         {calorieData && (
-          <div className="p-3 bg-muted/50 rounded-lg">
+          <div
+            className="p-3 bg-muted/50 rounded-lg cursor-pointer active:scale-[0.99] transition-all"
+            onClick={() => setShowGrams(prev => !prev)}
+          >
             <div className="flex items-center justify-between text-sm mb-1.5">
-              <span className="text-muted-foreground">칼로리</span>
+              <span className="text-muted-foreground">
+                {showGrams ? '사료량' : '칼로리'}
+              </span>
               <span className={`font-medium ${calorieData.percentage > 100 ? 'text-red-600' : ''}`}>
-                {formatNumber(calorieData.intake)} / {formatNumber(calorieData.target)} kcal
-                {calorieData.percentage > 100 && ' (초과)'}
+                {showGrams
+                  ? <>
+                      {formatNumber(calorieData.intakeGrams ?? 0)}g / {formatNumber(calorieData.targetGrams ?? 0)}g
+                      {calorieData.percentage > 100 && ' (초과)'}
+                    </>
+                  : <>
+                      {formatNumber(calorieData.intake)} / {formatNumber(calorieData.target)} kcal
+                      {calorieData.percentage > 100 && ' (초과)'}
+                    </>
+                }
               </span>
             </div>
             <div className="w-full h-2 bg-muted rounded-full overflow-hidden">

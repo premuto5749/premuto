@@ -320,10 +320,13 @@ export default function DailyLogPage() {
   // 칼로리 데이터 계산
   const calorieData = useMemo(() => {
     if (!currentPet || !currentWeight || !currentPet.food_calorie_density) return null
+    const density = currentPet.food_calorie_density
     const target = calculateCalories(currentPet, currentWeight)
-    const intake = calculateIntake(stats?.total_meal_amount || 0, currentPet.food_calorie_density)
+    const intake = calculateIntake(stats?.total_meal_amount || 0, density)
     if (target <= 0) return null
-    return { intake, target, percentage: Math.round((intake / target) * 100) }
+    const intakeGrams = stats?.total_meal_amount || 0
+    const targetGrams = Math.round(target / density)
+    return { intake, target, percentage: Math.round((intake / target) * 100), intakeGrams, targetGrams }
   }, [currentPet, currentWeight, stats])
 
   // 필터링된 로그 계산
