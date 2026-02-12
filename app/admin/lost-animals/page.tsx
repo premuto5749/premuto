@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import JSZip from 'jszip'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +40,7 @@ export default function LostAnimalsAdminPage() {
   // Bulk upload state
   const [zipFile, setZipFile] = useState<File | null>(null)
   const [bulkTitle, setBulkTitle] = useState('소중한 우리 가족을 찾습니다')
+  const [bulkProgress, setBulkProgress] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -126,42 +128,103 @@ export default function LostAnimalsAdminPage() {
     setBulkUploading(true)
     setError(null)
     setSuccess(null)
+    setBulkProgress('ZIP 파일 분석 중...')
+
+    const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif']
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
 
     try {
-      const formData = new FormData()
-      formData.append('zipFile', zipFile)
-      formData.append('title', bulkTitle.trim())
+      // 클라이언트에서 ZIP 추출
+      const zipBuffer = await zipFile.arrayBuffer()
+      const zip = await JSZip.loadAsync(zipBuffer)
 
-      const res = await fetch('/api/admin/lost-animals/bulk', {
-        method: 'POST',
-        body: formData,
-      })
+      // 이미지 파일만 필터링
+      const imageEntries: { filename: string; entry: JSZip.JSZipObject }[] = []
+      for (const [filename, entry] of Object.entries(zip.files)) {
+        if (entry.dir) continue
+        if (filename.startsWith('__MACOSX')) continue
+        if (filename.includes('.DS_Store')) continue
 
-      const data = await res.json()
+        const ext = filename.split('.').pop()?.toLowerCase() || ''
+        if (ALLOWED_EXTENSIONS.includes(ext)) {
+          imageEntries.push({ filename, entry })
+        }
+      }
 
-      if (!res.ok) {
-        setError(data.error || '일괄 업로드 실패')
+      if (imageEntries.length === 0) {
+        setError('ZIP 파일에 업로드할 수 있는 이미지가 없습니다')
         return
       }
 
-      setFlyers(prev => [...prev, ...data.data])
+      const uploadTitle = bulkTitle.trim() || '소중한 우리 가족을 찾습니다'
+      const uploaded: Flyer[] = []
+      const failed: string[] = []
 
-      const successCount = data.data?.length || 0
-      const failedCount = data.failed?.length || 0
-      let msg = `${successCount}개 전단지 등록 완료`
-      if (failedCount > 0) {
-        msg += ` (실패 ${failedCount}개: ${data.failed.join(', ')})`
+      // 이미지를 하나씩 개별 업로드
+      for (let i = 0; i < imageEntries.length; i++) {
+        const { filename, entry } = imageEntries[i]
+        setBulkProgress(`업로드 중... (${i + 1}/${imageEntries.length}) ${filename.split('/').pop()}`)
+
+        try {
+          const blob = await entry.async('blob')
+
+          if (blob.size > MAX_IMAGE_SIZE) {
+            failed.push(`${filename} (5MB 초과)`)
+            continue
+          }
+
+          const ext = filename.split('.').pop()?.toLowerCase() || 'png'
+          const mimeMap: Record<string, string> = {
+            png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+            webp: 'image/webp', gif: 'image/gif',
+          }
+          const baseName = filename.split('/').pop() || filename
+          const file = new File([blob], baseName, { type: mimeMap[ext] || 'image/png' })
+
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('title', uploadTitle)
+
+          const res = await fetch('/api/admin/lost-animals', {
+            method: 'POST',
+            body: formData,
+          })
+
+          const data = await res.json()
+
+          if (res.ok && data.data) {
+            uploaded.push(data.data)
+          } else {
+            failed.push(filename)
+          }
+        } catch {
+          failed.push(filename)
+        }
       }
-      setSuccess(msg)
+
+      if (uploaded.length > 0) {
+        setFlyers(prev => [...prev, ...uploaded])
+      }
+
+      let msg = `${uploaded.length}개 전단지 등록 완료`
+      if (failed.length > 0) {
+        msg += ` (실패 ${failed.length}개: ${failed.join(', ')})`
+      }
+      if (uploaded.length === 0) {
+        setError('업로드에 모두 실패했습니다: ' + failed.join(', '))
+      } else {
+        setSuccess(msg)
+      }
 
       setZipFile(null)
       setBulkTitle('소중한 우리 가족을 찾습니다')
       if (zipInputRef.current) zipInputRef.current.value = ''
     } catch (err) {
       console.error('Bulk upload error:', err)
-      setError('일괄 업로드 중 오류가 발생했습니다')
+      setError('ZIP 파일 처리 중 오류가 발생했습니다')
     } finally {
       setBulkUploading(false)
+      setBulkProgress(null)
     }
   }
 
@@ -364,6 +427,12 @@ export default function LostAnimalsAdminPage() {
             {zipFile && (
               <p className="text-sm text-muted-foreground">
                 선택된 파일: {zipFile.name} ({(zipFile.size / 1024 / 1024).toFixed(1)}MB)
+              </p>
+            )}
+
+            {bulkProgress && (
+              <p className="text-sm text-blue-600 font-medium">
+                {bulkProgress}
               </p>
             )}
 
