@@ -4,6 +4,8 @@ import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { AlertCircle } from 'lucide-react'
+import { convertUnit, getStandardUnit } from '@/lib/ocr/unit-converter'
+import { unitsAreEquivalent } from '@/lib/ocr/unit-normalizer'
 
 interface TestResult {
   id: string
@@ -266,6 +268,30 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
     }
   }
 
+  // 단위 변환 결과를 계산하는 헬퍼
+  const convertResultUnit = (itemName: string, result: TestResult) => {
+    const measuredUnit = result.unit
+    if (!measuredUnit) return { value: result.value, unit: measuredUnit, isConverted: false, originalValue: null, originalUnit: null }
+
+    const standardUnit = getStandardUnit(itemName)
+    if (!standardUnit || unitsAreEquivalent(measuredUnit, standardUnit)) {
+      return { value: result.value, unit: measuredUnit, isConverted: false, originalValue: null, originalUnit: null }
+    }
+
+    const conv = convertUnit(itemName, result.value, measuredUnit)
+    if (conv.success && conv.convertedValue !== null && conv.standardUnit) {
+      return {
+        value: conv.convertedValue,
+        unit: conv.standardUnit,
+        isConverted: true,
+        originalValue: result.value,
+        originalUnit: measuredUnit,
+      }
+    }
+
+    return { value: result.value, unit: measuredUnit, isConverted: false, originalValue: null, originalUnit: null }
+  }
+
   // 이전 검사와 참고치가 변경되었는지 확인
   const hasRefRangeChanged = (currentRecord: TestRecord, itemName: string): { changed: boolean; previousRef: string | null } => {
     const currentIndex = sortedRecords.findIndex(r => r.id === currentRecord.id)
@@ -380,13 +406,14 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
                         {sortedRecords.map((record) => {
                           const result = pivotData.recordMap.get(record.id)?.get(itemName)
                           const refChange = result ? hasRefRangeChanged(record, itemName) : { changed: false, previousRef: null }
+                          const converted = result ? convertResultUnit(itemName, result) : null
 
                           return (
                             <td
                               key={`${record.id}-${itemName}`}
                               className={`p-1 sm:p-3 text-center align-top ${result ? getStatusColor(result.status) : ''}`}
                             >
-                              {result ? (
+                              {result && converted ? (
                                 <SimpleTooltip
                                   content={
                                     <div className="text-left space-y-1 max-w-xs">
@@ -395,11 +422,16 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
                                       </div>
                                       <div>검사일: {new Date(record.test_date).toLocaleDateString('ko-KR')}</div>
                                       <div>
-                                        결과값: {formatValue(result.value)} {result.unit}
+                                        결과값: {formatValue(converted.value)} {converted.unit}
                                         {isZeroValue(result.value) && (
                                           <span className="text-xs text-muted-foreground ml-1">(측정값)</span>
                                         )}
                                       </div>
+                                      {converted.isConverted && converted.originalValue !== null && (
+                                        <div className="text-amber-600">
+                                          원본: {formatValue(converted.originalValue)} {converted.originalUnit}
+                                        </div>
+                                      )}
                                       <div>
                                         참고치: {result.ref_text || `${result.ref_min ?? '?'}-${result.ref_max ?? '?'}`}
                                       </div>
@@ -418,13 +450,13 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
                                 >
                                   <div className="cursor-help">
                                     <div className="font-medium flex items-center justify-center gap-1">
-                                      {getStatusIcon(result.status)} {formatValue(result.value)}
+                                      {getStatusIcon(result.status)} {formatValue(converted.value)}
                                       {refChange.changed && (
                                         <AlertCircle className="w-3 h-3 text-orange-600 inline" />
                                       )}
                                     </div>
                                     <div className="text-xs text-muted-foreground">
-                                      {result.unit}
+                                      {converted.unit}
                                     </div>
                                   </div>
                                 </SimpleTooltip>

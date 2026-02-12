@@ -20,8 +20,8 @@ const UNIT_ALIASES: Record<string, string[]> = {
   'mU/L': ['mU/L', 'mU/l', 'mIU/L'],
 
   // 혈구 수
-  'K/μL': ['K/μL', 'K/uL', 'K/ul', '10^3/μL', '10^3/uL', 'x10^3/μL', 'x10^3/uL', '10³/μL', 'thou/uL', 'K/µL', '10e3/μL', '10e3/uL', '10e3/ul', '10e3/', 'x10e3/μL'],
-  'M/μL': ['M/μL', 'M/uL', 'M/ul', '10^6/μL', '10^6/uL', 'x10^6/μL', 'x10^6/uL', '10⁶/μL', 'mil/uL', 'M/µL', '10e6/μL', '10e6/uL', '10e6/ul', '10e6/', 'x10e6/μL'],
+  'K/μL': ['K/μL', 'K/uL', 'K/ul', '10^3/μL', '10^3/uL', 'x10^3/μL', 'x10^3/uL', '10³/μL', 'thou/uL', 'K/µL', '10e3/μL', '10e3/uL', '10e3/ul', '10e3/', 'x10e3/μL', '10^9/L', '10x9/L', 'x10^9/L'],
+  'M/μL': ['M/μL', 'M/uL', 'M/ul', '10^6/μL', '10^6/uL', 'x10^6/μL', 'x10^6/uL', '10⁶/μL', 'mil/uL', 'M/µL', '10e6/μL', '10e6/uL', '10e6/ul', '10e6/', 'x10e6/μL', '10^12/L', '10x12/L', 'x10^12/L'],
   '/μL': ['/μL', '/uL', '/ul', '/µL', 'cells/uL', 'cells/μL'],
 
   // 백분율
@@ -36,8 +36,14 @@ const UNIT_ALIASES: Record<string, string[]> = {
   'mOsm/L': ['mOsm/L', 'mosm/L', 'mosm/l'],
 
   // 전해질
-  'mEq/L': ['mEq/L', 'meq/L', 'mEq/l', 'meq/l', 'mmol/L'],
+  'mEq/L': ['mEq/L', 'meq/L', 'mEq/l', 'meq/l'],
   'mmol/L': ['mmol/L', 'mmol/l', 'mM'],
+  'μmol/L': ['μmol/L', 'umol/L', 'μmol/l', 'umol/l', 'mcmol/L'],
+  'pmol/L': ['pmol/L', 'pmol/l'],
+
+  // 압력
+  'mmHg': ['mmHg', 'mmhg', 'mm Hg'],
+  'kPa': ['kPa', 'kpa', 'KPa'],
 
   // 시간
   'sec': ['sec', 's', 'seconds', 'secs'],
