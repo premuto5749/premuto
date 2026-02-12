@@ -32,10 +32,8 @@ export default withSentryConfig(nextConfig, {
   // 빌드 시 Sentry CLI 텔레메트리 비활성화
   telemetry: false,
 
-  // Vercel Cron Monitors 자동 연동
-  automaticVercelMonitors: true,
-
   webpack: {
+    automaticVercelMonitors: true,
     treeshake: {
       removeDebugLogging: true,
     },
