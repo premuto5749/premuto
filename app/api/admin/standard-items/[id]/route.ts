@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireAdmin } from '@/lib/auth/admin'
 
 export const dynamic = 'force-dynamic'
@@ -62,7 +63,6 @@ export async function PATCH(
     }
 
     const { id } = await params
-    const supabase = await createClient()
     const body = await request.json()
 
     const updateData: Record<string, unknown> = {}
@@ -87,7 +87,8 @@ export async function PATCH(
       )
     }
 
-    const { data, error: dbError } = await supabase
+    const serviceSupabase = createServiceClient()
+    const { data, error: dbError } = await serviceSupabase
       .from('standard_items_master')
       .update(updateData)
       .eq('id', id)
@@ -131,6 +132,7 @@ export async function DELETE(
 
     const { id } = await params
     const supabase = await createClient()
+    const serviceSupabase = createServiceClient()
 
     // 연관된 test_results가 있는지 확인
     const { count } = await supabase
@@ -149,13 +151,13 @@ export async function DELETE(
     }
 
     // 연관된 별칭 삭제
-    await supabase
+    await serviceSupabase
       .from('item_aliases_master')
       .delete()
       .eq('standard_item_id', id)
 
     // 항목 삭제
-    const { error: dbError } = await supabase
+    const { error: dbError } = await serviceSupabase
       .from('standard_items_master')
       .delete()
       .eq('id', id)

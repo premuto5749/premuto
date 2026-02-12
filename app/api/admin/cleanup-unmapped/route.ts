@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireAdmin } from '@/lib/auth/admin'
 
 export const dynamic = 'force-dynamic'
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const result: CleanupResult = {
       success: true,
       deleted: 0,
