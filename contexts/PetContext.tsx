@@ -26,9 +26,13 @@ export function PetProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchPets = useCallback(async () => {
+  const fetchPets = useCallback(async (isBackground = false) => {
     try {
-      setIsLoading(true)
+      // 백그라운드 재조회 시 isLoading을 true로 설정하지 않음
+      // (children 언마운트 방지 — 모달 내 파일 선택 등의 상호작용 중단 방지)
+      if (!isBackground) {
+        setIsLoading(true)
+      }
       setError(null)
 
       const res = await fetch('/api/pets')
@@ -84,7 +88,7 @@ export function PetProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         // 초기 로드 이후에만 다시 fetch (중복 호출 방지)
         if (initialLoadDone.current) {
-          fetchPets()
+          fetchPets(true) // 백그라운드 재조회: isLoading 변경하지 않음
         }
       } else if (event === 'SIGNED_OUT') {
         // 로그아웃 시 상태 초기화

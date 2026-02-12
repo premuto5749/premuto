@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon, Share2, ImagePlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
@@ -44,6 +44,7 @@ export default function DailyLogPage() {
     return getKSTToday()
   })
   const [isLoading, setIsLoading] = useState(true)
+  const isInitialLoadDone = useRef(false)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [isSummaryOverlayOpen, setIsSummaryOverlayOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
@@ -65,7 +66,10 @@ export default function DailyLogPage() {
     // 반려동물 로딩 중이면 대기
     if (isPetsLoading) return
 
-    setIsLoading(true)
+    // 초기 로드에만 로딩 스피너 표시 (재조회 시 Timeline 언마운트 방지)
+    if (!isInitialLoadDone.current) {
+      setIsLoading(true)
+    }
     try {
       // pet_id 파라미터 추가
       const petParam = currentPet ? `&pet_id=${currentPet.id}` : ''
@@ -103,6 +107,7 @@ export default function DailyLogPage() {
       setStats(null)
     } finally {
       setIsLoading(false)
+      isInitialLoadDone.current = true
     }
   }, [selectedDate, currentPet, isPetsLoading])
 

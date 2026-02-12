@@ -378,8 +378,19 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       </AlertDialog>
 
       {/* 상세 정보 모달 */}
-      <Dialog open={!!selectedLog} onOpenChange={handleCloseDialog}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog
+        open={!!selectedLog}
+        onOpenChange={(open) => {
+          // 수정 모드에서는 자동 닫기 차단 (카메라 앱 전환 시 포커스 변경 방어)
+          if (!open && isEditing) return
+          if (!open) handleCloseDialog()
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => { if (isEditing) e.preventDefault() }}
+          onFocusOutside={(e) => { if (isEditing) e.preventDefault() }}
+        >
           {selectedLog && (
             <>
               <DialogHeader>
