@@ -132,8 +132,14 @@ export default function LostAnimalsAdminPage() {
 
     const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif']
     const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+    const MAX_ZIP_SIZE = 50 * 1024 * 1024 // 50MB
 
     try {
+      if (zipFile.size > MAX_ZIP_SIZE) {
+        setError('ZIP 파일 크기가 50MB를 초과합니다')
+        return
+      }
+
       // 클라이언트에서 ZIP 추출
       const zipBuffer = await zipFile.arrayBuffer()
       const zip = await JSZip.loadAsync(zipBuffer)
