@@ -120,6 +120,7 @@ const GARBAGE_NUMERIC_PATTERNS = [
 const UNIT_CORRECTIONS: Record<string, string> = {
   'mmH': 'mmHg',
   'mg/d': 'mg/dL',
+  'mg/': 'mg/dL',
   'g/d': 'g/dL',
   'U/': 'U/L',
   'K/u': 'K/μL',
@@ -127,9 +128,17 @@ const UNIT_CORRECTIONS: Record<string, string> = {
   '10x9/': '10x9/L',
   '10x12/': '10x12/L',
   'mmol/': 'mmol/L',
+  'mmol': 'mmol/L',
+  'mEq': 'mEq/L',
+  'mEq/': 'mEq/L',
+  'μmol/': 'μmol/L',
+  'umol/': 'μmol/L',
   'ug/d': 'ug/dL',
-  'ng/m': 'ng/ml',
+  'ng/m': 'ng/mL',
+  'ng/': 'ng/mL',
   'pmol/': 'pmol/L',
+  '10e3/': 'K/μL',
+  '10e': 'K/μL',
 };
 
 export interface GarbageFilterResult {
@@ -185,6 +194,14 @@ export function correctTruncatedUnit(unit: string): string {
   if (!unit) return unit;
 
   const trimmed = unit.trim();
+
+  // 가비지 단위 감지 — 단위가 아닌 값을 빈 문자열로 처리
+  // 순수 숫자 ("100", "10000")
+  if (/^\d+$/.test(trimmed)) return '';
+  // 비교 연산자 포함 ("<14", ">100", "≤10")
+  if (/^[<>≤≥]\s*\d/.test(trimmed)) return '';
+  // 기호만 ("+/-", "±")
+  if (/^[+\-/±]+$/.test(trimmed)) return '';
 
   // 정확히 일치하는 잘린 단위 보정
   if (UNIT_CORRECTIONS[trimmed]) {

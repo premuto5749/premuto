@@ -216,7 +216,11 @@ const OCR_PROMPT = `수의학 혈액검사 결과지에서 데이터를 추출�
 # 항목 추출 규칙
 - raw_name: 검사지 원문 그대로 (대소문자, 특수문자 유지)
 - value: 숫자는 number 타입으로 (23, 0, 1.5), 특수값은 문자열("<500", ">1000", "Low", "Negative"), 값 없음은 null
-- unit: 단위 (없으면 빈 문자열)
+- unit: 단위. 완전한 형태로 추출하세요.
+  - 예시: U/L, mg/dL, g/dL, K/μL, M/μL, mEq/L, mmol/L, %, fL, pg, sec, mmHg
+  - 잘려 보이면 문맥으로 완성: "mg/" → "mg/dL", "K/u" → "K/μL"
+  - 숫자만 있는 것("<14", "100")은 단위가 아님 → 빈 문자열
+  - 없으면 빈 문자열
 - reference: 참고치 원문 (3-50, <14 등)
 - is_abnormal: ▲▼HL 표시 있으면 true
 - abnormal_direction: "high" 또는 "low" 또는 null
