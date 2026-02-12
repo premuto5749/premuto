@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -52,6 +52,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const [newPhotoFiles, setNewPhotoFiles] = useState<File[]>([])
   const [newPhotoPreviews, setNewPhotoPreviews] = useState<string[]>([])
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
+  const editCameraInputRef = useRef<HTMLInputElement>(null)
+  const editGalleryInputRef = useRef<HTMLInputElement>(null)
   // Lightbox carousel state
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([])
   const [lightboxIndex, setLightboxIndex] = useState(0)
@@ -378,18 +380,15 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       </AlertDialog>
 
       {/* 상세 정보 모달 */}
-      <Dialog
-        open={!!selectedLog}
-        onOpenChange={(open) => {
-          // 수정 모드에서는 자동 닫기 차단 (카메라 앱 전환 시 포커스 변경 방어)
-          if (!open && isEditing) return
-          if (!open) handleCloseDialog()
-        }}
-      >
+      <Dialog open={!!selectedLog} onOpenChange={handleCloseDialog}>
         <DialogContent
           className="sm:max-w-md"
-          onPointerDownOutside={(e) => { if (isEditing) e.preventDefault() }}
-          onFocusOutside={(e) => { if (isEditing) e.preventDefault() }}
+          onPointerDownOutside={(e) => {
+            if (isEditing) e.preventDefault()
+          }}
+          onFocusOutside={(e) => {
+            if (isEditing) e.preventDefault()
+          }}
         >
           {selectedLog && (
             <>
@@ -550,48 +549,40 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
                     {/* 사진 추가 버튼 */}
                     <div className="flex gap-2">
-                      <label className="flex-1">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={(e) => handlePhotoSelect(e, true)}
-                          className="hidden"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full"
-                          onClick={(e) => {
-                            const input = e.currentTarget.parentElement?.querySelector('input')
-                            input?.click()
-                          }}
-                        >
-                          <Camera className="w-4 h-4 mr-2" />
-                          촬영
-                        </Button>
-                      </label>
-                      <label className="flex-1">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => handlePhotoSelect(e, false)}
-                          className="hidden"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full"
-                          onClick={(e) => {
-                            const input = e.currentTarget.parentElement?.querySelector('input')
-                            input?.click()
-                          }}
-                        >
-                          <ImagePlus className="w-4 h-4 mr-2" />
-                          갤러리
-                        </Button>
-                      </label>
+                      <input
+                        ref={editCameraInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => handlePhotoSelect(e, true)}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => editCameraInputRef.current?.click()}
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        촬영
+                      </Button>
+                      <input
+                        ref={editGalleryInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => handlePhotoSelect(e, false)}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => editGalleryInputRef.current?.click()}
+                      >
+                        <ImagePlus className="w-4 h-4 mr-2" />
+                        갤러리
+                      </Button>
                     </div>
                   </div>
                 </div>
