@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireAdmin } from '@/lib/auth/admin'
 
 export const dynamic = 'force-dynamic'
@@ -94,7 +95,8 @@ export async function POST(request: NextRequest) {
       itemId = item.id
     }
 
-    const { data, error: dbError } = await supabase
+    const serviceSupabase = createServiceClient()
+    const { data, error: dbError } = await serviceSupabase
       .from('item_aliases_master')
       .upsert({
         alias,
@@ -139,7 +141,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error }, { status: 403 })
     }
 
-    const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -150,7 +151,8 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const { error: dbError } = await supabase
+    const serviceSupabase = createServiceClient()
+    const { error: dbError } = await serviceSupabase
       .from('item_aliases_master')
       .delete()
       .eq('id', id)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { requireAdmin } from '@/lib/auth/admin';
 import masterData from '@/config/master_data_v3.json';
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // 옵션 파싱
   const body = await request.json().catch(() => ({}));

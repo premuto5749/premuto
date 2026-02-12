@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireAdmin } from '@/lib/auth/admin'
 
 export const dynamic = 'force-dynamic'
@@ -89,7 +90,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, error: dbError } = await supabase
+    const serviceSupabase = createServiceClient()
+    const { data, error: dbError } = await serviceSupabase
       .from('standard_items_master')
       .insert({
         name,
