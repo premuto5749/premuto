@@ -3,58 +3,25 @@
  *
  * 같은 단위의 다양한 표기를 표준 형식으로 통일
  * 예: mg/100mL, mg %, mg/dl → mg/dL
+ *
+ * config/unit_mappings.json에서 별칭 및 보정 규칙을 로드합니다.
  */
 
-// 표준 단위 매핑 (동의어 → 표준)
-const UNIT_ALIASES: Record<string, string[]> = {
-  // 농도 단위
-  'mg/dL': ['mg/dL', 'mg/dl', 'mg/100mL', 'mg/100ml', 'mg %', 'mg%'],
-  'g/dL': ['g/dL', 'g/dl', 'g/100mL', 'g/100ml', 'g %', 'g%', 'gm/dl'],
-  'μg/dL': ['μg/dL', 'ug/dL', 'mcg/dL', 'μg/dl', 'ug/dl', 'mcg/dl'],
-  'ng/mL': ['ng/mL', 'ng/ml'],
-  'pg/mL': ['pg/mL', 'pg/ml'],
-  'μg/mL': ['μg/mL', 'ug/mL', 'mcg/mL', 'μg/ml', 'ug/ml', 'mcg/ml'],
+import unitConfig from '@/config/unit_mappings.json'
 
-  // 효소 활성도
-  'U/L': ['U/L', 'U/l', 'IU/L', 'IU/l', 'u/L', 'u/l'],
-  'mU/L': ['mU/L', 'mU/l', 'mIU/L'],
-
-  // 혈구 수
-  'K/μL': ['K/μL', 'K/uL', 'K/ul', '10^3/μL', '10^3/uL', 'x10^3/μL', 'x10^3/uL', '10³/μL', 'thou/uL', 'K/µL', '10e3/μL', '10e3/uL', '10e3/ul', '10e3/', 'x10e3/μL', '10^9/L', '10x9/L', 'x10^9/L'],
-  'M/μL': ['M/μL', 'M/uL', 'M/ul', '10^6/μL', '10^6/uL', 'x10^6/μL', 'x10^6/uL', '10⁶/μL', 'mil/uL', 'M/µL', '10e6/μL', '10e6/uL', '10e6/ul', '10e6/', 'x10e6/μL', '10^12/L', '10x12/L', 'x10^12/L'],
-  '/μL': ['/μL', '/uL', '/ul', '/µL', 'cells/uL', 'cells/μL'],
-
-  // 백분율
-  '%': ['%', 'percent', 'pct'],
-
-  // 부피/시간
-  'fL': ['fL', 'fl', 'femtoliter', 'femtoliters'],
-  'pg': ['pg', 'picogram', 'picograms'],
-
-  // 삼투압
-  'mOsm/kg': ['mOsm/kg', 'mosm/kg', 'mOsm/Kg', 'mosmol/kg'],
-  'mOsm/L': ['mOsm/L', 'mosm/L', 'mosm/l'],
-
-  // 전해질
-  'mEq/L': ['mEq/L', 'meq/L', 'mEq/l', 'meq/l'],
-  'mmol/L': ['mmol/L', 'mmol/l', 'mM'],
-  'μmol/L': ['μmol/L', 'umol/L', 'μmol/l', 'umol/l', 'mcmol/L'],
-  'pmol/L': ['pmol/L', 'pmol/l'],
-
-  // 압력
-  'mmHg': ['mmHg', 'mmhg', 'mm Hg'],
-  'kPa': ['kPa', 'kpa', 'KPa'],
-
-  // 시간
-  'sec': ['sec', 's', 'seconds', 'secs'],
-  'min': ['min', 'minutes', 'mins'],
-
-  // 기타
-  'g/L': ['g/L', 'g/l'],
-  'mg/L': ['mg/L', 'mg/l'],
-  'ratio': ['ratio', 'Ratio'],
-  'index': ['index', 'Index'],
+// config에서 flat aliases 맵 생성 (카테고리 구조를 평탄화)
+function buildUnitAliases(): Record<string, string[]> {
+  const flat: Record<string, string[]> = {}
+  const categories = unitConfig.unit_aliases as Record<string, Record<string, string[]>>
+  for (const category of Object.values(categories)) {
+    for (const [standard, aliases] of Object.entries(category)) {
+      flat[standard] = aliases
+    }
+  }
+  return flat
 }
+
+const UNIT_ALIASES = buildUnitAliases()
 
 // 역방향 맵 생성 (별칭 → 표준)
 const aliasToStandard: Map<string, string> = new Map()
@@ -128,20 +95,21 @@ export type UnitCategory =
   | 'volume'         // 부피 (fL)
   | 'mass'           // 질량 (pg)
   | 'electrolyte'    // 전해질 (mEq/L, mmol/L)
+  | 'pressure'       // 압력 (mmHg, kPa)
   | 'time'           // 시간 (sec, min)
   | 'other'          // 기타
 
-const UNIT_CATEGORIES: Record<UnitCategory, string[]> = {
-  concentration: ['mg/dL', 'g/dL', 'μg/dL', 'ng/mL', 'pg/mL', 'μg/mL', 'g/L', 'mg/L'],
-  enzyme: ['U/L', 'mU/L'],
-  cell_count: ['K/μL', 'M/μL', '/μL'],
-  percentage: ['%'],
-  volume: ['fL'],
-  mass: ['pg'],
-  electrolyte: ['mEq/L', 'mmol/L'],
-  time: ['sec', 'min'],
-  other: ['mOsm/kg', 'mOsm/L', 'ratio', 'index']
+// config에서 카테고리별 표준 단위 맵 생성
+function buildUnitCategories(): Record<UnitCategory, string[]> {
+  const result: Record<string, string[]> = {}
+  const categories = unitConfig.unit_aliases as Record<string, Record<string, string[]>>
+  for (const [categoryName, units] of Object.entries(categories)) {
+    result[categoryName] = Object.keys(units)
+  }
+  return result as Record<UnitCategory, string[]>
 }
+
+const UNIT_CATEGORIES = buildUnitCategories()
 
 export function getUnitCategory(unit: string): UnitCategory {
   const normalized = normalizeUnit(unit)

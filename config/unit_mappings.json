@@ -17,8 +17,8 @@
       "mU/L": ["mU/L", "mU/l", "mIU/L"]
     },
     "cell_count": {
-      "K/μL": ["K/μL", "K/uL", "K/ul", "10^3/μL", "10^3/uL", "x10^3/μL", "x10^3/uL", "10³/μL", "thou/uL", "K/µL", "10e3/μL", "10e3/uL", "10e3/ul", "10e3/", "x10e3/μL"],
-      "M/μL": ["M/μL", "M/uL", "M/ul", "10^6/μL", "10^6/uL", "x10^6/μL", "x10^6/uL", "10⁶/μL", "mil/uL", "M/µL", "10e6/μL", "10e6/uL", "10e6/ul", "10e6/", "x10e6/μL"],
+      "K/μL": ["K/μL", "K/uL", "K/ul", "10^3/μL", "10^3/uL", "x10^3/μL", "x10^3/uL", "10³/μL", "thou/uL", "K/µL", "10e3/μL", "10e3/uL", "10e3/ul", "10e3/", "x10e3/μL", "10^9/L", "10x9/L", "x10^9/L"],
+      "M/μL": ["M/μL", "M/uL", "M/ul", "10^6/μL", "10^6/uL", "x10^6/μL", "x10^6/uL", "10⁶/μL", "mil/uL", "M/µL", "10e6/μL", "10e6/uL", "10e6/ul", "10e6/", "x10e6/μL", "10^12/L", "10x12/L", "x10^12/L"],
       "/μL": ["/μL", "/uL", "/ul", "/µL", "cells/uL", "cells/μL"]
     },
     "percentage": {
@@ -32,11 +32,17 @@
     },
     "electrolyte": {
       "mEq/L": ["mEq/L", "meq/L", "mEq/l", "meq/l"],
-      "mmol/L": ["mmol/L", "mmol/l", "mM"]
+      "mmol/L": ["mmol/L", "mmol/l", "mM"],
+      "μmol/L": ["μmol/L", "umol/L", "μmol/l", "umol/l", "mcmol/L"],
+      "pmol/L": ["pmol/L", "pmol/l"]
     },
     "osmolality": {
       "mOsm/kg": ["mOsm/kg", "mosm/kg", "mOsm/Kg", "mosmol/kg"],
       "mOsm/L": ["mOsm/L", "mosm/L", "mosm/l"]
+    },
+    "pressure": {
+      "mmHg": ["mmHg", "mmhg", "mm Hg"],
+      "kPa": ["kPa", "kpa", "KPa"]
     },
     "time": {
       "sec": ["sec", "s", "seconds", "secs"],
@@ -47,6 +53,33 @@
       "mg/L": ["mg/L", "mg/l"],
       "ratio": ["ratio", "Ratio"],
       "index": ["index", "Index"]
+    }
+  },
+
+  "ocr_corrections": {
+    "_description": "OCR에서 잘려 인식된 단위를 올바른 단위로 보정하는 규칙",
+    "rules": {
+      "mmH": "mmHg",
+      "mg/d": "mg/dL",
+      "mg/": "mg/dL",
+      "g/d": "g/dL",
+      "U/": "U/L",
+      "K/u": "K/μL",
+      "K/μ": "K/μL",
+      "10x9/": "10x9/L",
+      "10x12/": "10x12/L",
+      "mmol/": "mmol/L",
+      "mmol": "mmol/L",
+      "mEq": "mEq/L",
+      "mEq/": "mEq/L",
+      "μmol/": "μmol/L",
+      "umol/": "μmol/L",
+      "ug/d": "ug/dL",
+      "ng/m": "ng/mL",
+      "ng/": "ng/mL",
+      "pmol/": "pmol/L",
+      "10e3/": "K/μL",
+      "10e": "K/μL"
     }
   },
 

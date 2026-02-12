@@ -11,6 +11,7 @@
 
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import unitConfig from '@/config/unit_mappings.json';
 
 // Supabase client type (awaited)
 type SupabaseClientType = Awaited<ReturnType<typeof createServerClient>>;
@@ -116,30 +117,8 @@ const GARBAGE_NUMERIC_PATTERNS = [
   /^[-+]?\d+[.,]?\d*$/,                // 부호 있는 숫자: -0.5, +1.2
 ];
 
-// 단위 잘림 보정 맵
-const UNIT_CORRECTIONS: Record<string, string> = {
-  'mmH': 'mmHg',
-  'mg/d': 'mg/dL',
-  'mg/': 'mg/dL',
-  'g/d': 'g/dL',
-  'U/': 'U/L',
-  'K/u': 'K/μL',
-  'K/μ': 'K/μL',
-  '10x9/': '10x9/L',
-  '10x12/': '10x12/L',
-  'mmol/': 'mmol/L',
-  'mmol': 'mmol/L',
-  'mEq': 'mEq/L',
-  'mEq/': 'mEq/L',
-  'μmol/': 'μmol/L',
-  'umol/': 'μmol/L',
-  'ug/d': 'ug/dL',
-  'ng/m': 'ng/mL',
-  'ng/': 'ng/mL',
-  'pmol/': 'pmol/L',
-  '10e3/': 'K/μL',
-  '10e': 'K/μL',
-};
+// 단위 잘림 보정 맵 (config에서 로드)
+const UNIT_CORRECTIONS: Record<string, string> = unitConfig.ocr_corrections.rules;
 
 export interface GarbageFilterResult {
   isGarbage: boolean;
