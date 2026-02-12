@@ -4,7 +4,15 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
 
+  integrations: [Sentry.replayIntegration()],
+
   tracesSampleRate: process.env.NODE_ENV === 'development' ? 1.0 : 0.1,
+  enableLogs: true,
+
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1.0,
+
+  sendDefaultPii: true,
 
   beforeSend(event) {
     const message = event.exception?.values?.[0]?.value || ''
@@ -35,3 +43,5 @@ Sentry.init({
     /^moz-extension:\/\//,
   ],
 })
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart

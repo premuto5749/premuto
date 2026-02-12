@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -23,6 +24,9 @@ export async function generateMetadata(): Promise<Metadata> {
       title: settings.siteName,
       description: settings.siteDescription,
       images: settings.ogImageUrl ? [settings.ogImageUrl] : undefined,
+    },
+    other: {
+      ...Sentry.getTraceData(),
     },
   };
 }

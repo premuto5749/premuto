@@ -14,8 +14,14 @@ const nextConfig = {
 };
 
 export default withSentryConfig(nextConfig, {
+  org: "premuto",
+  project: "premuto",
+
   // 소스맵을 Sentry에 업로드하되 브라우저에서는 숨김
   hideSourceMaps: true,
+
+  // Upload a larger set of source maps for prettier stack traces
+  widenClientFileUpload: true,
 
   // 광고 차단기 우회를 위한 tunnel route
   tunnelRoute: '/monitoring',
@@ -25,4 +31,11 @@ export default withSentryConfig(nextConfig, {
 
   // 빌드 시 Sentry CLI 텔레메트리 비활성화
   telemetry: false,
+
+  webpack: {
+    automaticVercelMonitors: true,
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 })
