@@ -11,6 +11,7 @@ ON CONFLICT (id) DO NOTHING;
 -- 경로 규칙: {userId}/{batchId}/{filename}
 
 -- SELECT (다운로드)
+DROP POLICY IF EXISTS "Users can download own staging files" ON storage.objects;
 CREATE POLICY "Users can download own staging files"
   ON storage.objects FOR SELECT
   USING (
@@ -19,6 +20,7 @@ CREATE POLICY "Users can download own staging files"
   );
 
 -- INSERT (업로드)
+DROP POLICY IF EXISTS "Users can upload own staging files" ON storage.objects;
 CREATE POLICY "Users can upload own staging files"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -27,6 +29,7 @@ CREATE POLICY "Users can upload own staging files"
   );
 
 -- DELETE (정리)
+DROP POLICY IF EXISTS "Users can delete own staging files" ON storage.objects;
 CREATE POLICY "Users can delete own staging files"
   ON storage.objects FOR DELETE
   USING (
