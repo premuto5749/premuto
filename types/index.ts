@@ -351,6 +351,34 @@ export interface GoogleDriveSyncLog {
   created_at: string
 }
 
+// ============================================
+// 사료 데이터베이스 (Pet Food) 타입
+// ============================================
+
+export type FoodType = '건사료' | '습식' | '기타'
+export type TargetAnimal = '강아지' | '고양이' | '공통'
+
+export interface PetFood {
+  id: string
+  name: string
+  brand: string | null
+  calorie_density: number
+  food_type: FoodType
+  target_animal: TargetAnimal
+  memo: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface PetFoodInput {
+  name: string
+  brand?: string | null
+  calorie_density: number
+  food_type?: FoodType
+  target_animal?: TargetAnimal
+  memo?: string | null
+}
+
 // 카테고리별 설정
 export const LOG_CATEGORY_CONFIG: Record<LogCategory, {
   label: string

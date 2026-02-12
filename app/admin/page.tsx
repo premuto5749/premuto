@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle, Sliders, Globe, Megaphone, PawPrint } from 'lucide-react'
+import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle, Sliders, Globe, Megaphone, PawPrint, Utensils } from 'lucide-react'
 import Link from 'next/link'
 
 interface AdminStats {
@@ -309,6 +309,26 @@ export default function AdminPage() {
                 <div className="flex gap-2">
                   <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">전단지 관리</span>
                   <span className="text-xs bg-muted px-2 py-1 rounded">팝업 노출</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/admin/pet-foods">
+            <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Utensils className="w-5 h-5" />
+                  사료 데이터베이스
+                </CardTitle>
+                <CardDescription>
+                  사료 정보(브랜드, 칼로리 밀도)를 등록하여 사료량 계산기에서 검색할 수 있게 합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded">사료 등록</span>
+                  <span className="text-xs bg-muted px-2 py-1 rounded">칼로리 밀도</span>
                 </div>
               </CardContent>
             </Card>

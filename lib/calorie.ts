@@ -1,12 +1,12 @@
 import type { Pet } from '@/types'
 
 // RER (Resting Energy Requirement) 계산: 70 * (체중kg)^0.75
-function calculateRER(weightKg: number): number {
+export function calculateRER(weightKg: number): number {
   return 70 * Math.pow(weightKg, 0.75)
 }
 
 // 활동 계수 (DER = RER * factor)
-function getActivityFactor(pet: Pet): number {
+export function getActivityFactor(pet: Pet): number {
   const isNeutered = pet.is_neutered ?? false
   const activity = pet.activity_level || 'normal'
 
