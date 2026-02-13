@@ -226,6 +226,10 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
                             key={pf.id}
                             value={`${pf.brand || ''} ${pf.name}`}
                             onSelect={() => handleFoodSelect(index, pf)}
+                            onPointerDown={(e) => {
+                              e.preventDefault()
+                              handleFoodSelect(index, pf)
+                            }}
                           >
                             <Check
                               className={`mr-2 h-4 w-4 ${

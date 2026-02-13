@@ -96,6 +96,12 @@ function ManualMappingButton({
                     setOpen(false)
                     setSearchValue('')
                   }}
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    onSelect(itemId, item.id, item.name)
+                    setOpen(false)
+                    setSearchValue('')
+                  }}
                 >
                   <div className="flex flex-col">
                     <span className="font-medium">{item.name}</span>
