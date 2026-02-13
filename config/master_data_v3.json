@@ -1619,6 +1619,105 @@
       "description_common": "좌심실의 이완기 내경입니다. 심비대와 확장성 심근병증 평가에 사용됩니다.",
       "description_high": "확장성 심근병증, 승모판 폐쇄부전, 용적 과부하",
       "description_low": "저혈량증, 탈수"
+    },
+    {
+      "item_id": "ITEM_121",
+      "name": "HCT(BG)",
+      "display_name_ko": "적혈구용적률(혈액가스)",
+      "unit": "%",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["혈액"],
+      "description_common": "혈액가스 장비(GEM 등)로 측정한 적혈구용적률. 전도도(conductometry) 방식으로 측정하여 CBC 장비의 HCT(임피던스/광학)와 1~3% 차이가 날 수 있습니다. 응급 상황에서 빠르게 빈혈 여부를 확인할 때 사용합니다.",
+      "description_high": "탈수, 적혈구증다증, 쇼크 초기(혈장 누출)",
+      "description_low": "빈혈, 출혈, 수액 과다 투여, 만성 질환"
+    },
+    {
+      "item_id": "ITEM_122",
+      "name": "Na(BG)",
+      "display_name_ko": "나트륨(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "혈액가스 장비로 측정한 나트륨. 전혈에서 이온선택전극(ISE) 직접법으로 측정하여, Chemistry의 간접법과 약간 차이가 날 수 있습니다.",
+      "description_high": "탈수(수분 부족), 고나트륨혈증, 요붕증, 구토/설사 후 수분 손실",
+      "description_low": "저나트륨혈증, 수분 과잉, 애디슨병, 심한 구토/설사"
+    },
+    {
+      "item_id": "ITEM_123",
+      "name": "K(BG)",
+      "display_name_ko": "칼륨(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "혈액가스 장비로 측정한 칼륨. 전혈 직접 측정이라 용혈 영향을 덜 받습니다. 심장 부정맥 위험 평가에 중요합니다.",
+      "description_high": "고칼륨혈증 — 급성 신부전, 요로폐색, 애디슨병, 조직 괴사. 심장 부정맥 위험.",
+      "description_low": "저칼륨혈증 — 구토, 설사, 수액치료 중, 인슐린 투여. 근무력, 장마비 위험."
+    },
+    {
+      "item_id": "ITEM_124",
+      "name": "Ca(BG)",
+      "display_name_ko": "칼슘(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "혈액가스 장비로 측정한 이온화 칼슘(iCa). Chemistry의 총칼슘(mg/dL)과 단위·의미가 다릅니다. 생리적으로 활성인 칼슘만 측정하므로 임상적으로 더 정확합니다.",
+      "description_high": "고칼슘혈증 — 악성 종양(림프종), 부갑상선항진증, 비타민D 중독, 애디슨병",
+      "description_low": "저칼슘혈증 — 산욕기(수유 중), 급성 췌장염, 신부전, 저알부민혈증"
+    },
+    {
+      "item_id": "ITEM_125",
+      "name": "Cl(BG)",
+      "display_name_ko": "염소(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "혈액가스 장비로 측정한 염소. 산염기 균형 평가에서 나트륨·중탄산염과 함께 해석합니다.",
+      "description_high": "고염소혈증 — 탈수, 비호흡성 대사산증(설사 등), 과다 생리식염수 투여",
+      "description_low": "저염소혈증 — 구토(위산 손실), 대사성 알칼리증, 이뇨제 사용"
+    },
+    {
+      "item_id": "ITEM_126",
+      "name": "Glucose(BG)",
+      "display_name_ko": "혈당(혈액가스)",
+      "unit": "mg/dL",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["대사"],
+      "description_common": "혈액가스 장비로 측정한 혈당. 전혈 직접 측정이라 Chemistry 혈청 혈당보다 10~15% 낮을 수 있습니다. 응급 시 저혈당/고혈당 즉시 확인에 사용.",
+      "description_high": "고혈당 — 당뇨병, 스트레스성 고혈당(고양이), 쿠싱증후군, 스테로이드 투여",
+      "description_low": "저혈당 — 인슐린 과다, 패혈증, 간부전, 신생아/소형견, 인슐린종"
+    },
+    {
+      "item_id": "ITEM_127",
+      "name": "Lactate(BG)",
+      "display_name_ko": "젖산(혈액가스)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["대사"],
+      "description_common": "혈액가스 장비로 측정한 젖산. 조직 저산소증의 지표로, 응급/중환자에서 예후 판단에 핵심적입니다. 정상 개: <2.5 mmol/L.",
+      "description_high": "조직 저산소증(쇼크, 패혈증), 장허혈(GDV), 심한 빈혈, 발작 후, 격렬한 운동",
+      "description_low": "임상적 의미 없음 (낮을수록 좋음)"
+    },
+    {
+      "item_id": "ITEM_128",
+      "name": "tHb(BG)",
+      "display_name_ko": "총헤모글로빈(혈액가스)",
+      "unit": "g/dL",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["혈액"],
+      "description_common": "혈액가스 장비로 측정한 총헤모글로빈. CO-oximetry 방식으로 측정하여 CBC의 HGB(시안메트헤모글로빈법)와 측정 원리가 다릅니다. 산소 운반 능력 평가에 사용.",
+      "description_high": "탈수, 적혈구증다증",
+      "description_low": "빈혈, 출혈, 수액 과다 투여"
+    },
+    {
+      "item_id": "ITEM_129",
+      "name": "Ca(7.4)(BG)",
+      "display_name_ko": "보정칼슘(pH7.4)",
+      "unit": "mmol/L",
+      "exam_type": "Blood Gas",
+      "organ_tags": ["전해질"],
+      "description_common": "pH 7.4로 보정한 이온화 칼슘. 환자의 산염기 상태가 칼슘 결합에 영향을 주므로, 표준 pH로 보정하여 '진짜' 칼슘 수준을 평가합니다.",
+      "description_high": "고칼슘혈증 — 악성 종양, 부갑상선항진증, 비타민D 중독",
+      "description_low": "저칼슘혈증 — 산욕기, 급성 췌장염, 신부전"
     }
   ],
   "aliases": [
@@ -1659,7 +1758,7 @@
     },
     {
       "alias": "HGB(Gas)",
-      "canonical": "HGB",
+      "canonical": "tHb(BG)",
       "source_hint": "Blood Gas"
     },
     {
@@ -2066,6 +2165,96 @@
       "alias": "tCa",
       "canonical": "Calcium",
       "source_hint": ""
+    },
+    {
+      "alias": "HCT (GEM)",
+      "canonical": "HCT(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "HCT(GEM)",
+      "canonical": "HCT(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Na (GEM)",
+      "canonical": "Na(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Na(GEM)",
+      "canonical": "Na(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "K (GEM)",
+      "canonical": "K(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "K(GEM)",
+      "canonical": "K(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Ca (GEM)",
+      "canonical": "Ca(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Ca(GEM)",
+      "canonical": "Ca(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Cl (GEM)",
+      "canonical": "Cl(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Cl(GEM)",
+      "canonical": "Cl(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "GLU (GEM)",
+      "canonical": "Glucose(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "GLU(GEM)",
+      "canonical": "Glucose(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "LAC (GEM)",
+      "canonical": "Lactate(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "LAC(GEM)",
+      "canonical": "Lactate(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "tHb (GEM)",
+      "canonical": "tHb(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "tHb(GEM)",
+      "canonical": "tHb(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Ca(7.4) (GEM)",
+      "canonical": "Ca(7.4)(BG)",
+      "source_hint": "GEM"
+    },
+    {
+      "alias": "Ca(7.4)(GEM)",
+      "canonical": "Ca(7.4)(BG)",
+      "source_hint": "GEM"
     }
   ],
   "sort_orders": {
