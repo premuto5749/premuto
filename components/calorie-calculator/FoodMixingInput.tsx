@@ -1,22 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -51,6 +38,9 @@ function createEmptyFood(): FeedingPlanFood {
 
 export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petType }: FoodMixingInputProps) {
   const [searchOpenIndex, setSearchOpenIndex] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [directInputIndex, setDirectInputIndex] = useState<Set<number>>(() => {
     // 초기: 이미 food_id가 없는 항목은 직접 입력 모드
     const set = new Set<number>()
@@ -70,6 +60,41 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
       return false
     })
   }, [petFoods, petType])
+
+  // 검색어 기반 사료 필터
+  const searchedFoods = useMemo(() => {
+    if (!searchQuery.trim()) return filteredFoods
+    const q = searchQuery.toLowerCase()
+    return filteredFoods.filter(pf =>
+      (pf.brand || '').toLowerCase().includes(q) ||
+      pf.name.toLowerCase().includes(q)
+    )
+  }, [filteredFoods, searchQuery])
+
+  // 드롭다운 열릴 때 검색 입력에 포커스, 외부 클릭 시 닫기
+  useEffect(() => {
+    if (searchOpenIndex !== null) {
+      setSearchQuery('')
+      setTimeout(() => searchInputRef.current?.focus(), 50)
+    }
+  }, [searchOpenIndex])
+
+  const handleClickOutside = useCallback((e: MouseEvent | TouchEvent) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      setSearchOpenIndex(null)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (searchOpenIndex !== null) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('touchstart', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+        document.removeEventListener('touchstart', handleClickOutside)
+      }
+    }
+  }, [searchOpenIndex, handleClickOutside])
 
   const totalRatio = foods.reduce((sum, f) => sum + (f.ratio_percent || 0), 0)
   const isRatioValid = Math.abs(totalRatio - 100) < 0.01
@@ -195,34 +220,41 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
           {/* 사료 선택 / 직접 입력 */}
           {!directInputIndex.has(index) ? (
             <div className="space-y-2">
-              <Popover
-                open={searchOpenIndex === index}
-                onOpenChange={(open) => setSearchOpenIndex(open ? index : null)}
-              >
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between font-normal text-left"
-                  >
-                    <span className="truncate">
-                      {food.food_id
-                        ? `${food.brand ? food.brand + ' ' : ''}${food.name}`
-                        : '사료 검색...'}
-                    </span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="사료명 또는 브랜드 검색..." />
-                    <CommandList>
-                      <CommandEmpty>
-                        {foodsLoading ? '불러오는 중...' : '등록된 사료가 없습니다'}
-                      </CommandEmpty>
-                      <CommandGroup>
-                        {filteredFoods.map((pf) => (
-                          <CommandItem
+              <div className="relative" ref={searchOpenIndex === index ? dropdownRef : undefined}>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between font-normal text-left"
+                  onClick={() => setSearchOpenIndex(searchOpenIndex === index ? null : index)}
+                >
+                  <span className="truncate">
+                    {food.food_id
+                      ? `${food.brand ? food.brand + ' ' : ''}${food.name}`
+                      : '사료 검색...'}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+
+                {searchOpenIndex === index && (
+                  <div className="absolute z-50 w-full mt-1 rounded-md border bg-popover text-popover-foreground shadow-md">
+                    <div className="flex items-center border-b px-3">
+                      <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                      <input
+                        ref={searchInputRef}
+                        placeholder="사료명 또는 브랜드 검색..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto p-1">
+                      {searchedFoods.length === 0 ? (
+                        <div className="py-6 text-center text-sm text-muted-foreground">
+                          {foodsLoading ? '불러오는 중...' : '등록된 사료가 없습니다'}
+                        </div>
+                      ) : (
+                        searchedFoods.map((pf) => (
+                          <div
                             key={pf.id}
                             value={`${pf.brand || ''} ${pf.name}`}
                             onSelect={() => handleFoodSelect(index, pf)}
@@ -248,13 +280,13 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
                                 {pf.target_animal !== '공통' && ` · ${pf.target_animal}`}
                               </div>
                             </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {food.food_id && (
                 <p className="text-xs text-muted-foreground">
