@@ -43,6 +43,7 @@ import {
 import { Progress } from '@/components/ui/progress'
 import { Loader2, Plus, Pencil, Search, RefreshCw, ChevronDown, ChevronRight, Trash2, Tag, FileText, Info, Sparkles, Lock } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface StandardItem {
   id: string
@@ -115,8 +116,11 @@ function StandardItemsContent() {
   const [newAlias, setNewAlias] = useState({ alias: '', source_hint: '' })
   const [savingAlias, setSavingAlias] = useState(false)
 
+  // Tier (AuthContext에서)
+  const { tier: authTier, refreshTier } = useAuth()
+  const tierInfo = authTier ? { tier: authTier.tier, limit: authTier.config.daily_description_gen_limit ?? 0 } : null
+
   // AI 설명 생성 상태
-  const [tierInfo, setTierInfo] = useState<{ tier: string; limit: number } | null>(null)
   const [isGenConfirmOpen, setIsGenConfirmOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [genProgress, setGenProgress] = useState({ completed: 0, total: 0 })
@@ -126,7 +130,6 @@ function StandardItemsContent() {
 
   useEffect(() => {
     fetchData()
-    fetchTierInfo()
   }, [])
 
   const fetchData = async () => {
@@ -146,21 +149,6 @@ function StandardItemsContent() {
       console.error('Failed to fetch data:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchTierInfo = async () => {
-    try {
-      const res = await fetch('/api/tier')
-      const data = await res.json()
-      if (data.success) {
-        setTierInfo({
-          tier: data.data.tier,
-          limit: data.data.config.daily_description_gen_limit ?? 0,
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch tier info:', error)
     }
   }
 
@@ -231,7 +219,7 @@ function StandardItemsContent() {
     setGenResult({ generated: totalGenerated, failed: totalFailed })
     setIsGenResultOpen(true)
     fetchData()
-    fetchTierInfo()
+    refreshTier()
   }
 
   const handleEditItem = (item: StandardItem) => {

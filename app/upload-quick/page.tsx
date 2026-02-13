@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import imageCompression from 'browser-image-compression'
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Loader2, ArrowRight, AlertCircle, Info } from 'lucide-react'
 import { usePet } from '@/contexts/PetContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 const FileUploader = dynamic(
   () => import('@/components/upload/FileUploader').then(mod => ({ default: mod.FileUploader })),
@@ -30,54 +31,15 @@ const COMPRESSION_SETTINGS = {
   useWebWorker: true,
 }
 
-interface TierUsage {
-  used: number
-  limit: number
-  remaining: number
-}
-
-interface TierData {
-  tier: string
-  config: {
-    label: string
-    daily_ocr_limit: number
-    max_files_per_ocr: number
-    daily_log_max_photos: number
-    daily_log_max_photo_size_mb: number
-  }
-  usage: {
-    ocr_analysis: TierUsage
-  }
-}
-
 export default function UploadQuickPage() {
   const router = useRouter()
   const { currentPet } = usePet()
+  const { tier: tierData, tierLoading, refreshTier } = useAuth()
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [rateLimitError, setRateLimitError] = useState(false)
   const [tierLimitError, setTierLimitError] = useState(false)
-  const [tierData, setTierData] = useState<TierData | null>(null)
-  const [tierLoading, setTierLoading] = useState(true)
-
-  const fetchTierData = useCallback(async () => {
-    try {
-      const res = await fetch('/api/tier')
-      const result = await res.json()
-      if (result.success) {
-        setTierData(result.data)
-      }
-    } catch {
-      // tier 조회 실패 시 기본값으로 진행
-    } finally {
-      setTierLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchTierData()
-  }, [fetchTierData])
 
   const maxFiles = tierData?.config.max_files_per_ocr ?? 5
 
@@ -171,7 +133,7 @@ export default function UploadQuickPage() {
         // Tier 일일 제한 초과
         if (result.error === 'TIER_LIMIT_EXCEEDED') {
           setTierLimitError(true)
-          await fetchTierData()
+          await refreshTier()
           return
         }
         throw new Error(result.error || result.message || 'OCR 처리 중 오류가 발생했습니다')
@@ -185,7 +147,7 @@ export default function UploadQuickPage() {
       sessionStorage.setItem('ocrBatchResult', JSON.stringify(result.data))
 
       // 사용량 갱신
-      await fetchTierData()
+      await refreshTier()
 
       // Preview 페이지로 이동
       router.push('/preview')
