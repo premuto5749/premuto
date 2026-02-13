@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ChevronsUpDown, Check, X, Plus, Search } from 'lucide-react'
+import { X, Plus, Search } from 'lucide-react'
 import type { PetFood, FeedingPlanFood, CalorieDensityUnit } from '@/types'
 
 interface FoodMixingInputProps {
@@ -129,10 +129,21 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
       j++
     }
     setDirectInputIndex(newDirect)
+    // searchQueries 재조정
+    const newQueries: Record<number, string> = {}
+    j = 0
+    for (let i = 0; i < foods.length; i++) {
+      if (i === index) continue
+      if (searchQueries[i]) newQueries[j] = searchQueries[i]
+      j++
+    }
+    setSearchQueries(newQueries)
     onChange(newFoods)
   }
 
-  const handleFoodSelect = (index: number, food: PetFood) => {
+  const handleFoodSelect = (index: number, foodId: string) => {
+    const food = filteredFoods.find(f => f.id === foodId)
+    if (!food) return
     updateFood(index, {
       food_id: food.id,
       name: food.name,
@@ -141,10 +152,15 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
       calorie_density_input: food.calorie_density,
       calorie_density_unit: 'kcal_per_g',
     })
-    setSearchOpenIndex(null)
     setDirectInputIndex(prev => {
       const next = new Set(prev)
       next.delete(index)
+      return next
+    })
+    // 검색어 초기화
+    setSearchQueries(prev => {
+      const next = { ...prev }
+      delete next[index]
       return next
     })
   }
@@ -194,6 +210,16 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
       calorie_density: density,
       calorie_density_unit: newUnit,
     })
+  }
+
+  // 검색어 기반 사료 필터
+  const getFilteredFoodsForIndex = (index: number) => {
+    const query = (searchQueries[index] || '').toLowerCase().trim()
+    if (!query) return filteredFoods
+    return filteredFoods.filter(pf =>
+      (pf.brand || '').toLowerCase().includes(query) ||
+      pf.name.toLowerCase().includes(query)
+    )
   }
 
   return (
