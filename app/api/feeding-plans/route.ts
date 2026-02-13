@@ -5,6 +5,11 @@ import type { FeedingPlanFood } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
+// PGRST205 = table not found in schema cache (마이그레이션 미적용)
+function isTableNotFound(error: { code?: string } | null): boolean {
+  return error?.code === 'PGRST205'
+}
+
 // 활동 계수 계산 (lib/calorie.ts의 getActivityFactor와 동일 로직)
 function getActivityFactorFromParams(isNeutered: boolean, activityLevel: string): number {
   let baseFactor = isNeutered ? 1.2 : 1.4
@@ -48,6 +53,9 @@ export async function GET(request: NextRequest) {
         .limit(50)
 
       if (error) {
+        if (isTableNotFound(error)) {
+          return NextResponse.json({ success: true, data: [] })
+        }
         console.error('Failed to fetch feeding plans:', error)
         return NextResponse.json({ error: 'Failed to fetch feeding plans' }, { status: 500 })
       }
@@ -69,6 +77,9 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (error && error.code !== 'PGRST116') {
+      if (isTableNotFound(error)) {
+        return NextResponse.json({ success: true, data: null })
+      }
       // PGRST116 = no rows
       console.error('Failed to fetch feeding plan:', error)
       return NextResponse.json({ error: 'Failed to fetch feeding plan' }, { status: 500 })
@@ -139,6 +150,12 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (error) {
+      if (isTableNotFound(error)) {
+        return NextResponse.json(
+          { error: 'feeding_plans 테이블이 없습니다. 마이그레이션 033_feeding_plans.sql을 적용해주세요.' },
+          { status: 503 }
+        )
+      }
       console.error('Failed to save feeding plan:', error)
       return NextResponse.json({ error: 'Failed to save feeding plan' }, { status: 500 })
     }
@@ -175,6 +192,12 @@ export async function DELETE(request: NextRequest) {
       .eq('user_id', user.id)
 
     if (error) {
+      if (isTableNotFound(error)) {
+        return NextResponse.json(
+          { error: 'feeding_plans 테이블이 없습니다. 마이그레이션 033_feeding_plans.sql을 적용해주세요.' },
+          { status: 503 }
+        )
+      }
       console.error('Failed to delete feeding plan:', error)
       return NextResponse.json({ error: 'Failed to delete feeding plan' }, { status: 500 })
     }
