@@ -256,8 +256,12 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
                         searchedFoods.map((pf) => (
                           <div
                             key={pf.id}
-                            className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground active:bg-accent"
-                            onClick={() => handleFoodSelect(index, pf)}
+                            value={`${pf.brand || ''} ${pf.name}`}
+                            onSelect={() => handleFoodSelect(index, pf)}
+                            onPointerDown={(e) => {
+                              e.preventDefault()
+                              handleFoodSelect(index, pf)
+                            }}
                           >
                             <Check
                               className={`mr-2 h-4 w-4 ${
