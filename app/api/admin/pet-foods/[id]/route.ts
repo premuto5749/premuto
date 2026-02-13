@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireAdmin } from '@/lib/auth/admin'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +19,7 @@ export async function PATCH(
     }
 
     const { id } = await params
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const body = await request.json()
 
     const updateData: Record<string, unknown> = {}
@@ -90,7 +90,7 @@ export async function DELETE(
     }
 
     const { id } = await params
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     const { error: dbError } = await supabase
       .from('pet_foods')

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireAdmin } from '@/lib/auth/admin'
 
 export const dynamic = 'force-dynamic'
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error }, { status: 403 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const body = await request.json()
 
     const { name, brand, calorie_density, food_type, target_animal, memo } = body
