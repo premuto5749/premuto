@@ -46,6 +46,7 @@ export default function CalorieCalculatorPage() {
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>('normal')
   const [frequency, setFrequency] = useState(2)
   const [foods, setFoods] = useState<FeedingPlanFood[]>([createDefaultFood()])
+  const [foodInputKey, setFoodInputKey] = useState(0)
 
   // Pet foods DB
   const [petFoods, setPetFoods] = useState<PetFood[]>([])
@@ -143,10 +144,12 @@ export default function CalorieCalculatorPage() {
         } else {
           setFoods([createDefaultFood()])
         }
+        setFoodInputKey(prev => prev + 1)
       }
     } catch {
       // Fallback
       setFoods([createDefaultFood()])
+      setFoodInputKey(prev => prev + 1)
     }
   }
 
@@ -158,6 +161,7 @@ export default function CalorieCalculatorPage() {
     setActivityLevel(plan.activity_level)
     setFrequency(plan.feeding_frequency)
     setFoods(plan.foods.length > 0 ? plan.foods : [createDefaultFood()])
+    setFoodInputKey(prev => prev + 1) // FoodMixingInput 리마운트 → directInputIndex 재초기화
   }
 
   // Load latest weight from daily logs
@@ -362,6 +366,7 @@ export default function CalorieCalculatorPage() {
           </CardHeader>
           <CardContent>
             <FoodMixingInput
+              key={foodInputKey}
               foods={foods}
               onChange={setFoods}
               petFoods={petFoods}

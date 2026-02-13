@@ -114,6 +114,7 @@ export default function DailyLogPage() {
       console.error('Failed to fetch data:', error)
       setLogs([])
       setStats(null)
+      setActivePlan(null)
     } finally {
       setIsLoading(false)
       isInitialLoadDone.current = true

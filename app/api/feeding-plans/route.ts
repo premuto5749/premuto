@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Carry-forward: plan_date <= target_date, 최신 1건
-    const targetDate = date || new Date().toISOString().split('T')[0]
+    const targetDate = date || new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 
     const { data, error } = await supabase
       .from('feeding_plans')
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     const rer = Math.round(calculateRER(weight_kg))
     const activityFactor = getActivityFactorFromParams(is_neutered ?? false, activity_level || 'normal')
     const der = Math.round(rer * activityFactor)
-    const date = plan_date || new Date().toISOString().split('T')[0]
+    const date = plan_date || new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 
     const planData = {
       user_id: user.id,
