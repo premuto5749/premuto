@@ -36,6 +36,12 @@ export function PetProvider({ children }: { children: ReactNode }) {
       setError(null)
 
       const res = await fetch('/api/pets')
+
+      // 401 Unauthorized는 세션이 아직 없거나 만료된 정상 상황 — 에러 로깅 없이 조용히 리턴
+      if (res.status === 401) {
+        return
+      }
+
       const data = await res.json()
 
       if (!data.success) {

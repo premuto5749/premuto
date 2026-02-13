@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -403,6 +403,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
           <DialogTitle>
             {selectedCategory ? LOG_CATEGORY_CONFIG[selectedCategory].icon + ' ' + LOG_CATEGORY_CONFIG[selectedCategory].label + ' 기록' : '빠른 기록'}
           </DialogTitle>
+          <DialogDescription className="sr-only">일일 건강 기록 입력</DialogDescription>
         </DialogHeader>
 
         {!selectedCategory ? (

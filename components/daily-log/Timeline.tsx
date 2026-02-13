@@ -24,6 +24,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -401,6 +402,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                   <span className="text-2xl">{LOG_CATEGORY_CONFIG[selectedLog.category].icon}</span>
                   {LOG_CATEGORY_CONFIG[selectedLog.category].label}
                 </DialogTitle>
+                <DialogDescription className="sr-only">기록 상세 보기</DialogDescription>
               </DialogHeader>
 
               {isEditing ? (
@@ -734,7 +736,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
       {/* 이미지 확대 보기 (Lightbox Carousel) */}
       <Dialog open={lightboxPhotos.length > 0} onOpenChange={() => setLightboxPhotos([])}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden">
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">사진 확대 보기</DialogTitle>
           {/* 커스텀 컨트롤 wrapper (기본 X 버튼 숨김 규칙 우회) */}
           <div className="relative w-full h-full">
             {/* 닫기 버튼 */}

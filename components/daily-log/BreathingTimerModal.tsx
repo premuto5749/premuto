@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
@@ -166,6 +166,8 @@ export function BreathingTimerModal({
         }`}
         onClick={phase === 'flashing' ? handleFlashClick : undefined}
       >
+        <DialogTitle className="sr-only">호흡수 측정</DialogTitle>
+        <DialogDescription className="sr-only">반려동물의 분당 호흡수를 측정합니다</DialogDescription>
         {/* 시작 대기 화면 */}
         {phase === 'ready' && (
           <div className="flex flex-col items-center justify-center py-12 space-y-6">

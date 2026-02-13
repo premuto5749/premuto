@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Camera, Image as ImageIcon, Loader2, Sun, Moon, RefreshCw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -184,6 +184,7 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>사진으로 공유</DialogTitle>
+          <DialogDescription className="sr-only">오늘의 건강 기록을 사진과 함께 공유합니다</DialogDescription>
         </DialogHeader>
 
         {!photo ? (

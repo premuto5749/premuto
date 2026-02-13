@@ -87,8 +87,18 @@ export default function LoginPage() {
         router.refresh()
       }
     } catch (err) {
-      console.error('Auth error:', err)
+      // 사용자 입력 오류(잘못된 자격증명 등)는 warn으로 기록 — Sentry에 불필요한 에러 유입 방지
       const message = err instanceof Error ? err.message : ''
+      const isUserError = [
+        'Invalid login credentials',
+        'Email not confirmed',
+        'Email rate limit exceeded',
+      ].some(expected => message.includes(expected))
+      if (isUserError) {
+        console.warn('Auth warning:', message)
+      } else {
+        console.error('Auth error:', err)
+      }
       if (message === 'Invalid login credentials') {
         setError('이메일 또는 비밀번호가 올바르지 않습니다')
       } else if (message === 'Email not confirmed') {
