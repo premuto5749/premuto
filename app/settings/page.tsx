@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { UserSettings, MedicinePreset, Medicine, Pet, PetInput } from '@/types'
 import { usePet } from '@/contexts/PetContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { createClient } from '@/lib/supabase/client'
 import { formatLocalDate } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
@@ -1428,17 +1429,8 @@ function DataManagementSection() {
 
 // 계정 정보 및 구독 섹션
 function AccountInfoSection() {
+  const { user: authUser, tier: tierData } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [tierData, setTierData] = useState<{
-    tier: string
-    config: { label: string; daily_ocr_limit: number; daily_log_max_photos: number; daily_description_gen_limit: number }
-    usage: {
-      ocr_analysis: { used: number; limit: number; remaining: number }
-      daily_log_photo: { used: number; limit: number; remaining: number }
-      description_generation: { used: number; limit: number; remaining: number }
-    }
-  } | null>(null)
   const [stats, setStats] = useState<{
     createdAt: string
     petCount: number
@@ -1452,19 +1444,8 @@ function AccountInfoSection() {
   useEffect(() => {
     const loadAccountInfo = async () => {
       try {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          setUserEmail(user.email || null)
-        }
-
-        const [tierRes, statsRes] = await Promise.all([
-          fetch('/api/tier'),
-          fetch('/api/account-stats'),
-        ])
-        const [tierJson, statsJson] = await Promise.all([tierRes.json(), statsRes.json()])
-
-        if (tierJson.success) setTierData(tierJson.data)
+        const statsRes = await fetch('/api/account-stats')
+        const statsJson = await statsRes.json()
         if (statsJson.success) setStats(statsJson.data)
       } catch (error) {
         console.error('Failed to load account info:', error)
@@ -1529,7 +1510,7 @@ function AccountInfoSection() {
         <div className="p-4 bg-muted rounded-lg space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">이메일</span>
-            <span className="font-medium">{userEmail || '-'}</span>
+            <span className="font-medium">{authUser?.email || '-'}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">현재 플랜</span>
@@ -1626,36 +1607,27 @@ function AccountInfoSection() {
 
 // 카카오 계정 연동 섹션
 function KakaoLinkSection() {
+  const { user: authUser } = useAuth()
   const [isLinked, setIsLinked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [kakaoEmail, setKakaoEmail] = useState<string | null>(null)
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
 
   useEffect(() => {
-    const checkKakaoLink = async () => {
-      try {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          setUserEmail(user.email || null)
-          const kakaoIdentity = user.identities?.find(
-            (identity) => identity.provider === 'kakao'
-          )
-          setIsLinked(!!kakaoIdentity)
-          if (kakaoIdentity?.identity_data?.email) {
-            setKakaoEmail(kakaoIdentity.identity_data.email as string)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to check Kakao link:', error)
-      } finally {
-        setLoading(false)
-      }
+    if (!authUser) {
+      setLoading(false)
+      return
     }
-    checkKakaoLink()
-  }, [])
+    const kakaoIdentity = authUser.identities?.find(
+      (identity) => identity.provider === 'kakao'
+    )
+    setIsLinked(!!kakaoIdentity)
+    if (kakaoIdentity?.identity_data?.email) {
+      setKakaoEmail(kakaoIdentity.identity_data.email as string)
+    }
+    setLoading(false)
+  }, [authUser])
 
   const handleLinkKakao = async () => {
     setActionLoading(true)
@@ -1750,7 +1722,7 @@ function KakaoLinkSection() {
         <div className="p-4 bg-muted rounded-lg space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span>이메일 계정</span>
-            <span className="font-medium">{userEmail || '-'}</span>
+            <span className="font-medium">{authUser?.email || '-'}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span>카카오 연동</span>

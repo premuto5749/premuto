@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { usePet } from '@/contexts/PetContext'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   Dialog,
   DialogContent,
@@ -42,34 +42,26 @@ interface RequirePetGuardProps {
 }
 
 export function RequirePetGuard({ children }: RequirePetGuardProps) {
-  const { pets, isLoading } = usePet()
+  const { pets, isLoading: petsLoading } = usePet()
+  const { user, isLoading: authLoading } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
 
-  // 인증 상태 확인
-  useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      setIsAuthenticated(!!user)
-    }
-    checkAuth()
-  }, [])
+  const isAuthenticated = authLoading ? null : !!user
 
   // 초기 로드 완료 추적
   useEffect(() => {
-    if (!isLoading && isAuthenticated !== null && !initialLoadDone) {
+    if (!petsLoading && isAuthenticated !== null && !initialLoadDone) {
       setInitialLoadDone(true)
     }
-  }, [isLoading, isAuthenticated, initialLoadDone])
+  }, [petsLoading, isAuthenticated, initialLoadDone])
 
   // 반려동물 등록 필요 여부 확인
   useEffect(() => {
     // 로딩 중이거나 인증 상태 확인 중이면 대기
-    if (isLoading || isAuthenticated === null) return
+    if (petsLoading || isAuthenticated === null) return
 
     // 비로그인 상태면 무시 (로그인 페이지로 리다이렉트는 다른 곳에서 처리)
     if (!isAuthenticated) return
@@ -83,7 +75,7 @@ export function RequirePetGuard({ children }: RequirePetGuardProps) {
     } else {
       setShowModal(false)
     }
-  }, [pets, isLoading, pathname, isAuthenticated])
+  }, [pets, petsLoading, pathname, isAuthenticated])
 
   const handleGoToSettings = () => {
     setShowModal(false)
@@ -92,7 +84,7 @@ export function RequirePetGuard({ children }: RequirePetGuardProps) {
 
   // 초기 로딩 중에만 로딩 스피너 표시 (이후 리로드 시에는 children 유지)
   // 공개 경로에서는 스피너 없이 바로 렌더링 (Google 봇 등 크롤러가 콘텐츠를 볼 수 있도록)
-  if (!initialLoadDone && (isLoading || isAuthenticated === null)) {
+  if (!initialLoadDone && (petsLoading || isAuthenticated === null)) {
     if (isPublicPath(pathname)) {
       return <>{children}</>
     }

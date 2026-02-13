@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react'
 import { Pet } from '@/types'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface PetContextType {
   pets: Pet[]
@@ -21,10 +21,14 @@ const PetContext = createContext<PetContextType | undefined>(undefined)
 const CURRENT_PET_KEY = 'mimo_current_pet_id'
 
 export function PetProvider({ children }: { children: ReactNode }) {
+  const { user, isLoading: authLoading } = useAuth()
   const [pets, setPets] = useState<Pet[]>([])
   const [currentPet, setCurrentPetState] = useState<Pet | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // 이전 user id 추적 (user 변경 감지)
+  const prevUserIdRef = useRef<string | null | undefined>(undefined) // undefined = 초기 상태
 
   const fetchPets = useCallback(async (isBackground = false) => {
     try {
@@ -36,6 +40,12 @@ export function PetProvider({ children }: { children: ReactNode }) {
       setError(null)
 
       const res = await fetch('/api/pets')
+
+      if (res.status === 401) {
+        // 인증 안 된 상태 — AuthContext의 세션 만료 처리에 위임
+        return
+      }
+
       const data = await res.json()
 
       if (!data.success) {
@@ -72,36 +82,30 @@ export function PetProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // 초기 로드 완료 여부 추적
-  const initialLoadDone = useRef(false)
-
+  // AuthContext의 user 상태에 의존하여 pet 목록 관리
   useEffect(() => {
-    // 초기 로드
-    fetchPets().then(() => {
-      initialLoadDone.current = true
-    })
+    // Auth가 아직 로딩 중이면 대기
+    if (authLoading) return
 
-    // 인증 상태 변경 감지 - 로그인 직후 세션이 설정되면 다시 fetch
-    const supabase = createClient()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      // SIGNED_IN: 로그인 완료, TOKEN_REFRESHED: 토큰 갱신
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        // 초기 로드 이후에만 다시 fetch (중복 호출 방지)
-        if (initialLoadDone.current) {
-          fetchPets(true) // 백그라운드 재조회: isLoading 변경하지 않음
-        }
-      } else if (event === 'SIGNED_OUT') {
-        // 로그아웃 시 상태 초기화
-        setPets([])
-        setCurrentPetState(null)
-        localStorage.removeItem(CURRENT_PET_KEY)
-      }
-    })
+    const userId = user?.id ?? null
+    const prevUserId = prevUserIdRef.current
+    prevUserIdRef.current = userId
 
-    return () => {
-      subscription.unsubscribe()
+    if (userId) {
+      // 로그인 상태: 초기 로드 또는 유저 변경
+      const isBackground = prevUserId !== undefined && prevUserId !== null
+      fetchPets(isBackground)
+    } else if (prevUserId && !userId) {
+      // 로그아웃: 상태 초기화
+      setPets([])
+      setCurrentPetState(null)
+      setIsLoading(false)
+      localStorage.removeItem(CURRENT_PET_KEY)
+    } else {
+      // 미인증 상태 (초기 로드에서 user가 null)
+      setIsLoading(false)
     }
-  }, [fetchPets])
+  }, [user?.id, authLoading, fetchPets])
 
   const setCurrentPet = useCallback((pet: Pet | null) => {
     setCurrentPetState(pet)
