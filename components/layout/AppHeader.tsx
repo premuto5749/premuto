@@ -54,10 +54,10 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
     { href: '/dashboard', label: '검사 결과 대시보드', icon: '📊' },
     { href: '/hospital-contacts', label: '병원 연락처', icon: '🏥' },
     { href: '/lost-animals', label: '유실 동물 안내', icon: '🐕' },
+    { href: '/calorie-calculator', label: '사료량 계산기', icon: '🧮' },
     { href: '/records-management', label: '검사 기록 관리', icon: '🗑️' },
     { href: '/standard-items', label: '내 검사항목', icon: '📋' },
     { href: '/trash', label: '휴지통', icon: '♻️' },
-    { href: '/calorie-calculator', label: '사료량 계산기', icon: '🧮' },
     { href: '/settings', label: '설정', icon: '🔧' },
   ]
 

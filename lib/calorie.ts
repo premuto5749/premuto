@@ -1,4 +1,4 @@
-import type { Pet } from '@/types'
+import type { Pet, FeedingPlanFood } from '@/types'
 
 // RER (Resting Energy Requirement) 계산: 70 * (체중kg)^0.75
 export function calculateRER(weightKg: number): number {
@@ -34,6 +34,12 @@ export function calculateCalories(pet: Pet, weightKg: number): number {
   const rer = calculateRER(weightKg)
   const factor = getActivityFactor(pet)
   return Math.round(rer * factor)
+}
+
+// 가중 평균 칼로리 밀도 (다중 사료 믹싱)
+export function calculateMixedCalorieDensity(foods: FeedingPlanFood[]): number {
+  if (foods.length === 0) return 0
+  return foods.reduce((sum, f) => sum + (f.calorie_density * f.ratio_percent / 100), 0)
 }
 
 // 섭취 칼로리 계산 (식사량 * 사료 칼로리 밀도)
