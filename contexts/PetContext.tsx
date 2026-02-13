@@ -37,8 +37,12 @@ export function PetProvider({ children }: { children: ReactNode }) {
 
       const res = await fetch('/api/pets')
 
-      // 401 Unauthorized는 세션이 아직 없거나 만료된 정상 상황 — 에러 로깅 없이 조용히 리턴
+      // 401 처리: 초기 로드 시에는 세션 미초기화 정상 상황이므로 무시,
+      // 백그라운드 재조회(로그인/토큰갱신 후)에서 401이면 비정상 → 경고 로깅
       if (res.status === 401) {
+        if (isBackground) {
+          console.warn('fetchPets: 인증 후 재조회에서 401 발생 — 토큰 갱신 실패 가능성')
+        }
         return
       }
 
