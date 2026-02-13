@@ -16,10 +16,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
-import type { DailyLog, DailyStats, LogCategory } from '@/types'
+import type { DailyLog, DailyStats, LogCategory, FeedingPlan } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { formatNumber, formatLocalDate } from '@/lib/utils'
-import { calculateCalories, calculateIntake } from '@/lib/calorie'
+import { calculateCalories, calculateIntake, calculateMixedCalorieDensity } from '@/lib/calorie'
 import {
   Popover,
   PopoverContent,
@@ -51,6 +51,7 @@ export default function DailyLogPage() {
   const { toast } = useToast()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading, refreshPets } = usePet()
   const [currentWeight, setCurrentWeight] = useState<number | null>(null)
+  const [activePlan, setActivePlan] = useState<FeedingPlan | null>(null)
 
   // 반려동물 로딩 완료 후 currentPet이 없으면 기본 반려동물 자동 선택
   useEffect(() => {
@@ -74,11 +75,12 @@ export default function DailyLogPage() {
       // pet_id 파라미터 추가
       const petParam = currentPet ? `&pet_id=${currentPet.id}` : ''
 
-      // 기록 + 통계 + 체중 병렬 조회
-      const [logsRes, statsRes, weightRes] = await Promise.all([
+      // 기록 + 통계 + 체중 + 급여계획 병렬 조회
+      const [logsRes, statsRes, weightRes, planRes] = await Promise.all([
         fetch(`/api/daily-logs?date=${selectedDate}${petParam}`),
         fetch(`/api/daily-logs?date=${selectedDate}&stats=true${petParam}`),
         currentPet ? fetch(`/api/daily-logs?latest_weight=true&pet_id=${currentPet.id}&date=${selectedDate}`) : Promise.resolve(null),
+        currentPet ? fetch(`/api/feeding-plans?pet_id=${currentPet.id}&date=${selectedDate}`) : Promise.resolve(null),
       ])
 
       if (logsRes.ok) {
@@ -101,10 +103,18 @@ export default function DailyLogPage() {
       } else {
         setCurrentWeight(currentPet?.weight_kg || null)
       }
+
+      if (planRes && planRes.ok) {
+        const planData = await planRes.json()
+        setActivePlan(planData.success && planData.data ? planData.data : null)
+      } else {
+        setActivePlan(null)
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error)
       setLogs([])
       setStats(null)
+      setActivePlan(null)
     } finally {
       setIsLoading(false)
       isInitialLoadDone.current = true
@@ -317,17 +327,31 @@ export default function DailyLogPage() {
     setSelectedCategory(prev => prev === category ? null : category)
   }
 
-  // 칼로리 데이터 계산
+  // 칼로리 데이터 계산 (급여 계획 우선, fallback: pet 프로필)
   const calorieData = useMemo(() => {
-    if (!currentPet || !currentWeight || !currentPet.food_calorie_density) return null
-    const density = currentPet.food_calorie_density
-    const target = calculateCalories(currentPet, currentWeight)
+    if (!currentPet || !currentWeight) return null
+
+    let target: number
+    let density: number
+
+    if (activePlan) {
+      // 급여 계획 기반
+      target = activePlan.der
+      density = calculateMixedCalorieDensity(activePlan.foods)
+    } else if (currentPet.food_calorie_density) {
+      // Fallback: pet 프로필
+      density = currentPet.food_calorie_density
+      target = calculateCalories(currentPet, currentWeight)
+    } else {
+      return null
+    }
+
+    if (target <= 0 || density <= 0) return null
     const intake = calculateIntake(stats?.total_meal_amount || 0, density)
-    if (target <= 0) return null
     const intakeGrams = stats?.total_meal_amount || 0
     const targetGrams = Math.round(target / density)
     return { intake, target, percentage: Math.round((intake / target) * 100), intakeGrams, targetGrams }
-  }, [currentPet, currentWeight, stats])
+  }, [currentPet, currentWeight, stats, activePlan])
 
   // 필터링된 로그 계산
   const filteredLogs = useMemo(() => {

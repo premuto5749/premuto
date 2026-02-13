@@ -7,24 +7,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
+import { FoodMixingInput } from '@/components/calorie-calculator/FoodMixingInput'
+import { FeedingPlanHistory } from '@/components/calorie-calculator/FeedingPlanHistory'
 import { useToast } from '@/hooks/use-toast'
 import { usePet } from '@/contexts/PetContext'
-import { calculateRER, getActivityFactor } from '@/lib/calorie'
-import { PetFood, Pet } from '@/types'
-import { Loader2, ChevronsUpDown, Check, Save, Calculator, Weight, Search, Utensils } from 'lucide-react'
+import { calculateRER, getActivityFactor, calculateMixedCalorieDensity } from '@/lib/calorie'
+import type { PetFood, Pet, FeedingPlan, FeedingPlanFood } from '@/types'
+import { Loader2, Save, Calculator, Weight } from 'lucide-react'
 
 type ActivityLevel = 'low' | 'normal' | 'high'
 
@@ -34,6 +23,18 @@ const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
   high: '높음',
 }
 
+function createDefaultFood(): FeedingPlanFood {
+  return {
+    food_id: null,
+    name: '',
+    brand: null,
+    calorie_density: 0,
+    calorie_density_input: undefined,
+    calorie_density_unit: 'kcal_per_g',
+    ratio_percent: 100,
+  }
+}
+
 export default function CalorieCalculatorPage() {
   const { currentPet, updatePet } = usePet()
   const { toast } = useToast()
@@ -41,17 +42,15 @@ export default function CalorieCalculatorPage() {
   // Form state
   const [weightKg, setWeightKg] = useState<string>('')
   const [weightSource, setWeightSource] = useState<string>('')
-  const [calorieDensity, setCalorieDensity] = useState<string>('')
   const [isNeutered, setIsNeutered] = useState(false)
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>('normal')
   const [frequency, setFrequency] = useState(2)
+  const [foods, setFoods] = useState<FeedingPlanFood[]>([createDefaultFood()])
+  const [foodInputKey, setFoodInputKey] = useState(0)
 
-  // Food search state
+  // Pet foods DB
   const [petFoods, setPetFoods] = useState<PetFood[]>([])
   const [foodsLoading, setFoodsLoading] = useState(false)
-  const [selectedFood, setSelectedFood] = useState<PetFood | null>(null)
-  const [foodSearchOpen, setFoodSearchOpen] = useState(false)
-  const [useDirectInput, setUseDirectInput] = useState(false)
 
   // Weight loading state
   const [weightLoading, setWeightLoading] = useState(false)
@@ -59,7 +58,11 @@ export default function CalorieCalculatorPage() {
   // Save state
   const [saving, setSaving] = useState(false)
 
-  // Initialize form from currentPet
+  // History
+  const [plans, setPlans] = useState<FeedingPlan[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  // Initialize form from currentPet + active plan
   useEffect(() => {
     if (!currentPet) return
 
@@ -74,17 +77,11 @@ export default function CalorieCalculatorPage() {
       setWeightSource('')
     }
 
-    if (currentPet.food_calorie_density) {
-      setCalorieDensity(String(currentPet.food_calorie_density))
-    } else {
-      setCalorieDensity('')
-    }
-
-    setSelectedFood(null)
-    setUseDirectInput(!currentPet.food_calorie_density ? false : true)
+    // Load active plan for today
+    loadActivePlan(currentPet.id)
   }, [currentPet?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch pet foods
+  // Fetch pet foods DB
   useEffect(() => {
     const fetchFoods = async () => {
       setFoodsLoading(true)
@@ -102,6 +99,70 @@ export default function CalorieCalculatorPage() {
     }
     fetchFoods()
   }, [])
+
+  // Fetch history
+  const fetchHistory = useCallback(async () => {
+    if (!currentPet) return
+    setHistoryLoading(true)
+    try {
+      const res = await fetch(`/api/feeding-plans?pet_id=${currentPet.id}&history=true`)
+      const data = await res.json()
+      if (data.success) {
+        setPlans(data.data || [])
+      }
+    } catch (err) {
+      console.error('Failed to fetch feeding plans:', err)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }, [currentPet?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetchHistory()
+  }, [fetchHistory])
+
+  // Load active plan and restore form
+  const loadActivePlan = async (petId: string) => {
+    try {
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+      const res = await fetch(`/api/feeding-plans?pet_id=${petId}&date=${today}`)
+      const data = await res.json()
+      if (data.success && data.data) {
+        restoreFromPlan(data.data)
+      } else {
+        // No active plan - use pet profile fallback
+        if (currentPet?.food_calorie_density) {
+          setFoods([{
+            food_id: null,
+            name: '',
+            brand: null,
+            calorie_density: currentPet.food_calorie_density,
+            calorie_density_input: currentPet.food_calorie_density,
+            calorie_density_unit: 'kcal_per_g',
+            ratio_percent: 100,
+          }])
+        } else {
+          setFoods([createDefaultFood()])
+        }
+        setFoodInputKey(prev => prev + 1)
+      }
+    } catch {
+      // Fallback
+      setFoods([createDefaultFood()])
+      setFoodInputKey(prev => prev + 1)
+    }
+  }
+
+  // Restore form from a saved plan
+  const restoreFromPlan = (plan: FeedingPlan) => {
+    setWeightKg(String(plan.weight_kg))
+    setWeightSource('급여 계획')
+    setIsNeutered(plan.is_neutered)
+    setActivityLevel(plan.activity_level)
+    setFrequency(plan.feeding_frequency)
+    setFoods(plan.foods.length > 0 ? plan.foods : [createDefaultFood()])
+    setFoodInputKey(prev => prev + 1) // FoodMixingInput 리마운트 → directInputIndex 재초기화
+  }
 
   // Load latest weight from daily logs
   const loadLatestWeight = useCallback(async () => {
@@ -125,24 +186,9 @@ export default function CalorieCalculatorPage() {
     }
   }, [currentPet, toast])
 
-  // Filter foods by pet type
-  const filteredFoods = useMemo(() => {
-    if (!currentPet?.type) return petFoods
-
-    const petType = currentPet.type
-    return petFoods.filter(food => {
-      if (food.target_animal === '공통') return true
-      if (petType === '고양이' && food.target_animal === '고양이') return true
-      if (petType === '강아지' && food.target_animal === '강아지') return true
-      return false
-    })
-  }, [petFoods, currentPet?.type])
-
   // Calculation
   const calculation = useMemo(() => {
     const weight = parseFloat(weightKg)
-    const density = parseFloat(calorieDensity)
-
     if (!weight || weight <= 0) return null
 
     const rer = calculateRER(weight)
@@ -150,71 +196,107 @@ export default function CalorieCalculatorPage() {
     const factor = getActivityFactor(fakePet)
     const der = Math.round(rer * factor)
 
-    if (!density || density <= 0) {
-      return { rer, factor, der, dailyGrams: null, perMealGrams: null }
+    const mixedDensity = calculateMixedCalorieDensity(foods)
+    if (!mixedDensity || mixedDensity <= 0) {
+      return { rer, factor, der, dailyGrams: null, perMealGrams: null, mixedDensity: 0 }
     }
 
-    const dailyGrams = Math.round(der / density)
+    const dailyGrams = Math.round(der / mixedDensity)
     const perMealGrams = Math.round(dailyGrams / frequency)
 
-    return { rer, factor, der, dailyGrams, perMealGrams }
-  }, [weightKg, calorieDensity, isNeutered, activityLevel, frequency])
+    return { rer, factor, der, dailyGrams, perMealGrams, mixedDensity }
+  }, [weightKg, foods, isNeutered, activityLevel, frequency])
 
-  // Handle food selection
-  const handleFoodSelect = (food: PetFood) => {
-    setSelectedFood(food)
-    setCalorieDensity(String(food.calorie_density))
-    setFoodSearchOpen(false)
-    setUseDirectInput(false)
-  }
+  // Ratio validation
+  const totalRatio = foods.reduce((sum, f) => sum + (f.ratio_percent || 0), 0)
+  const isRatioValid = foods.length === 1 || Math.abs(totalRatio - 100) < 0.01
 
-  // Switch to direct input
-  const handleDirectInput = () => {
-    setUseDirectInput(true)
-    setSelectedFood(null)
-  }
-
-  // Save to pet profile
+  // Save feeding plan
   const handleSave = async () => {
     if (!currentPet || !calculation) return
+
+    if (!isRatioValid) {
+      toast({ title: '비율 오류', description: '사료 비율 합계가 100%여야 합니다.', variant: 'destructive' })
+      return
+    }
+
+    // Check all foods have calorie density
+    const invalidFoods = foods.filter(f => !f.calorie_density || f.calorie_density <= 0)
+    if (invalidFoods.length > 0) {
+      toast({ title: '입력 오류', description: '모든 사료에 칼로리 밀도를 입력해주세요.', variant: 'destructive' })
+      return
+    }
 
     setSaving(true)
     try {
       const weight = parseFloat(weightKg)
-      const density = parseFloat(calorieDensity)
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 
+      // Save feeding plan
+      const planRes = await fetch('/api/feeding-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pet_id: currentPet.id,
+          plan_date: today,
+          weight_kg: weight,
+          is_neutered: isNeutered,
+          activity_level: activityLevel,
+          foods,
+          feeding_frequency: frequency,
+        }),
+      })
+
+      const planData = await planRes.json()
+
+      if (!planData.success) {
+        throw new Error(planData.error || 'Failed to save')
+      }
+
+      // Also update pet profile (weight, neutered, activity)
       const updateBody: Record<string, unknown> = {
         id: currentPet.id,
         is_neutered: isNeutered,
         activity_level: activityLevel,
       }
+      if (weight > 0) updateBody.weight_kg = weight
 
-      if (weight > 0) {
-        updateBody.weight_kg = weight
-      }
+      // Use mixed density for fallback compatibility
+      const mixedDensity = calculateMixedCalorieDensity(foods)
+      if (mixedDensity > 0) updateBody.food_calorie_density = mixedDensity
 
-      if (density > 0) {
-        updateBody.food_calorie_density = density
-      }
-
-      const res = await fetch('/api/pets', {
+      const petRes = await fetch('/api/pets', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateBody),
       })
+      const petData = await petRes.json()
+      if (petData.success) {
+        updatePet(petData.data)
+      }
 
+      toast({ title: '저장 완료', description: '급여 계획이 저장되었습니다.' })
+      fetchHistory()
+    } catch {
+      toast({ title: '저장 실패', description: '급여 계획을 저장하지 못했습니다.', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Delete plan
+  const handleDeletePlan = async (id: string) => {
+    try {
+      const res = await fetch(`/api/feeding-plans?id=${id}`, { method: 'DELETE' })
       const data = await res.json()
-
       if (data.success) {
-        updatePet(data.data)
-        toast({ title: '저장 완료', description: '반려동물 정보가 업데이트되었습니다.' })
+        toast({ title: '삭제 완료', description: '급여 계획이 삭제되었습니다.' })
+        fetchHistory()
       } else {
         throw new Error(data.error)
       }
     } catch {
-      toast({ title: '저장 실패', description: '정보를 저장하지 못했습니다.', variant: 'destructive' })
-    } finally {
-      setSaving(false)
+      toast({ title: '삭제 실패', description: '급여 계획을 삭제하지 못했습니다.', variant: 'destructive' })
     }
   }
 
@@ -277,119 +359,20 @@ export default function CalorieCalculatorPage() {
           </CardContent>
         </Card>
 
-        {/* 사료 열량 섹션 */}
+        {/* 사료 열량 섹션 (다중 사료) */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Utensils className="w-4 h-4" />
-              사료 열량
-            </CardTitle>
+            <CardTitle className="text-base">사료 열량</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {/* 사료 검색 Combobox */}
-            {!useDirectInput && (
-              <div className="space-y-2">
-                <Popover open={foodSearchOpen} onOpenChange={setFoodSearchOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={foodSearchOpen}
-                      className="w-full justify-between font-normal"
-                    >
-                      {selectedFood
-                        ? `${selectedFood.brand ? selectedFood.brand + ' ' : ''}${selectedFood.name}`
-                        : '사료 검색...'}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="사료명 또는 브랜드 검색..." />
-                      <CommandList>
-                        <CommandEmpty>
-                          {foodsLoading ? '불러오는 중...' : '등록된 사료가 없습니다'}
-                        </CommandEmpty>
-                        <CommandGroup>
-                          {filteredFoods.map((food) => (
-                            <CommandItem
-                              key={food.id}
-                              value={`${food.brand || ''} ${food.name}`}
-                              onSelect={() => handleFoodSelect(food)}
-                            >
-                              <Check
-                                className={`mr-2 h-4 w-4 ${
-                                  selectedFood?.id === food.id ? 'opacity-100' : 'opacity-0'
-                                }`}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="truncate">
-                                  {food.brand && (
-                                    <span className="text-muted-foreground">{food.brand} </span>
-                                  )}
-                                  {food.name}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {food.calorie_density} kcal/g · {food.food_type}
-                                  {food.target_animal !== '공통' && ` · ${food.target_animal}`}
-                                </div>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-
-                {selectedFood && (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedFood.calorie_density} kcal/g · {selectedFood.food_type}
-                  </p>
-                )}
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs"
-                  onClick={handleDirectInput}
-                >
-                  직접 입력하기
-                </Button>
-              </div>
-            )}
-
-            {/* 직접 입력 모드 */}
-            {useDirectInput && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="칼로리 밀도 (kcal/g)"
-                    value={calorieDensity}
-                    onChange={(e) => setCalorieDensity(e.target.value)}
-                    className="flex-1"
-                  />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">kcal/g</span>
-                </div>
-                {filteredFoods.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => {
-                      setUseDirectInput(false)
-                      if (!selectedFood) setCalorieDensity('')
-                    }}
-                  >
-                    <Search className="w-3 h-3 mr-1" />
-                    사료 검색으로 전환
-                  </Button>
-                )}
-              </div>
-            )}
+          <CardContent>
+            <FoodMixingInput
+              key={foodInputKey}
+              foods={foods}
+              onChange={setFoods}
+              petFoods={petFoods}
+              foodsLoading={foodsLoading}
+              petType={currentPet?.type}
+            />
           </CardContent>
         </Card>
 
@@ -454,10 +437,35 @@ export default function CalorieCalculatorPage() {
 
                 {calculation.dailyGrams != null && (
                   <>
+                    {/* 가중 평균 밀도 (다중 사료 시 표시) */}
+                    {foods.length > 1 && (
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>가중 평균 칼로리 밀도</span>
+                        <span>{calculation.mixedDensity.toFixed(2)} kcal/g</span>
+                      </div>
+                    )}
+
                     <div className="flex justify-between font-semibold text-base">
                       <span>일일 사료량</span>
                       <span className="text-primary">{calculation.dailyGrams}g</span>
                     </div>
+
+                    {/* 사료별 급여량 (다중 사료 시) */}
+                    {foods.length > 1 && calculation.dailyGrams && (
+                      <div className="bg-muted/50 rounded-lg p-2 space-y-1">
+                        {foods.map((f, i) => {
+                          const grams = Math.round(calculation.dailyGrams! * f.ratio_percent / 100)
+                          return (
+                            <div key={i} className="flex justify-between text-xs">
+                              <span className="text-muted-foreground truncate mr-2">
+                                {f.name || `사료 ${i + 1}`} ({f.ratio_percent}%)
+                              </span>
+                              <span className="font-medium whitespace-nowrap">{grams}g</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
 
                     {/* 급여 횟수 */}
                     <div className="pt-2 space-y-2">
@@ -486,21 +494,21 @@ export default function CalorieCalculatorPage() {
                 )}
               </div>
 
-              {/* 적용 버튼 */}
+              {/* 저장 버튼 */}
               <Button
                 className="w-full"
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || !isRatioValid}
               >
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
                   <Save className="w-4 h-4 mr-2" />
                 )}
-                적용하기
+                급여 계획 저장
               </Button>
               <p className="text-xs text-center text-muted-foreground">
-                체중, 사료 열량, 중성화, 활동량을 프로필에 저장합니다
+                오늘 날짜로 급여 계획을 저장합니다
               </p>
             </CardContent>
           </Card>
@@ -512,6 +520,14 @@ export default function CalorieCalculatorPage() {
             체중을 입력하면 계산 결과가 표시됩니다
           </div>
         )}
+
+        {/* 급여 계획 기록 */}
+        <FeedingPlanHistory
+          plans={plans}
+          onSelect={restoreFromPlan}
+          onDelete={handleDeletePlan}
+          isLoading={historyLoading}
+        />
       </div>
     </div>
   )

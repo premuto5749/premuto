@@ -379,6 +379,49 @@ export interface PetFoodInput {
   memo?: string | null
 }
 
+// ============================================
+// 급여 계획 (Feeding Plan) 타입
+// ============================================
+
+export type CalorieDensityUnit = 'kcal_per_g' | 'kcal_per_100g'
+
+export interface FeedingPlanFood {
+  food_id: string | null
+  name: string
+  brand?: string | null
+  calorie_density: number        // 항상 kcal/g 단위로 저장
+  calorie_density_input?: number // 사용자가 입력한 원본값 (UI용)
+  calorie_density_unit?: CalorieDensityUnit // 입력 시 선택한 단위 (UI용)
+  ratio_percent: number
+}
+
+export interface FeedingPlan {
+  id: string
+  user_id: string
+  pet_id: string
+  plan_date: string
+  weight_kg: number
+  is_neutered: boolean
+  activity_level: 'low' | 'normal' | 'high'
+  rer: number
+  activity_factor: number
+  der: number
+  foods: FeedingPlanFood[]
+  feeding_frequency: number
+  created_at: string
+  updated_at: string
+}
+
+export interface FeedingPlanInput {
+  pet_id: string
+  plan_date?: string
+  weight_kg: number
+  is_neutered: boolean
+  activity_level: 'low' | 'normal' | 'high'
+  foods: FeedingPlanFood[]
+  feeding_frequency?: number
+}
+
 // 카테고리별 설정
 export const LOG_CATEGORY_CONFIG: Record<LogCategory, {
   label: string
