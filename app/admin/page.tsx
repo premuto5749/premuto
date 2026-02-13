@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
-import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle, Sliders, Globe, Megaphone, PawPrint, Utensils } from 'lucide-react'
+import { Loader2, Database, Users, FileText, Tag, Settings, ShieldCheck, BarChart3, AlertTriangle, Sliders, Globe, Megaphone, PawPrint, Utensils, Ruler } from 'lucide-react'
 import Link from 'next/link'
 
 interface AdminStats {
@@ -329,6 +329,26 @@ export default function AdminPage() {
                 <div className="flex gap-2">
                   <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded">사료 등록</span>
                   <span className="text-xs bg-muted px-2 py-1 rounded">칼로리 밀도</span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/admin/unit-management">
+            <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Ruler className="w-5 h-5" />
+                  단위 관리
+                </CardTitle>
+                <CardDescription>
+                  단위 별칭 및 OCR 보정 규칙을 관리합니다. 다양한 단위 표기를 표준 단위로 변환합니다.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <span className="text-xs bg-cyan-100 text-cyan-800 px-2 py-1 rounded">단위 별칭</span>
+                  <span className="text-xs bg-muted px-2 py-1 rounded">OCR 보정</span>
                 </div>
               </CardContent>
             </Card>
