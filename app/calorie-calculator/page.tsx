@@ -478,8 +478,10 @@ export default function CalorieCalculatorPage() {
                             max="99"
                             value={frequency}
                             onChange={(e) => {
-                              const v = parseInt(e.target.value)
-                              if (!isNaN(v) && v >= 1) setFrequency(v)
+                              const raw = e.target.value
+                              if (raw === '') return
+                              const v = parseInt(raw)
+                              if (!isNaN(v) && v >= 1 && v <= 99) setFrequency(v)
                             }}
                             className="w-16 h-8 text-center"
                           />
