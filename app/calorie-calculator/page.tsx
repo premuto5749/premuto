@@ -471,18 +471,19 @@ export default function CalorieCalculatorPage() {
                     <div className="pt-2 space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="text-sm">급여 횟수</Label>
-                        <div className="flex gap-1">
-                          {[1, 2, 3, 4].map((n) => (
-                            <Button
-                              key={n}
-                              variant={frequency === n ? 'default' : 'outline'}
-                              size="sm"
-                              className="w-9 h-8"
-                              onClick={() => setFrequency(n)}
-                            >
-                              {n}
-                            </Button>
-                          ))}
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min="1"
+                            max="99"
+                            value={frequency}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value)
+                              if (!isNaN(v) && v >= 1) setFrequency(v)
+                            }}
+                            className="w-16 h-8 text-center"
+                          />
+                          <span className="text-sm text-muted-foreground">회/일</span>
                         </div>
                       </div>
                       <div className="flex justify-between font-semibold text-base">
