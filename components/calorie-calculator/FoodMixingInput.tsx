@@ -227,8 +227,17 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
                 value={food.food_id || ''}
                 onValueChange={(id) => handleFoodSelect(index, id)}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={foodsLoading ? '불러오는 중...' : '사료 선택...'} />
+                <SelectTrigger className="w-full h-auto min-h-[36px]">
+                  {food.food_id ? (
+                    <div className="flex flex-col items-start text-left min-w-0 flex-1">
+                      {food.brand && (
+                        <span className="text-xs text-muted-foreground truncate w-full">{food.brand}</span>
+                      )}
+                      <span className="text-sm truncate w-full">{food.name}</span>
+                    </div>
+                  ) : (
+                    <SelectValue placeholder={foodsLoading ? '불러오는 중...' : '사료 선택...'} />
+                  )}
                 </SelectTrigger>
                 <SelectContent
                   position="popper"
@@ -248,10 +257,10 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
                     return items.map((pf) => (
                       <SelectItem key={pf.id} value={pf.id}>
                         <div className="flex flex-col items-start">
-                          <span>
-                            {pf.brand && <span className="text-muted-foreground">{pf.brand} </span>}
-                            {pf.name}
-                          </span>
+                          {pf.brand && (
+                            <span className="text-xs text-muted-foreground">{pf.brand}</span>
+                          )}
+                          <span>{pf.name}</span>
                           <span className="text-xs text-muted-foreground">
                             {pf.calorie_density} kcal/g · {pf.food_type}
                             {pf.target_animal !== '공통' && ` · ${pf.target_animal}`}
