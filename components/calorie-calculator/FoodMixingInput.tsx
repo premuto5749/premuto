@@ -88,6 +88,7 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
       j++
     }
     setDirectInputIndex(newDirect)
+    // searchQueries 재조정
     const newQueries: Record<number, string> = {}
     j = 0
     for (let i = 0; i < foods.length; i++) {
@@ -115,6 +116,7 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
       next.delete(index)
       return next
     })
+    // 검색어 초기화
     setSearchQueries(prev => {
       const next = { ...prev }
       delete next[index]
