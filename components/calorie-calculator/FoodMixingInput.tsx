@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,12 +37,8 @@ function createEmptyFood(): FeedingPlanFood {
 }
 
 export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petType }: FoodMixingInputProps) {
-  const [searchOpenIndex, setSearchOpenIndex] = useState<number | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [searchQueries, setSearchQueries] = useState<Record<number, string>>({})
   const [directInputIndex, setDirectInputIndex] = useState<Set<number>>(() => {
-    // 초기: 이미 food_id가 없는 항목은 직접 입력 모드
     const set = new Set<number>()
     foods.forEach((f, i) => {
       if (!f.food_id) set.add(i)
@@ -60,41 +56,6 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
       return false
     })
   }, [petFoods, petType])
-
-  // 검색어 기반 사료 필터
-  const searchedFoods = useMemo(() => {
-    if (!searchQuery.trim()) return filteredFoods
-    const q = searchQuery.toLowerCase()
-    return filteredFoods.filter(pf =>
-      (pf.brand || '').toLowerCase().includes(q) ||
-      pf.name.toLowerCase().includes(q)
-    )
-  }, [filteredFoods, searchQuery])
-
-  // 드롭다운 열릴 때 검색 입력에 포커스, 외부 클릭 시 닫기
-  useEffect(() => {
-    if (searchOpenIndex !== null) {
-      setSearchQuery('')
-      setTimeout(() => searchInputRef.current?.focus(), 50)
-    }
-  }, [searchOpenIndex])
-
-  const handleClickOutside = useCallback((e: MouseEvent | TouchEvent) => {
-    if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-      setSearchOpenIndex(null)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (searchOpenIndex !== null) {
-      document.addEventListener('mousedown', handleClickOutside)
-      document.addEventListener('touchstart', handleClickOutside)
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside)
-        document.removeEventListener('touchstart', handleClickOutside)
-      }
-    }
-  }, [searchOpenIndex, handleClickOutside])
 
   const totalRatio = foods.reduce((sum, f) => sum + (f.ratio_percent || 0), 0)
   const isRatioValid = Math.abs(totalRatio - 100) < 0.01
@@ -116,11 +77,9 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
   const removeFood = (index: number) => {
     if (foods.length <= 1) return
     const newFoods = foods.filter((_, i) => i !== index)
-    // 사료 1개만 남으면 비율 100% 고정
     if (newFoods.length === 1) {
       newFoods[0] = { ...newFoods[0], ratio_percent: 100 }
     }
-    // directInputIndex 재조정
     const newDirect = new Set<number>()
     let j = 0
     for (let i = 0; i < foods.length; i++) {
@@ -176,7 +135,6 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
       next.delete(index)
       return next
     })
-    // 직접 입력 값은 유지
   }
 
   const handleCalorieDensityChange = (index: number, inputValue: string, unit: CalorieDensityUnit) => {
@@ -204,7 +162,6 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
       updateFood(index, { calorie_density_unit: newUnit })
       return
     }
-    // 동일 input 값에 대해 단위 변경에 따라 density 재계산
     const density = newUnit === 'kcal_per_100g' ? currentInput / 100 : currentInput
     updateFood(index, {
       calorie_density: density,
@@ -246,73 +203,65 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
           {/* 사료 선택 / 직접 입력 */}
           {!directInputIndex.has(index) ? (
             <div className="space-y-2">
-              <div className="relative" ref={searchOpenIndex === index ? dropdownRef : undefined}>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between font-normal text-left"
-                  onClick={() => setSearchOpenIndex(searchOpenIndex === index ? null : index)}
-                >
-                  <span className="truncate">
-                    {food.food_id
-                      ? `${food.brand ? food.brand + ' ' : ''}${food.name}`
-                      : '사료 검색...'}
-                  </span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-
-                {searchOpenIndex === index && (
-                  <div className="absolute z-50 w-full mt-1 rounded-md border bg-popover text-popover-foreground shadow-md">
-                    <div className="flex items-center border-b px-3">
-                      <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                      <input
-                        ref={searchInputRef}
-                        placeholder="사료명 또는 브랜드 검색..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
-                      />
-                    </div>
-                    <div className="max-h-[200px] overflow-y-auto p-1">
-                      {searchedFoods.length === 0 ? (
-                        <div className="py-6 text-center text-sm text-muted-foreground">
-                          {foodsLoading ? '불러오는 중...' : '등록된 사료가 없습니다'}
-                        </div>
-                      ) : (
-                        searchedFoods.map((pf) => (
-                          <div
-                            key={pf.id}
-                            value={`${pf.brand || ''} ${pf.name}`}
-                            onSelect={() => handleFoodSelect(index, pf)}
-                            onPointerDown={(e) => {
-                              e.preventDefault()
-                              handleFoodSelect(index, pf)
-                            }}
-                          >
-                            <Check
-                              className={`mr-2 h-4 w-4 ${
-                                food.food_id === pf.id ? 'opacity-100' : 'opacity-0'
-                              }`}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="truncate">
-                                {pf.brand && (
-                                  <span className="text-muted-foreground">{pf.brand} </span>
-                                )}
-                                {pf.name}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {pf.calorie_density} kcal/g · {pf.food_type}
-                                {pf.target_animal !== '공통' && ` · ${pf.target_animal}`}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
+              {/* 검색 입력 */}
+              <div className="flex items-center gap-2 border rounded-md px-3 py-1">
+                <Search className="h-4 w-4 shrink-0 opacity-50" />
+                <input
+                  placeholder="사료명 또는 브랜드 검색..."
+                  value={searchQueries[index] || ''}
+                  onChange={(e) => setSearchQueries(prev => ({ ...prev, [index]: e.target.value }))}
+                  className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                />
+                {searchQueries[index] && (
+                  <button
+                    onClick={() => setSearchQueries(prev => { const next = { ...prev }; delete next[index]; return next })}
+                    className="text-muted-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 )}
               </div>
+
+              {/* 사료 선택 드롭다운 (병원 선택과 동일한 Select 패턴) */}
+              <Select
+                value={food.food_id || ''}
+                onValueChange={(id) => handleFoodSelect(index, id)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={foodsLoading ? '불러오는 중...' : '사료 선택...'} />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  sideOffset={4}
+                  className="max-h-[200px] min-w-[200px] z-[100]"
+                  style={{ position: 'relative' }}
+                >
+                  {(() => {
+                    const items = getFilteredFoodsForIndex(index)
+                    if (items.length === 0) {
+                      return (
+                        <div className="py-4 px-2 text-sm text-muted-foreground text-center">
+                          {foodsLoading ? '불러오는 중...' : '등록된 사료가 없습니다'}
+                        </div>
+                      )
+                    }
+                    return items.map((pf) => (
+                      <SelectItem key={pf.id} value={pf.id}>
+                        <div className="flex flex-col items-start">
+                          <span>
+                            {pf.brand && <span className="text-muted-foreground">{pf.brand} </span>}
+                            {pf.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {pf.calorie_density} kcal/g · {pf.food_type}
+                            {pf.target_animal !== '공통' && ` · ${pf.target_animal}`}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))
+                  })()}
+                </SelectContent>
+              </Select>
 
               {food.food_id && (
                 <p className="text-xs text-muted-foreground">
@@ -331,14 +280,12 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
             </div>
           ) : (
             <div className="space-y-2">
-              {/* 사료명 */}
               <Input
                 placeholder="사료명"
                 value={food.name}
                 onChange={(e) => updateFood(index, { name: e.target.value })}
               />
 
-              {/* 칼로리 밀도 + 단위 선택 */}
               <div className="flex items-center gap-2">
                 <Input
                   type="number"
@@ -406,7 +353,6 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
         </div>
       ))}
 
-      {/* 사료 추가 버튼 */}
       {foods.length < MAX_FOODS && (
         <Button
           variant="outline"
@@ -419,7 +365,6 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
         </Button>
       )}
 
-      {/* 비율 합계 표시 */}
       {foods.length > 1 && (
         <div className={`text-sm text-center py-1 rounded ${
           isRatioValid
