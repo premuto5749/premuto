@@ -307,9 +307,6 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
       // 간식 프리셋 모드: 선택된 프리셋별로 개별 엔트리 POST
       if (selectedCategory === 'snack' && snackInputMode === 'preset') {
         const entries = Object.entries(snackSelections)
-        if (entries.length === 0) {
-          throw new Error('간식을 선택해주세요')
-        }
 
         let isFirst = true
         for (const [presetId, count] of entries) {
@@ -977,7 +974,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </Button>
               <Button
                 onClick={selectedCategory === 'weight' ? handleWeightSubmit : handleSubmit}
-                disabled={selectedCategory === 'weight' ? (isWeightSubmitting || !weightInput || !petId) : (isSubmitting || isUploading || (selectedCategory === 'medicine' && medicineInputMode === 'preset' && !selectedPreset))}
+                disabled={selectedCategory === 'weight' ? (isWeightSubmitting || !weightInput || !petId) : (isSubmitting || isUploading || (selectedCategory === 'medicine' && medicineInputMode === 'preset' && !selectedPreset) || (selectedCategory === 'snack' && snackInputMode === 'preset' && Object.keys(snackSelections).length === 0))}
                 className="flex-1"
               >
                 {isUploading ? (
