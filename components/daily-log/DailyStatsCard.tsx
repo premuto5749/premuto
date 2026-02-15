@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { ArrowRightLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DailyStats, LogCategory } from '@/types'
@@ -26,6 +26,20 @@ interface DailyStatsCardProps {
 
 export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick, currentWeight, calorieData }: DailyStatsCardProps) {
   const [showGrams, setShowGrams] = useState(false)
+  const [statsPage, setStatsPage] = useState(0)
+  const touchStartX = useRef<number>(0)
+
+  const handleStatsTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }, [])
+
+  const handleStatsTouchEnd = useCallback((e: React.TouchEvent) => {
+    const diff = touchStartX.current - e.changedTouches[0].clientX
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && statsPage === 0) setStatsPage(1)
+      else if (diff < 0 && statsPage === 1) setStatsPage(0)
+    }
+  }, [statsPage])
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
     const today = new Date()
@@ -54,7 +68,7 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
     )
   }
 
-  const statItems = [
+  const allStatItems = [
     {
       category: 'meal' as LogCategory,
       icon: LOG_CATEGORY_CONFIG.meal.icon,
@@ -96,14 +110,6 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
       color: LOG_CATEGORY_CONFIG.pee.color,
     },
     {
-      category: 'medicine' as LogCategory,
-      icon: LOG_CATEGORY_CONFIG.medicine.icon,
-      label: '약',
-      value: stats.medicine_count > 0 ? `${stats.medicine_count}회` : '-',
-      count: stats.medicine_count,
-      color: LOG_CATEGORY_CONFIG.medicine.color,
-    },
-    {
       category: 'breathing' as LogCategory,
       icon: LOG_CATEGORY_CONFIG.breathing.icon,
       label: '호흡수',
@@ -111,7 +117,18 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
       count: stats.breathing_count,
       color: LOG_CATEGORY_CONFIG.breathing.color,
     },
+    {
+      category: 'medicine' as LogCategory,
+      icon: LOG_CATEGORY_CONFIG.medicine.icon,
+      label: '약',
+      value: stats.medicine_count > 0 ? `${stats.medicine_count}회` : '-',
+      count: stats.medicine_count,
+      color: LOG_CATEGORY_CONFIG.medicine.color,
+    },
   ]
+
+  const page1Items = allStatItems.slice(0, 6)
+  const page2Items = allStatItems.slice(6)
 
   return (
     <Card>
@@ -124,38 +141,102 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-3 gap-3">
-          {statItems.map((item) => {
-            const isSelected = selectedCategory === item.category
-            const isClickable = item.count > 0
-            return (
-              <div
-                key={item.label}
-                className={`p-3 rounded-lg text-center transition-all ${
-                  isSelected
-                    ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2'
-                    : 'bg-muted/50'
-                } ${
-                  isClickable && onCategoryClick
-                    ? isSelected
-                      ? 'cursor-pointer hover:bg-primary/90 active:scale-95'
-                      : 'cursor-pointer hover:bg-muted active:scale-95'
-                    : ''
-                }`}
-                onClick={() => {
-                  if (isClickable && onCategoryClick) {
-                    onCategoryClick(item.category)
-                  }
-                }}
-              >
-                <div className="text-2xl mb-1">{item.icon}</div>
-                <div className={`text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                  {item.label}
+        <div
+          onTouchStart={handleStatsTouchStart}
+          onTouchEnd={handleStatsTouchEnd}
+        >
+          <div className="overflow-hidden">
+            <div
+              className="flex transition-transform duration-300 ease-in-out"
+              style={{ transform: statsPage === 1 ? 'translateX(-100%)' : 'translateX(0)' }}
+            >
+              {/* 페이지 1: 6개 (3x2) */}
+              <div className="min-w-full">
+                <div className="grid grid-cols-3 gap-3">
+                  {page1Items.map((item) => {
+                    const isSelected = selectedCategory === item.category
+                    const isClickable = item.count > 0
+                    return (
+                      <div
+                        key={item.label}
+                        className={`p-3 rounded-lg text-center transition-all ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2'
+                            : 'bg-muted/50'
+                        } ${
+                          isClickable && onCategoryClick
+                            ? isSelected
+                              ? 'cursor-pointer hover:bg-primary/90 active:scale-95'
+                              : 'cursor-pointer hover:bg-muted active:scale-95'
+                            : ''
+                        }`}
+                        onClick={() => {
+                          if (isClickable && onCategoryClick) {
+                            onCategoryClick(item.category)
+                          }
+                        }}
+                      >
+                        <div className="text-2xl mb-1">{item.icon}</div>
+                        <div className={`text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                          {item.label}
+                        </div>
+                        <div className="font-semibold">{item.value}</div>
+                      </div>
+                    )
+                  })}
                 </div>
-                <div className="font-semibold">{item.value}</div>
               </div>
-            )
-          })}
+
+              {/* 페이지 2: 약 */}
+              <div className="min-w-full">
+                <div className="grid grid-cols-3 gap-3">
+                  {page2Items.map((item) => {
+                    const isSelected = selectedCategory === item.category
+                    const isClickable = item.count > 0
+                    return (
+                      <div
+                        key={item.label}
+                        className={`p-3 rounded-lg text-center transition-all ${
+                          isSelected
+                            ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2'
+                            : 'bg-muted/50'
+                        } ${
+                          isClickable && onCategoryClick
+                            ? isSelected
+                              ? 'cursor-pointer hover:bg-primary/90 active:scale-95'
+                              : 'cursor-pointer hover:bg-muted active:scale-95'
+                            : ''
+                        }`}
+                        onClick={() => {
+                          if (isClickable && onCategoryClick) {
+                            onCategoryClick(item.category)
+                          }
+                        }}
+                      >
+                        <div className="text-2xl mb-1">{item.icon}</div>
+                        <div className={`text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                          {item.label}
+                        </div>
+                        <div className="font-semibold">{item.value}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 페이지 인디케이터 */}
+          <div className="flex justify-center gap-2 mt-2">
+            <button
+              className={`w-2 h-2 rounded-full transition-colors ${statsPage === 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+              onClick={() => setStatsPage(0)}
+            />
+            <button
+              className={`w-2 h-2 rounded-full transition-colors ${statsPage === 1 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+              onClick={() => setStatsPage(1)}
+            />
+          </div>
         </div>
         {/* 칼로리 프로그레스 바 (탭하면 kcal ↔ 사료량g 토글) */}
         {calorieData && (() => {

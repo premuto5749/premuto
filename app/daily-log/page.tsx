@@ -476,7 +476,7 @@ export default function DailyLogPage() {
                   </span>
                 )}
               </h2>
-              <Timeline logs={filteredLogs} onDelete={handleDelete} onUpdate={handleUpdate} />
+              <Timeline logs={filteredLogs} onDelete={handleDelete} onUpdate={handleUpdate} petId={currentPet?.id} />
             </div>
           </div>
         )}
