@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { resolveStandardItems } from '@/lib/api/item-resolver'
 import {
   createExcelWorkbook,
   workbookToBuffer,
@@ -52,11 +53,12 @@ export async function POST(request: NextRequest) {
       }, { status: 403 })
     }
 
-    // 쿼리 빌더 시작
+    // 쿼리 빌더 시작 (FK 해제로 !inner 대신 별도 resolve)
     let query = supabase
       .from('test_results')
       .select(`
         id,
+        standard_item_id,
         value,
         unit,
         ref_min,
@@ -66,14 +68,9 @@ export async function POST(request: NextRequest) {
           id,
           test_date,
           hospital_name
-        ),
-        standard_items_master!inner (
-          id,
-          name,
-          display_name_ko,
-          category
         )
       `)
+      .not('standard_item_id', 'is', null)
       .order('test_date', { referencedTable: 'test_records', ascending: true })
 
     // 필터 적용
@@ -87,10 +84,6 @@ export async function POST(request: NextRequest) {
 
     if (date_to) {
       query = query.lte('test_records.test_date', date_to)
-    }
-
-    if (categories && categories.length > 0) {
-      query = query.in('standard_items_master.category', categories)
     }
 
     const { data, error } = await query
@@ -110,19 +103,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 데이터 변환
-    const results: ExportTestResult[] = data.map((row) => {
+    // 항목 정보 resolve (마스터 + 유저 커스텀 양쪽)
+    const itemIds = data
+      .map(r => r.standard_item_id)
+      .filter((id): id is string => id !== null)
+    const resolvedMap = await resolveStandardItems(itemIds, user.id, supabase)
+
+    // 데이터 변환 (항목 정보가 없는 결과 제외, 카테고리 필터 적용)
+    const results: ExportTestResult[] = []
+    for (const row of data) {
+      const resolved = row.standard_item_id ? resolvedMap.get(row.standard_item_id) : null
+      if (!resolved) continue // 항목 정보 없으면 제외 (기존 !inner 동작 유지)
+
+      // 카테고리 필터 적용 (코드 레벨)
+      if (categories && categories.length > 0) {
+        if (!resolved.category || !categories.includes(resolved.category)) continue
+      }
+
       // Type assertions for nested objects
       const testRecord = row.test_records as unknown as {
         id: string
         test_date: string
         hospital_name: string | null
-      }
-      const standardItem = row.standard_items_master as unknown as {
-        id: string
-        name: string
-        display_name_ko: string | null
-        category: string | null
       }
 
       // 상태 계산
@@ -141,20 +143,27 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return {
+      results.push({
         test_date: testRecord.test_date,
         hospital_name: testRecord.hospital_name || undefined,
-        item_name: standardItem.name,
-        display_name_ko: standardItem.display_name_ko || undefined,
+        item_name: resolved.name,
+        display_name_ko: resolved.display_name_ko || undefined,
         value: row.value,
         unit: row.unit,
         ref_min: row.ref_min,
         ref_max: row.ref_max,
         ref_text: row.ref_text,
         status,
-        category: standardItem.category || undefined
-      }
-    })
+        category: resolved.category || undefined
+      })
+    }
+
+    if (results.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No data to export' },
+        { status: 404 }
+      )
+    }
 
     // Excel 워크북 생성
     const workbook = createExcelWorkbook(results, options)

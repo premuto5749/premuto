@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { resolveStandardItems } from '@/lib/api/item-resolver'
 import { NextRequest, NextResponse } from 'next/server'
 import { moveDriveFilesToFolder } from '@/lib/google-drive-upload'
 
@@ -39,11 +40,11 @@ export async function POST(request: NextRequest) {
     const [sourceResults, targetResults] = await Promise.all([
       supabase
         .from('test_results')
-        .select('*, standard_items_master(id, name)')
+        .select('*')
         .eq('record_id', sourceRecordId),
       supabase
         .from('test_results')
-        .select('*, standard_items_master(id, name)')
+        .select('*')
         .eq('record_id', targetRecordId)
     ])
 
@@ -169,17 +170,24 @@ export async function GET(request: NextRequest) {
     const [sourceResults, targetResults] = await Promise.all([
       supabase
         .from('test_results')
-        .select('*, standard_items_master(id, name, display_name_ko)')
+        .select('*')
         .eq('record_id', sourceId),
       supabase
         .from('test_results')
-        .select('*, standard_items_master(id, name, display_name_ko)')
+        .select('*')
         .eq('record_id', targetId)
     ])
 
     if (sourceResults.error || targetResults.error) {
       throw new Error('검사 결과를 가져오는데 실패했습니다')
     }
+
+    // 항목 정보 resolve (마스터 + 유저 커스텀 양쪽)
+    const allItemIds = [
+      ...(sourceResults.data || []).map(r => r.standard_item_id),
+      ...(targetResults.data || []).map(r => r.standard_item_id),
+    ].filter((id): id is string => id !== null)
+    const resolvedMap = await resolveStandardItems(allItemIds, user.id, supabase)
 
     // 충돌 찾기
     const targetItemMap = new Map(
@@ -190,10 +198,11 @@ export async function GET(request: NextRequest) {
       .filter(sr => targetItemMap.has(sr.standard_item_id))
       .map(sr => {
         const tr = targetItemMap.get(sr.standard_item_id)!
+        const resolved = sr.standard_item_id ? resolvedMap.get(sr.standard_item_id) : null
         return {
           standardItemId: sr.standard_item_id,
-          itemName: sr.standard_items_master?.name || 'Unknown',
-          itemNameKo: sr.standard_items_master?.display_name_ko || sr.standard_items_master?.name || 'Unknown',
+          itemName: resolved?.name || 'Unknown',
+          itemNameKo: resolved?.display_name_ko || resolved?.name || 'Unknown',
           sourceValue: sr.value,
           sourceUnit: sr.unit,
           targetValue: tr.value,

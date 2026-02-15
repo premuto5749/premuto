@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { resolveStandardItems } from '@/lib/api/item-resolver'
 import type { StagingItem } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -172,13 +173,7 @@ export async function GET(request: NextRequest) {
             ref_max,
             ref_text,
             status,
-            unit,
-            standard_items_master (
-              id,
-              name,
-              display_name_ko,
-              default_unit
-            )
+            unit
           )
         `)
         .eq('id', recordId)
@@ -191,6 +186,23 @@ export async function GET(request: NextRequest) {
           { error: '검사 기록 조회에 실패했습니다', details: error.message },
           { status: 500 }
         )
+      }
+
+      // 항목 정보 resolve (마스터 + 유저 커스텀 양쪽)
+      if (record?.test_results) {
+        const results = record.test_results as { standard_item_id: string | null }[]
+        const itemIds = results
+          .map(r => r.standard_item_id)
+          .filter((id): id is string => id !== null)
+
+        const resolvedMap = await resolveStandardItems(itemIds, user.id, supabase)
+
+        record.test_results = results.map(r => ({
+          ...r,
+          standard_items_master: r.standard_item_id
+            ? resolvedMap.get(r.standard_item_id) ?? null
+            : null,
+        })) as unknown as typeof record.test_results
       }
 
       return NextResponse.json({
@@ -218,16 +230,7 @@ export async function GET(request: NextRequest) {
           ref_max,
           ref_text,
           status,
-          unit,
-          standard_items_master (
-            name,
-            display_name_ko,
-            category,
-            default_unit,
-            description_common,
-            description_high,
-            description_low
-          )
+          unit
         )
       `)
       .eq('user_id', user.id)
@@ -253,6 +256,29 @@ export async function GET(request: NextRequest) {
         { error: '검사 기록 조회에 실패했습니다', details: error.message },
         { status: 500 }
       )
+    }
+
+    // 모든 레코드의 항목 ID를 수집하여 한 번에 resolve
+    if (records) {
+      const allItemIds: string[] = []
+      for (const record of records) {
+        const results = record.test_results as { standard_item_id: string | null }[]
+        for (const r of results || []) {
+          if (r.standard_item_id) allItemIds.push(r.standard_item_id)
+        }
+      }
+
+      const resolvedMap = await resolveStandardItems(allItemIds, user.id, supabase)
+
+      for (const record of records) {
+        const results = record.test_results as { standard_item_id: string | null }[]
+        record.test_results = results.map(r => ({
+          ...r,
+          standard_items_master: r.standard_item_id
+            ? resolvedMap.get(r.standard_item_id) ?? null
+            : null,
+        })) as unknown as typeof record.test_results
+      }
     }
 
     return NextResponse.json({
