@@ -17,6 +17,7 @@ interface DailyTrendChartProps {
 const CATEGORY_COLORS: Record<LogCategory, string> = {
   meal: '#f97316',     // orange
   water: '#3b82f6',    // blue
+  snack: '#ec4899',    // pink
   medicine: '#a855f7', // purple
   poop: '#d97706',     // amber
   pee: '#eab308',      // yellow
@@ -30,6 +31,8 @@ function getCategoryValue(stats: DailyStats, category: LogCategory): number | nu
       return stats.meal_count > 0 ? stats.total_meal_amount : null
     case 'water':
       return stats.water_count > 0 ? stats.total_water_amount : null
+    case 'snack':
+      return stats.snack_count > 0 ? stats.snack_count : null
     case 'medicine':
       return stats.medicine_count > 0 ? stats.medicine_count : null
     case 'poop':
@@ -47,6 +50,7 @@ function getCategoryUnit(category: LogCategory): string {
   switch (category) {
     case 'meal': return 'g'
     case 'water': return 'ml'
+    case 'snack': return '회'
     case 'medicine': return '회'
     case 'poop': return '회'
     case 'pee': return '회'

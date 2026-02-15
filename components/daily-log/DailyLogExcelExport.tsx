@@ -105,6 +105,16 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
     overviewRows.push(['총 횟수', `${totalPeeCount}회`])
     overviewRows.push([])
 
+    const totalSnackCount = monthEntries.reduce((sum, [, s]) => sum + s.snack_count, 0)
+    const totalSnackAmount = monthEntries.reduce((sum, [, s]) => sum + s.total_snack_amount, 0)
+    const snackDays = monthEntries.filter(([, s]) => s.snack_count > 0).length
+
+    overviewRows.push(['[ 간식 ]'])
+    overviewRows.push(['총 횟수', `${totalSnackCount}회`])
+    overviewRows.push(['총 급여량', totalSnackAmount > 0 ? `${totalSnackAmount}g` : '-'])
+    overviewRows.push(['일평균', snackDays > 0 ? `${(totalSnackCount / snackDays).toFixed(1)}회` : '-'])
+    overviewRows.push([])
+
     overviewRows.push(['[ 호흡수 ]'])
     overviewRows.push(['평균', avgBreathing != null ? `${avgBreathing}회/분` : '-'])
     overviewRows.push(['최대', maxBreathing != null ? `${maxBreathing}회/분` : '-'])
@@ -161,6 +171,24 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
       const sheet = XLSX.utils.aoa_to_sheet(rows)
       sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 25 }]
       XLSX.utils.book_append_sheet(workbook, sheet, '음수')
+    }
+
+    if (logsByCategory['snack']) {
+      const rows: (string | number | null)[][] = [['날짜', '시간', '간식 이름', '급여량', '단위', '칼로리(kcal)', '메모']]
+      for (const log of logsByCategory['snack']) {
+        const { dateStr, timeStr } = formatDateTime(log.logged_at)
+        rows.push([
+          dateStr, timeStr,
+          log.snack_name || null,
+          log.amount ?? null,
+          log.unit || 'g',
+          log.calories ?? null,
+          log.memo || null,
+        ])
+      }
+      const sheet = XLSX.utils.aoa_to_sheet(rows)
+      sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 15 }, { wch: 10 }, { wch: 6 }, { wch: 12 }, { wch: 25 }]
+      XLSX.utils.book_append_sheet(workbook, sheet, '간식')
     }
 
     if (logsByCategory['medicine']) {

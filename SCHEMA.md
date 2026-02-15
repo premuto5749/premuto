@@ -62,6 +62,7 @@
 CREATE TYPE log_category AS ENUM (
   'meal',      -- 식사
   'water',     -- 음수
+  'snack',     -- 간식
   'medicine',  -- 약
   'poop',      -- 배변
   'pee',       -- 배뇨
@@ -77,6 +78,8 @@ CREATE TABLE daily_logs (
   memo TEXT,                         -- 메모
   photo_urls JSONB DEFAULT '[]',     -- 사진 URL 배열 (최대 5장)
   medicine_name VARCHAR(100),        -- 약 이름 (category='medicine'일 때)
+  snack_name VARCHAR(100),           -- 간식 이름 (category='snack'일 때)
+  calories DECIMAL(8, 2),            -- 칼로리 (category='snack'일 때, kcal)
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -92,6 +95,9 @@ SELECT
   COUNT(CASE WHEN category = 'medicine' THEN 1 END) as medicine_count,
   COUNT(CASE WHEN category = 'poop' THEN 1 END) as poop_count,
   COUNT(CASE WHEN category = 'pee' THEN 1 END) as pee_count,
+  COUNT(CASE WHEN category = 'snack' THEN 1 END) as snack_count,
+  SUM(CASE WHEN category = 'snack' THEN amount ELSE 0 END) as total_snack_amount,
+  SUM(CASE WHEN category = 'snack' THEN calories ELSE 0 END) as total_snack_calories,
   AVG(CASE WHEN category = 'breathing' THEN amount END) as avg_breathing_rate,
   COUNT(CASE WHEN category = 'breathing' THEN 1 END) as breathing_count
 FROM daily_logs
@@ -101,12 +107,37 @@ GROUP BY (logged_at AT TIME ZONE 'UTC')::date;
 **카테고리별 기록 항목**:
 | 카테고리 | 설명 | 단위 | 비고 |
 |---------|------|------|------|
-| `meal` | 식사 | g | 사료/간식 섭취량 |
+| `meal` | 식사 | g | 사료 섭취량 |
 | `water` | 음수 | ml | 물 섭취량 |
+| `snack` | 간식 | g | `snack_name`에 간식 이름, `calories`에 칼로리 기록 |
 | `medicine` | 약 | 정/ml | `medicine_name`에 약 이름 기록 |
 | `poop` | 배변 | 회 | 양보다 횟수 중심 |
 | `pee` | 배뇨 | 회 | 양보다 횟수 중심 |
 | `breathing` | 호흡수 | 회/분 | 분당 호흡수 |
+
+### 0-1. 간식 프리셋 (Snack Presets) - **v3.3 추가**
+간식 빠른 기록을 위한 프리셋 테이블
+
+```sql
+CREATE TABLE snack_presets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  pet_id UUID REFERENCES pets(id) ON DELETE SET NULL,
+  name VARCHAR(100) NOT NULL,          -- 간식 이름
+  default_amount DECIMAL(10, 2),       -- 기본 급여량
+  calories_per_unit DECIMAL(8, 2),     -- 단위당 칼로리 (kcal)
+  unit VARCHAR(20) DEFAULT 'g',        -- 단위 (g/개/ml/봉)
+  memo TEXT,                           -- 메모
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE snack_presets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own snack presets" ON snack_presets
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+```
+
+**RLS 정책**: `auth.uid() = user_id`로 본인 프리셋만 접근 가능
 
 ---
 

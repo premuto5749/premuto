@@ -109,6 +109,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |---------|--------|------|----------|
 | meal (식사) | 🍚 | g | 양 입력 |
 | water (음수) | 💧 | ml | 양 입력 |
+| snack (간식) | 🍪 | g | 프리셋/직접 입력 + 양 |
 | medicine (약) | 💊 | 정 | 양 + 약 이름 |
 | poop (배변) | 💩 | 회 | 원터치 |
 | pee (배뇨) | 🚽 | 회 | 원터치 |

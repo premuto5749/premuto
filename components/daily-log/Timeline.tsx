@@ -47,6 +47,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const [editLeftoverAmount, setEditLeftoverAmount] = useState<string>('')  // 남긴 양 (식사용)
   const [editMemo, setEditMemo] = useState<string>('')
   const [editMedicineName, setEditMedicineName] = useState<string>('')
+  const [editSnackName, setEditSnackName] = useState<string>('')
   const [editDate, setEditDate] = useState<string>('')
   const [editTime, setEditTime] = useState<string>('')
   const [editPhotos, setEditPhotos] = useState<string[]>([])
@@ -137,6 +138,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setEditLeftoverAmount(log.leftover_amount?.toString() || '')
     setEditMemo(log.memo || '')
     setEditMedicineName(log.medicine_name || '')
+    setEditSnackName(log.snack_name || '')
     setEditDate(extractDateFromISO(log.logged_at))
     setEditTime(extractTimeFromISO(log.logged_at))
     setEditPhotos(log.photo_urls || [])
@@ -150,6 +152,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setEditLeftoverAmount(selectedLog.leftover_amount?.toString() || '')
     setEditMemo(selectedLog.memo || '')
     setEditMedicineName(selectedLog.medicine_name || '')
+    setEditSnackName(selectedLog.snack_name || '')
     setEditDate(extractDateFromISO(selectedLog.logged_at))
     setEditTime(extractTimeFromISO(selectedLog.logged_at))
     setEditPhotos(selectedLog.photo_urls || [])
@@ -165,6 +168,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       setEditLeftoverAmount(selectedLog.leftover_amount?.toString() || '')
       setEditMemo(selectedLog.memo || '')
       setEditMedicineName(selectedLog.medicine_name || '')
+      setEditSnackName(selectedLog.snack_name || '')
       setEditDate(extractDateFromISO(selectedLog.logged_at))
       setEditTime(extractTimeFromISO(selectedLog.logged_at))
       setEditPhotos(selectedLog.photo_urls || [])
@@ -227,6 +231,11 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       // 약인 경우 약 이름 업데이트
       if (selectedLog.category === 'medicine') {
         updateData.medicine_name = editMedicineName || null
+      }
+
+      // 간식인 경우 간식 이름 업데이트
+      if (selectedLog.category === 'snack') {
+        updateData.snack_name = editSnackName || null
       }
 
       await onUpdate(selectedLog.id, updateData)
@@ -339,6 +348,11 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                       {log.category === 'medicine' && log.medicine_name && (
                         <span className="text-sm text-purple-600">
                           {log.medicine_name}
+                        </span>
+                      )}
+                      {log.category === 'snack' && log.snack_name && (
+                        <span className="text-sm text-pink-600">
+                          {log.snack_name}
                         </span>
                       )}
                       {/* 사진 아이콘 표시 */}
@@ -495,6 +509,19 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                     </div>
                   )}
 
+                  {/* 간식 이름 (간식인 경우만) */}
+                  {selectedLog.category === 'snack' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-snack">간식 이름</Label>
+                      <Input
+                        id="edit-snack"
+                        value={editSnackName}
+                        onChange={(e) => setEditSnackName(e.target.value)}
+                        placeholder="간식 이름 입력"
+                      />
+                    </div>
+                  )}
+
                   {/* 메모 */}
                   <div className="space-y-2">
                     <Label htmlFor="edit-memo">메모</Label>
@@ -624,6 +651,14 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                     <div>
                       <p className="text-sm text-muted-foreground">약 이름</p>
                       <p className="font-medium">{selectedLog.medicine_name}</p>
+                    </div>
+                  )}
+
+                  {/* 간식 이름 */}
+                  {selectedLog.category === 'snack' && selectedLog.snack_name && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">간식 이름</p>
+                      <p className="font-medium">{selectedLog.snack_name}</p>
                     </div>
                   )}
 

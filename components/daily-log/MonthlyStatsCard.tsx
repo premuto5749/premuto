@@ -26,6 +26,7 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
   const poopDays = statsArray.filter(s => s.poop_count > 0)
   const peeDays = statsArray.filter(s => s.pee_count > 0)
   const breathingDays = statsArray.filter(s => s.breathing_count > 0 && s.avg_breathing_rate)
+  const snackDays = statsArray.filter(s => s.snack_count > 0)
 
   // 평균 계산 (해당 카테고리 기록이 있는 날만 기준)
   const avgMeal = mealDays.length > 0
@@ -45,6 +46,9 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
     : 0
   const avgBreathing = breathingDays.length > 0
     ? breathingDays.reduce((sum, s) => sum + (s.avg_breathing_rate || 0), 0) / breathingDays.length
+    : 0
+  const avgSnack = snackDays.length > 0
+    ? snackDays.reduce((sum, s) => sum + s.snack_count, 0) / snackDays.length
     : 0
 
   // 체중: weightMap에서 마지막(최신) 기록 가져오기
@@ -68,9 +72,9 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
       value: avgWater > 0 ? `${formatNumber(Math.round(avgWater))}ml/일` : '-',
     },
     {
-      category: 'medicine',
-      label: '약',
-      value: avgMedicine > 0 ? `${avgMedicine.toFixed(1)}회/일` : '-',
+      category: 'snack',
+      label: '간식',
+      value: avgSnack > 0 ? `${avgSnack.toFixed(1)}회/일` : '-',
     },
     {
       category: 'poop',
@@ -81,6 +85,11 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
       category: 'pee',
       label: '배뇨',
       value: avgPee > 0 ? `${avgPee.toFixed(1)}회/일` : '-',
+    },
+    {
+      category: 'medicine',
+      label: '약',
+      value: avgMedicine > 0 ? `${avgMedicine.toFixed(1)}회/일` : '-',
     },
     {
       category: 'breathing',
