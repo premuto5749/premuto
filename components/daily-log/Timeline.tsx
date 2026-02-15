@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { DailyLog, MedicinePreset, SnackPreset } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
@@ -63,8 +62,6 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
   const [snackPresets, setSnackPresets] = useState<SnackPreset[]>([])
   const [editMedicineInputMode, setEditMedicineInputMode] = useState<'preset' | 'manual'>('manual')
   const [editSnackInputMode, setEditSnackInputMode] = useState<'preset' | 'manual'>('manual')
-  const [selectedMedicinePreset, setSelectedMedicinePreset] = useState<MedicinePreset | null>(null)
-  const [selectedSnackEditPreset, setSelectedSnackEditPreset] = useState<SnackPreset | null>(null)
   // Lightbox carousel state
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([])
   const [lightboxIndex, setLightboxIndex] = useState(0)
@@ -192,10 +189,11 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
     setEditPhotos(selectedLog.photo_urls || [])
     setNewPhotoFiles([])
     setNewPhotoPreviews([])
-    setEditMedicineInputMode('manual')
-    setEditSnackInputMode('manual')
-    setSelectedMedicinePreset(null)
-    setSelectedSnackEditPreset(null)
+    // 프리셋/직접입력 자동 판별
+    const isSnackPreset = snackPresets.some(p => p.name === selectedLog.snack_name)
+    setEditSnackInputMode(isSnackPreset ? 'preset' : 'manual')
+    const isMedicinePreset = medicinePresets.some(p => selectedLog.medicine_name?.startsWith(p.preset_name))
+    setEditMedicineInputMode(isMedicinePreset ? 'preset' : 'manual')
     setIsEditing(true)
   }
 
@@ -203,8 +201,6 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
     setIsEditing(false)
     setEditMedicineInputMode('manual')
     setEditSnackInputMode('manual')
-    setSelectedMedicinePreset(null)
-    setSelectedSnackEditPreset(null)
     if (selectedLog) {
       setEditAmount(selectedLog.amount?.toString() || '')
       setEditLeftoverAmount(selectedLog.leftover_amount?.toString() || '')
@@ -522,8 +518,8 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
                     </div>
                   )}
 
-                  {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약 제외) */}
-                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'medicine' && (
+                  {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/간식 제외) */}
+                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'medicine' && selectedLog.category !== 'snack' && (
                     <div className="space-y-2">
                       <Label htmlFor="edit-amount">
                         {selectedLog.category === 'breathing' ? '호흡수' : '양'} ({LOG_CATEGORY_CONFIG[selectedLog.category].unit})
@@ -541,61 +537,14 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
                   {/* 약 이름 (약인 경우만) */}
                   {selectedLog.category === 'medicine' && (
                     <div className="space-y-3">
-                      <Tabs value={editMedicineInputMode} onValueChange={(v) => {
-                        setEditMedicineInputMode(v as 'preset' | 'manual')
-                        setSelectedMedicinePreset(null)
-                        if (v === 'manual') {
-                          setEditMedicineName(selectedLog.medicine_name || '')
-                        }
-                      }}>
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="preset">프리셋 선택</TabsTrigger>
-                          <TabsTrigger value="manual">직접 입력</TabsTrigger>
-                        </TabsList>
-                      </Tabs>
-
-                      {editMedicineInputMode === 'preset' && (
-                        <div>
-                          {medicinePresets.length > 0 ? (
-                            <div className="grid grid-cols-2 gap-2">
-                              {medicinePresets.map((preset) => (
-                                <button
-                                  key={preset.id}
-                                  type="button"
-                                  onClick={() => {
-                                    if (selectedMedicinePreset?.id === preset.id) {
-                                      setSelectedMedicinePreset(null)
-                                      setEditMedicineName(selectedLog.medicine_name || '')
-                                    } else {
-                                      setSelectedMedicinePreset(preset)
-                                      const medicineList = preset.medicines.map(m =>
-                                        `${m.name} ${m.dosage}${m.dosage_unit === 'tablet' ? '정' : m.dosage_unit}`
-                                      ).join(', ')
-                                      setEditMedicineName(`${preset.preset_name} (${medicineList})`)
-                                    }
-                                  }}
-                                  className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                    selectedMedicinePreset?.id === preset.id
-                                      ? 'border-primary bg-primary/10'
-                                      : 'border-muted hover:border-primary/50'
-                                  }`}
-                                >
-                                  <div className="font-medium text-sm">{preset.preset_name}</div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    {preset.medicines.map(m => m.name).join(', ')}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-4 text-muted-foreground text-sm">
-                              등록된 프리셋이 없습니다.
-                            </div>
-                          )}
+                      {editMedicineInputMode === 'preset' ? (
+                        <div className="space-y-2">
+                          <Label>약 이름</Label>
+                          <div className="p-3 bg-muted/50 rounded-md text-sm font-medium">
+                            {editMedicineName}
+                          </div>
                         </div>
-                      )}
-
-                      {editMedicineInputMode === 'manual' && (
+                      ) : (
                         <div className="space-y-2">
                           <Label htmlFor="edit-medicine">약 이름</Label>
                           <Input
@@ -609,67 +558,17 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
                     </div>
                   )}
 
-                  {/* 간식 이름 (간식인 경우만) */}
+                  {/* 간식 (간식인 경우만) */}
                   {selectedLog.category === 'snack' && (
                     <div className="space-y-3">
-                      <Tabs value={editSnackInputMode} onValueChange={(v) => {
-                        setEditSnackInputMode(v as 'preset' | 'manual')
-                        setSelectedSnackEditPreset(null)
-                        if (v === 'manual') {
-                          setEditSnackName(selectedLog.snack_name || '')
-                          setEditAmount(selectedLog.amount?.toString() || '')
-                        }
-                      }}>
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="preset">프리셋 선택</TabsTrigger>
-                          <TabsTrigger value="manual">직접 입력</TabsTrigger>
-                        </TabsList>
-                      </Tabs>
-
-                      {editSnackInputMode === 'preset' && (
-                        <div>
-                          {snackPresets.length > 0 ? (
-                            <div className="grid grid-cols-2 gap-2">
-                              {snackPresets.map((preset) => (
-                                <button
-                                  key={preset.id}
-                                  type="button"
-                                  onClick={() => {
-                                    if (selectedSnackEditPreset?.id === preset.id) {
-                                      setSelectedSnackEditPreset(null)
-                                      setEditSnackName(selectedLog.snack_name || '')
-                                      setEditAmount(selectedLog.amount?.toString() || '')
-                                    } else {
-                                      setSelectedSnackEditPreset(preset)
-                                      setEditSnackName(preset.name)
-                                      if (preset.default_amount) {
-                                        setEditAmount(preset.default_amount.toString())
-                                      }
-                                    }
-                                  }}
-                                  className={`p-3 rounded-lg border-2 text-left transition-all ${
-                                    selectedSnackEditPreset?.id === preset.id
-                                      ? 'border-primary bg-primary/10'
-                                      : 'border-muted hover:border-primary/50'
-                                  }`}
-                                >
-                                  <div className="font-medium text-sm">{preset.name}</div>
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    {preset.default_amount && `${preset.default_amount}${preset.unit}`}
-                                    {preset.calories_per_unit && ` · ${preset.calories_per_unit}kcal`}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center py-4 text-muted-foreground text-sm">
-                              등록된 간식이 없습니다.
-                            </div>
-                          )}
+                      {editSnackInputMode === 'preset' ? (
+                        <div className="space-y-2">
+                          <Label>간식 이름</Label>
+                          <div className="p-3 bg-muted/50 rounded-md text-sm font-medium">
+                            {editSnackName}
+                          </div>
                         </div>
-                      )}
-
-                      {editSnackInputMode === 'manual' && (
+                      ) : (
                         <div className="space-y-2">
                           <Label htmlFor="edit-snack">간식 이름</Label>
                           <Input
@@ -680,6 +579,16 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
                           />
                         </div>
                       )}
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-snack-amount">양 ({LOG_CATEGORY_CONFIG['snack'].unit})</Label>
+                        <Input
+                          id="edit-snack-amount"
+                          type="number"
+                          value={editAmount}
+                          onChange={(e) => setEditAmount(e.target.value)}
+                          placeholder={LOG_CATEGORY_CONFIG['snack'].placeholder}
+                        />
+                      </div>
                     </div>
                   )}
 
