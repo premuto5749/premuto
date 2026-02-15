@@ -260,7 +260,10 @@ export default function DailyLogPage() {
         lines.push(`💊 약: ${stats.medicine_count}회`)
       }
       if (stats.snack_count > 0) {
-        lines.push(`🍪 간식: ${stats.snack_count}회${stats.total_snack_amount > 0 ? ` (${formatNumber(stats.total_snack_amount)}g)` : ''}`)
+        const snackParts = []
+        if (stats.total_snack_amount > 0) snackParts.push(`${formatNumber(stats.total_snack_amount)}g`)
+        if (stats.total_snack_calories > 0) snackParts.push(`${formatNumber(stats.total_snack_calories)}kcal`)
+        lines.push(`🍪 간식: ${stats.snack_count}회${snackParts.length > 0 ? ` (${snackParts.join(', ')})` : ''}`)
       }
       if (stats.poop_count > 0) {
         lines.push(`💩 배변: ${stats.poop_count}회`)
@@ -355,7 +358,9 @@ export default function DailyLogPage() {
     }
 
     if (target <= 0 || density <= 0) return null
-    const intake = calculateIntake(stats?.total_meal_amount || 0, density)
+    const mealIntake = calculateIntake(stats?.total_meal_amount || 0, density)
+    const snackCalories = stats?.total_snack_calories || 0
+    const intake = mealIntake + snackCalories
     const intakeGrams = stats?.total_meal_amount || 0
     const targetGrams = Math.round(target / density)
     return { intake, target, percentage: Math.round((intake / target) * 100), intakeGrams, targetGrams }
