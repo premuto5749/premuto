@@ -54,7 +54,7 @@ export async function resolveStandardItems(
 
   if (error) {
     console.error('Failed to resolve standard items:', error)
-    return new Map()
+    throw new Error(`Failed to resolve standard items: ${error.message}`)
   }
 
   const result = new Map<string, ResolvedItem>()
