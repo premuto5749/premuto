@@ -202,7 +202,7 @@ export default function CalorieCalculatorPage() {
     }
 
     const dailyGrams = Math.round(der / mixedDensity)
-    const perMealGrams = Math.round(dailyGrams / frequency)
+    const perMealGrams = Math.round(dailyGrams / Math.max(frequency, 1))
 
     return { rer, factor, der, dailyGrams, perMealGrams, mixedDensity }
   }, [weightKg, foods, isNeutered, activityLevel, frequency])
@@ -243,7 +243,7 @@ export default function CalorieCalculatorPage() {
           is_neutered: isNeutered,
           activity_level: activityLevel,
           foods,
-          feeding_frequency: frequency,
+          feeding_frequency: frequency || 1,
         }),
       })
 
@@ -476,10 +476,18 @@ export default function CalorieCalculatorPage() {
                             type="number"
                             min="1"
                             max="99"
-                            value={frequency}
+                            value={frequency === 0 ? '' : frequency}
                             onChange={(e) => {
-                              const v = parseInt(e.target.value)
-                              if (!isNaN(v) && v >= 1) setFrequency(v)
+                              const raw = e.target.value
+                              if (raw === '') {
+                                setFrequency(0)
+                                return
+                              }
+                              const v = parseInt(raw)
+                              if (!isNaN(v) && v >= 1 && v <= 99) setFrequency(v)
+                            }}
+                            onBlur={() => {
+                              if (frequency < 1) setFrequency(1)
                             }}
                             className="w-16 h-8 text-center"
                           />
