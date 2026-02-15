@@ -55,7 +55,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   // 간식 상태
   const [snackInputMode, setSnackInputMode] = useState<'preset' | 'manual'>('preset')
   const [snackPresets, setSnackPresets] = useState<SnackPreset[]>([])
-  const [selectedSnackPreset, setSelectedSnackPreset] = useState<SnackPreset | null>(null)
+  const [snackSelections, setSnackSelections] = useState<Record<string, number>>({})
   const [snackName, setSnackName] = useState('')
   const [snackUnit, setSnackUnit] = useState('개')
   const [logTime, setLogTime] = useState(getCurrentTime())
@@ -142,7 +142,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setMedicineInputMode('preset')
     setSelectedPreset(null)
     setSnackInputMode('preset')
-    setSelectedSnackPreset(null)
+    setSnackSelections({})
     setSnackName('')
     setSnackUnit('개')
     setLogTime(getCurrentTime())
@@ -303,21 +303,57 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         }
       }
 
-      // 간식 이름 조합
-      let fullSnackName: string | null = null
-      let snackCalories: number | null = null
-      if (selectedCategory === 'snack') {
-        if (snackInputMode === 'preset' && selectedSnackPreset) {
-          fullSnackName = selectedSnackPreset.name
-          if (selectedSnackPreset.calories_per_unit && amount) {
-            const inputAmount = parseFloat(amount)
-            const baseAmount = selectedSnackPreset.default_amount || 1
-            snackCalories = Math.round((inputAmount / baseAmount) * selectedSnackPreset.calories_per_unit * 100) / 100
-          }
-        } else if (snackInputMode === 'manual' && snackName) {
-          fullSnackName = snackName
+      // 간식 프리셋 모드: 선택된 프리셋별로 개별 엔트리 POST
+      if (selectedCategory === 'snack' && snackInputMode === 'preset') {
+        const entries = Object.entries(snackSelections)
+        if (entries.length === 0) {
+          throw new Error('간식을 선택해주세요')
         }
-      }
+
+        let isFirst = true
+        for (const [presetId, count] of entries) {
+          const preset = snackPresets.find(p => p.id === presetId)
+          if (!preset) continue
+
+          const presetAmount = count * (preset.default_amount || 1)
+          const presetCalories = preset.calories_per_unit
+            ? Math.round(count * preset.calories_per_unit * 100) / 100
+            : null
+
+          const logData: DailyLogInput = {
+            category: 'snack',
+            pet_id: petId || null,
+            logged_at: getLoggedAtISO(),
+            amount: presetAmount,
+            unit: preset.unit || '개',
+            memo: memo || null,
+            photo_urls: isFirst ? photoUrls : [],
+            snack_name: preset.name,
+            calories: presetCalories,
+          }
+
+          const response = await fetch('/api/daily-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(logData),
+          })
+
+          const result = await response.json()
+          if (!response.ok) {
+            console.error('Daily log save failed:', result)
+            throw new Error(result.error || 'Failed to save log')
+          }
+          if (!result.data?.id) {
+            console.error('Daily log save returned no data:', result)
+            throw new Error('저장된 데이터를 확인할 수 없습니다')
+          }
+          console.log('Daily log saved successfully:', result.data.id)
+          isFirst = false
+        }
+      } else {
+      // 간식 직접 입력 또는 다른 카테고리
+      const fullSnackName: string | null = (selectedCategory === 'snack' && snackInputMode === 'manual' && snackName) ? snackName : null
+      const snackCalories: number | null = null
 
       const logData: DailyLogInput = {
         category: selectedCategory,
@@ -346,13 +382,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         throw new Error(result.error || 'Failed to save log')
       }
 
-      // 저장된 데이터 검증
       if (!result.data?.id) {
         console.error('Daily log save returned no data:', result)
         throw new Error('저장된 데이터를 확인할 수 없습니다')
       }
 
       console.log('Daily log saved successfully:', result.data.id)
+      }
 
       toast({
         title: '기록 완료',
@@ -600,7 +636,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                 {/* 프리셋/직접입력 탭 */}
                 <Tabs value={snackInputMode} onValueChange={(v) => {
                   setSnackInputMode(v as 'preset' | 'manual')
-                  setSelectedSnackPreset(null)
+                  setSnackSelections({})
                   setSnackName('')
                   setAmount('')
                   setSnackUnit('개')
@@ -613,39 +649,60 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
 
                 {/* 프리셋 선택 모드 */}
                 {snackInputMode === 'preset' && (
-                  <div>
+                  <div className="space-y-2">
                     {snackPresets.length > 0 ? (
                       <div className="grid grid-cols-2 gap-2">
-                        {snackPresets.map((preset) => (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            onClick={() => {
-                              if (selectedSnackPreset?.id === preset.id) {
-                                setSelectedSnackPreset(null)
-                                setAmount('')
-                                setSnackUnit('개')
-                              } else {
-                                setSelectedSnackPreset(preset)
-                                setSnackUnit(preset.unit || '개')
-                                if (preset.default_amount) {
-                                  setAmount(preset.default_amount.toString())
-                                }
-                              }
-                            }}
-                            className={`p-3 rounded-lg border-2 text-left transition-all ${
-                              selectedSnackPreset?.id === preset.id
-                                ? 'border-primary bg-primary/10'
-                                : 'border-muted hover:border-primary/50'
-                            }`}
-                          >
-                            <div className="font-medium text-sm">{preset.name}</div>
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {preset.default_amount && `${preset.default_amount}${preset.unit}`}
-                              {preset.calories_per_unit && ` · ${preset.calories_per_unit}kcal`}
-                            </div>
-                          </button>
-                        ))}
+                        {snackPresets.map((preset) => {
+                          const count = snackSelections[preset.id] || 0
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => {
+                                setSnackSelections(prev => ({
+                                  ...prev,
+                                  [preset.id]: (prev[preset.id] || 0) + 1
+                                }))
+                              }}
+                              className={`p-3 rounded-lg border-2 text-left transition-all relative ${
+                                count > 0
+                                  ? 'border-primary bg-primary/10'
+                                  : 'border-muted hover:border-primary/50'
+                              }`}
+                            >
+                              <div className="font-medium text-sm">{preset.name}</div>
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {preset.default_amount && `${preset.default_amount}${preset.unit}`}
+                                {preset.calories_per_unit && ` · ${preset.calories_per_unit}kcal`}
+                              </div>
+                              {count > 0 && (
+                                <>
+                                  <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                                    {count}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setSnackSelections(prev => {
+                                        const next = { ...prev }
+                                        if (next[preset.id] <= 1) {
+                                          delete next[preset.id]
+                                        } else {
+                                          next[preset.id] -= 1
+                                        }
+                                        return next
+                                      })
+                                    }}
+                                    className="absolute -bottom-2 -right-2 bg-muted-foreground text-background text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center hover:bg-destructive"
+                                  >
+                                    −
+                                  </button>
+                                </>
+                              )}
+                            </button>
+                          )
+                        })}
                       </div>
                     ) : (
                       <div className="text-center py-4 text-muted-foreground text-sm">
@@ -653,46 +710,55 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                         간식/약 관리에서 간식을 추가하세요.
                       </div>
                     )}
+                    {/* 선택 요약 */}
+                    {Object.keys(snackSelections).length > 0 && (
+                      <div className="text-sm text-muted-foreground px-1">
+                        선택: {Object.entries(snackSelections).map(([id, cnt]) => {
+                          const p = snackPresets.find(sp => sp.id === id)
+                          return p ? `${p.name} ×${cnt}` : null
+                        }).filter(Boolean).join(', ')}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* 직접 입력 모드 */}
                 {snackInputMode === 'manual' && (
-                  <div>
-                    <label className="text-sm font-medium mb-1.5 block">간식 이름</label>
-                    <Input
-                      placeholder="예: 츄르, 닭가슴살"
-                      value={snackName}
-                      onChange={(e) => setSnackName(e.target.value)}
-                    />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">간식 이름</label>
+                      <Input
+                        placeholder="예: 츄르, 닭가슴살"
+                        value={snackName}
+                        onChange={(e) => setSnackName(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">급여량</label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          placeholder="간식량"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          className="flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const units = ['개', '봉', 'g', 'ml']
+                            const idx = units.indexOf(snackUnit)
+                            setSnackUnit(units[(idx + 1) % units.length])
+                          }}
+                          className="flex items-center justify-center gap-1 min-w-[56px] px-3 bg-muted hover:bg-muted/80 rounded-md text-sm font-medium transition-colors border border-border"
+                        >
+                          {snackUnit}
+                          <Repeat className="w-3 h-3 text-muted-foreground" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
-
-                {/* 급여량 입력 (프리셋/직접 공통) */}
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block">급여량</label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      placeholder="간식량"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="flex-1"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const units = ['개', '봉', 'g', 'ml']
-                        const idx = units.indexOf(snackUnit)
-                        setSnackUnit(units[(idx + 1) % units.length])
-                      }}
-                      className="flex items-center justify-center gap-1 min-w-[56px] px-3 bg-muted hover:bg-muted/80 rounded-md text-sm font-medium transition-colors border border-border"
-                    >
-                      {snackUnit}
-                      <Repeat className="w-3 h-3 text-muted-foreground" />
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
 
