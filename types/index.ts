@@ -215,6 +215,7 @@ export interface DailyLog {
   medicine_name: string | null  // 약 이름 (category가 medicine일 때)
   snack_name: string | null     // 간식 이름 (category가 snack일 때)
   calories: number | null       // 칼로리 (category가 snack일 때)
+  input_source?: 'preset' | 'manual'  // 프리셋/직접입력 구분
   created_at: string
   updated_at: string
 }
@@ -231,6 +232,7 @@ export interface DailyLogInput {
   medicine_name?: string | null
   snack_name?: string | null
   calories?: number | null
+  input_source?: 'preset' | 'manual'
 }
 
 export interface DailyStats {

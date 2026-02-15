@@ -331,6 +331,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
             photo_urls: isFirst ? photoUrls : [],
             snack_name: preset.name,
             calories: presetCalories,
+            input_source: 'preset',
           }
 
           const response = await fetch('/api/daily-logs', {
@@ -368,6 +369,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         medicine_name: fullMedicineName,
         snack_name: fullSnackName,
         calories: snackCalories,
+        input_source: (selectedCategory === 'medicine' && medicineInputMode === 'preset') ? 'preset' : 'manual',
       }
 
       const response = await fetch('/api/daily-logs', {
