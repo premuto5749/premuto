@@ -407,8 +407,6 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       <Dialog
         open={!!selectedLog}
         onOpenChange={(open) => {
-          // 수정 모드에서는 자동 닫기 차단 (카메라 앱 전환 시 포커스 변경 방어)
-          if (!open && isEditing) return
           if (!open) handleCloseDialog()
         }}
       >
