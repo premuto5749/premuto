@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -707,7 +708,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     ) : (
                       <div className="text-center py-4 text-muted-foreground text-sm">
                         등록된 간식이 없습니다.<br />
-                        간식/약 관리에서 간식을 추가하세요.
+                        <Link href="/manage" onClick={() => onOpenChange(false)} className="text-primary underline underline-offset-2">간식/약 관리</Link>에서 간식을 추가하세요.
                       </div>
                     )}
                     {/* 선택 요약 */}
@@ -825,7 +826,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     ) : (
                       <div className="text-center py-4 text-muted-foreground text-sm">
                         등록된 프리셋이 없습니다.<br />
-                        설정에서 약 프리셋을 추가하세요.
+                        <Link href="/manage" onClick={() => onOpenChange(false)} className="text-primary underline underline-offset-2">간식/약 관리</Link>에서 약 프리셋을 추가하세요.
                       </div>
                     )}
                   </div>
