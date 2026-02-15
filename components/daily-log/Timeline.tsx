@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react'
-import type { DailyLog, MedicinePreset, SnackPreset } from '@/types'
+import type { DailyLog } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
 import { formatNumber } from '@/lib/utils'
@@ -37,7 +37,7 @@ interface TimelineProps {
   petId?: string
 }
 
-export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
+export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -57,39 +57,11 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const editCameraInputRef = useRef<HTMLInputElement>(null)
   const editGalleryInputRef = useRef<HTMLInputElement>(null)
-  // 프리셋 상태 (수정 모드에서 사용)
-  const [medicinePresets, setMedicinePresets] = useState<MedicinePreset[]>([])
-  const [snackPresets, setSnackPresets] = useState<SnackPreset[]>([])
   const [editMedicineInputMode, setEditMedicineInputMode] = useState<'preset' | 'manual'>('manual')
   const [editSnackInputMode, setEditSnackInputMode] = useState<'preset' | 'manual'>('manual')
   // Lightbox carousel state
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([])
   const [lightboxIndex, setLightboxIndex] = useState(0)
-
-  // 프리셋 로드
-  useEffect(() => {
-    if (!petId) return
-    const fetchPresets = async () => {
-      try {
-        const petQuery = `?pet_id=${petId}`
-        const [medRes, snackRes] = await Promise.all([
-          fetch(`/api/medicine-presets${petQuery}`),
-          fetch(`/api/snack-presets${petQuery}`)
-        ])
-        if (medRes.ok) {
-          const data = await medRes.json()
-          setMedicinePresets(data.data || [])
-        }
-        if (snackRes.ok) {
-          const data = await snackRes.json()
-          setSnackPresets(data.data || [])
-        }
-      } catch (err) {
-        console.error('Failed to fetch presets:', err)
-      }
-    }
-    fetchPresets()
-  }, [petId])
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -189,11 +161,10 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
     setEditPhotos(selectedLog.photo_urls || [])
     setNewPhotoFiles([])
     setNewPhotoPreviews([])
-    // 프리셋/직접입력 자동 판별
-    const isSnackPreset = snackPresets.some(p => p.name === selectedLog.snack_name)
-    setEditSnackInputMode(isSnackPreset ? 'preset' : 'manual')
-    const isMedicinePreset = medicinePresets.some(p => selectedLog.medicine_name?.startsWith(p.preset_name))
-    setEditMedicineInputMode(isMedicinePreset ? 'preset' : 'manual')
+    // 프리셋/직접입력 판별 (input_source 필드 사용)
+    const isPreset = selectedLog.input_source === 'preset'
+    setEditSnackInputMode(isPreset ? 'preset' : 'manual')
+    setEditMedicineInputMode(isPreset ? 'preset' : 'manual')
     setIsEditing(true)
   }
 
