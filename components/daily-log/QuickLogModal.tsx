@@ -977,7 +977,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </Button>
               <Button
                 onClick={selectedCategory === 'weight' ? handleWeightSubmit : handleSubmit}
-                disabled={selectedCategory === 'weight' ? (isWeightSubmitting || !weightInput || !petId) : (isSubmitting || isUploading)}
+                disabled={selectedCategory === 'weight' ? (isWeightSubmitting || !weightInput || !petId) : (isSubmitting || isUploading || (selectedCategory === 'medicine' && medicineInputMode === 'preset' && !selectedPreset))}
                 className="flex-1"
               >
                 {isUploading ? (
