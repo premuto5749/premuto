@@ -10,7 +10,6 @@
  */
 
 import { createClient as createServerClient } from '@/lib/supabase/server';
-import { createServiceClient } from '@/lib/supabase/service';
 import unitConfig from '@/config/unit_mappings.json';
 
 // Supabase client type (awaited)
@@ -72,7 +71,7 @@ export interface ItemAlias {
 
 // 캐시 (서버 사이드에서 재사용, 사용자별로 구분)
 let cachedStandardItems: Map<string, StandardItem> | null = null;
-let cachedCustomItems: Map<string, StandardItem> | null = null; // 커스텀 항목 별도 캐시 (FK 안전 + 중복 방지)
+let cachedCustomItems: Map<string, StandardItem> | null = null; // 커스텀 항목 별도 캐시 (user_standard_items의 커스텀 항목)
 let cachedAliases: Map<string, ItemAlias> | null = null;
 let cacheTimestamp: number = 0;
 let cachedUserId: string | null = null;
@@ -224,8 +223,8 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
       cachedCustomItems = new Map();
       for (const item of items) {
         if ((item as Record<string, unknown>).is_custom) {
-          // 커스텀 항목은 별도 캐시에 저장 (ID가 standard_items_master에 없으므로 FK용으로 직접 사용 불가)
-          // Step 1b에서 매칭 감지 후 마스터로 승격하여 중복 생성 방지
+          // 커스텀 항목은 별도 캐시에 저장
+          // Step 1b에서 매칭되면 user_standard_items의 ID를 직접 사용 (FK 해제됨)
           cachedCustomItems.set(normalizeForMatching(item.name), item as StandardItem);
         } else {
           cachedStandardItems.set(normalizeForMatching(item.name), item as StandardItem);
@@ -270,111 +269,6 @@ async function initializeCache(supabase: SupabaseClientType, userId?: string) {
 
   cachedUserId = null;
   cacheTimestamp = now;
-}
-
-/**
- * 커스텀 항목을 마스터 테이블에 승격 (promote)
- * 이미 같은 이름의 마스터 항목이 있으면 그 ID를 반환.
- * 없으면 새로 생성하고, 원래 커스텀 항목의 master_item_id를 연결.
- *
- * 승격된 항목은 cachedStandardItems에 즉시 추가하여
- * 같은 배치 내 동일 항목의 반복 DB 호출을 방지.
- */
-async function ensureItemInMaster(
-  customItem: StandardItem,
-  supabase: SupabaseClientType
-): Promise<string | null> {
-  const normalizedName = normalizeForMatching(customItem.name);
-
-  // 이미 이번 배치에서 승격되어 마스터 캐시에 있는지 확인 (DB 호출 생략)
-  const alreadyPromoted = cachedStandardItems?.get(normalizedName);
-  if (alreadyPromoted) {
-    return alreadyPromoted.id;
-  }
-
-  // 같은 이름이 이미 마스터에 있는지 확인
-  const { data: existing } = await supabase
-    .from('standard_items_master')
-    .select('id')
-    .ilike('name', customItem.name)
-    .single();
-
-  if (existing) {
-    // 이미 마스터에 있으면 커스텀 항목을 오버라이드로 연결
-    await linkCustomToMaster(customItem.id, existing.id);
-    // 마스터 캐시에 추가 (같은 배치에서 재조회 방지)
-    addToMasterCache(normalizedName, { ...customItem, id: existing.id });
-    return existing.id;
-  }
-
-  // 마스터에 없으면 새로 생성
-  let serviceClient;
-  try {
-    serviceClient = createServiceClient();
-  } catch {
-    console.error('❌ Service client not available for custom item promotion');
-    return null;
-  }
-
-  const { data, error } = await serviceClient
-    .from('standard_items_master')
-    .insert({
-      name: customItem.name,
-      display_name_ko: customItem.display_name_ko,
-      default_unit: customItem.default_unit,
-      category: customItem.category,
-      exam_type: customItem.exam_type,
-      organ_tags: customItem.organ_tags,
-    })
-    .select('id')
-    .single();
-
-  if (error) {
-    console.error('❌ Failed to promote custom item to master:', error);
-    return null;
-  }
-
-  // 커스텀 항목을 마스터 오버라이드로 연결 (중복 방지)
-  await linkCustomToMaster(customItem.id, data.id);
-  // 마스터 캐시에 추가
-  addToMasterCache(normalizedName, { ...customItem, id: data.id });
-
-  return data.id;
-}
-
-/**
- * 승격된 항목을 마스터 캐시에 즉시 추가 + 커스텀 캐시에서 제거
- * 같은 배치 내 동일 항목의 반복 DB 호출 방지
- */
-function addToMasterCache(normalizedName: string, item: StandardItem): void {
-  cachedStandardItems?.set(normalizedName, item);
-  cachedCustomItems?.delete(normalizedName);
-}
-
-/**
- * 커스텀 항목의 master_item_id를 설정하여 오버라이드로 전환
- * 이렇게 하면 get_user_standard_items RPC에서 UNION ALL 중복이 사라짐
- * (master_item_id IS NULL 조건에서 제외되므로)
- *
- * service_role 클라이언트 사용: RLS가 master_item_id 업데이트를 차단할 수 있으므로
- */
-async function linkCustomToMaster(
-  customItemId: string,
-  masterItemId: string,
-): Promise<void> {
-  try {
-    const serviceClient = createServiceClient();
-    const { error } = await serviceClient
-      .from('user_standard_items')
-      .update({ master_item_id: masterItemId })
-      .eq('id', customItemId);
-
-    if (error) {
-      console.warn('⚠️ Failed to link custom item to master (non-fatal):', error.message);
-    }
-  } catch (e) {
-    console.warn('⚠️ Failed to link custom item to master (non-fatal):', e);
-  }
 }
 
 /**
@@ -452,25 +346,22 @@ export async function matchItemV3(
   // ============================================
   // Step 1b: 커스텀 항목 매칭 (중복 생성 방지)
   // 사용자가 등록한 커스텀 항목과 같은 이름이면 AI Step 3을 건너뛰고
-  // 마스터 테이블에 승격(promote)하여 FK-safe한 ID 반환
+  // user_standard_items의 ID를 직접 사용 (FK 해제됨)
   // ============================================
   if (cachedCustomItems) {
     const customMatch = cachedCustomItems.get(normalizedRaw);
     if (customMatch) {
-      const masterId = await ensureItemInMaster(customMatch, supabase);
-      if (masterId) {
-        console.log(`📍 Custom item promoted to master: "${customMatch.name}" → ${masterId}`);
-        return {
-          standardItemId: masterId,
-          standardItemName: customMatch.name,
-          displayNameKo: customMatch.display_name_ko,
-          examType: customMatch.exam_type || customMatch.category,
-          organTags: customMatch.organ_tags,
-          confidence: 100,
-          method: 'exact',
-          matchedAgainst: customMatch.name,
-        };
-      }
+      console.log(`📍 Custom item matched: "${customMatch.name}" → ${customMatch.id}`);
+      return {
+        standardItemId: customMatch.id,
+        standardItemName: customMatch.name,
+        displayNameKo: customMatch.display_name_ko,
+        examType: customMatch.exam_type || customMatch.category,
+        organTags: customMatch.organ_tags,
+        confidence: 100,
+        method: 'exact',
+        matchedAgainst: customMatch.name,
+      };
     }
   }
 
@@ -514,17 +405,38 @@ export async function registerNewAlias(
 ): Promise<boolean> {
   const client = supabase || (await createServerClient());
 
-  // standard_item_id 조회 (마스터 테이블에서)
-  const { data: item } = await client
+  // standard_item_id 조회 (마스터 테이블에서 먼저, 없으면 유저 커스텀에서)
+  let itemId: string | null = null;
+
+  const { data: masterItem } = await client
     .from('standard_items_master')
     .select('id')
     .ilike('name', canonicalName)
     .single();
 
-  if (!item) {
+  if (masterItem) {
+    itemId = masterItem.id;
+  } else if (userId) {
+    // 마스터에 없으면 유저 커스텀 항목에서 조회
+    const { data: customItem } = await client
+      .from('user_standard_items')
+      .select('id')
+      .eq('user_id', userId)
+      .is('master_item_id', null)
+      .ilike('name', canonicalName)
+      .single();
+
+    if (customItem) {
+      itemId = customItem.id;
+    }
+  }
+
+  if (!itemId) {
     console.error(`Cannot register alias: standard item ${canonicalName} not found`);
     return false;
   }
+
+  const item = { id: itemId };
 
   // 사용자가 있으면 사용자 테이블에 저장
   if (userId) {
@@ -571,8 +483,8 @@ export async function registerNewAlias(
 
 /**
  * 신규 항목 등록
- * 항상 standard_items_master에 저장 (test_results FK가 참조하는 테이블)
- * user_standard_items는 기존 항목의 사용자별 오버라이드 용도
+ * userId가 있으면 user_standard_items에 커스텀 항목으로 저장 (마스터 오염 방지)
+ * userId가 없으면 standard_items_master에 저장 (관리자용)
  */
 export async function registerNewStandardItem(
   item: {
@@ -583,13 +495,11 @@ export async function registerNewStandardItem(
     organTags: string[];
   },
   supabase?: SupabaseClientType,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _userId?: string
+  userId?: string
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  // 읽기는 전달받은 클라이언트 사용 (RLS SELECT 허용)
   const readClient = supabase || (await createServerClient());
 
-  // 동일 이름 항목이 이미 존재하는지 확인 (name 또는 display_name_ko)
+  // 동일 이름 항목이 이미 마스터에 존재하는지 확인
   const { data: existingByName } = await readClient
     .from('standard_items_master')
     .select('id')
@@ -600,7 +510,7 @@ export async function registerNewStandardItem(
     return { success: true, id: existingByName.id };
   }
 
-  // 한글명으로도 중복 체크 (AI가 영문명을 다르게 추천해도 한글명이 같으면 중복)
+  // 한글명으로도 마스터 중복 체크
   if (item.displayNameKo) {
     const { data: existingByKo } = await readClient
       .from('standard_items_master')
@@ -613,8 +523,63 @@ export async function registerNewStandardItem(
     }
   }
 
-  // standard_items_master에 저장 (test_results FK 호환)
+  // userId가 있으면 user_standard_items에 커스텀 항목으로 저장
+  if (userId) {
+    // 동일 이름이 이미 유저 커스텀에 있는지 확인
+    const { data: existingCustom } = await readClient
+      .from('user_standard_items')
+      .select('id')
+      .eq('user_id', userId)
+      .is('master_item_id', null)
+      .ilike('name', item.name)
+      .single();
+
+    if (existingCustom) {
+      return { success: true, id: existingCustom.id };
+    }
+
+    // 한글명으로도 유저 커스텀 중복 체크
+    if (item.displayNameKo) {
+      const { data: existingCustomByKo } = await readClient
+        .from('user_standard_items')
+        .select('id')
+        .eq('user_id', userId)
+        .is('master_item_id', null)
+        .ilike('display_name_ko', item.displayNameKo)
+        .single();
+
+      if (existingCustomByKo) {
+        return { success: true, id: existingCustomByKo.id };
+      }
+    }
+
+    // user_standard_items에 커스텀 항목 삽입
+    const { data, error } = await readClient
+      .from('user_standard_items')
+      .insert({
+        user_id: userId,
+        master_item_id: null,
+        name: item.name,
+        display_name_ko: item.displayNameKo,
+        default_unit: item.unit,
+        category: item.examType,
+        exam_type: item.examType,
+        organ_tags: item.organTags,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    clearCacheV3();
+    return { success: true, id: data.id };
+  }
+
+  // userId가 없으면 standard_items_master에 저장 (관리자용)
   // RLS 정책이 service_role만 쓰기를 허용하므로 서비스 클라이언트 사용
+  const { createServiceClient } = await import('@/lib/supabase/service');
   let serviceClient;
   try {
     serviceClient = createServiceClient();
@@ -640,7 +605,6 @@ export async function registerNewStandardItem(
     return { success: false, error: error.message };
   }
 
-  // 캐시 무효화
   clearCacheV3();
   return { success: true, id: data.id };
 }

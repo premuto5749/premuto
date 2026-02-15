@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { validateStandardItemIds, resolveStandardItems } from '@/lib/api/item-resolver'
 import type { BatchSaveRequest } from '@/types'
 import { parseValue } from '@/lib/ocr/value-parser'
 import { triggerOcrSourceDriveBackupFromStaging } from '@/lib/google-drive-upload'
@@ -149,25 +150,14 @@ export async function POST(request: NextRequest) {
 
       console.log(`📊 Deduplicated: ${results.length} → ${testResultsToInsert.length} items`)
 
-      // 2.5. standard_item_id가 실제 standard_items_master에 존재하는지 검증
-      // user_standard_items의 커스텀 항목 ID가 유입되면 FK 제약 위반 발생 방지
+      // 2.5. standard_item_id가 실제로 존재하는지 검증 (마스터 + 유저 커스텀 양쪽)
       const uniqueItemIds = [...new Set(testResultsToInsert.map(r => r.standard_item_id))]
-      const { data: validItems, error: validItemsError } = await supabase
-        .from('standard_items_master')
-        .select('id')
-        .in('id', uniqueItemIds)
-
-      if (validItemsError) {
-        console.error('❌ Failed to validate standard_item_ids:', validItemsError)
-        throw new Error(`Failed to validate standard items: ${validItemsError.message}`)
-      }
-
-      const validIdSet = new Set((validItems || []).map(item => item.id))
-      const invalidIds = uniqueItemIds.filter(id => !validIdSet.has(id))
+      const { validIds: validIdSet, invalidIds } = await validateStandardItemIds(
+        uniqueItemIds, user.id, supabase
+      )
 
       if (invalidIds.length > 0) {
-        console.warn(`⚠️ Filtering out ${invalidIds.length} items with invalid standard_item_id (not in standard_items_master): ${invalidIds.join(', ')}`)
-        // FK 위반을 방지하기 위해 유효하지 않은 ID를 가진 결과 제거
+        console.warn(`⚠️ Filtering out ${invalidIds.length} items with invalid standard_item_id: ${invalidIds.join(', ')}`)
         const filteredResults = testResultsToInsert.filter(r => validIdSet.has(r.standard_item_id))
         if (filteredResults.length === 0) {
           throw new Error('모든 항목의 standard_item_id가 유효하지 않습니다')
@@ -293,12 +283,7 @@ export async function GET(request: NextRequest) {
           source_filename,
           ocr_raw_name,
           mapping_confidence,
-          user_verified,
-          standard_items_master (
-            name,
-            display_name_ko,
-            category
-          )
+          user_verified
         )
       `)
       .eq('batch_upload_id', batchId)
@@ -310,6 +295,29 @@ export async function GET(request: NextRequest) {
         { error: 'Failed to fetch batch results' },
         { status: 500 }
       )
+    }
+
+    // 항목 정보 resolve
+    if (records) {
+      const allItemIds: string[] = []
+      for (const record of records) {
+        const results = record.test_results as { standard_item_id: string | null }[]
+        for (const r of results || []) {
+          if (r.standard_item_id) allItemIds.push(r.standard_item_id)
+        }
+      }
+
+      const resolvedMap = await resolveStandardItems(allItemIds, user.id, supabase)
+
+      for (const record of records) {
+        const results = record.test_results as { standard_item_id: string | null }[]
+        record.test_results = results.map(r => ({
+          ...r,
+          standard_items_master: r.standard_item_id
+            ? resolvedMap.get(r.standard_item_id) ?? null
+            : null,
+        })) as unknown as typeof record.test_results
+      }
     }
 
     return NextResponse.json({

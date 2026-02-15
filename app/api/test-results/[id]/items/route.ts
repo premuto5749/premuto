@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { resolveStandardItems } from '@/lib/api/item-resolver'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -70,15 +71,7 @@ export async function POST(
         ref_text: ref_text || null,
         status: status || 'Unknown'
       })
-      .select(`
-        *,
-        standard_items_master (
-          id,
-          name,
-          display_name_ko,
-          default_unit
-        )
-      `)
+      .select('*')
       .single()
 
     if (error) {
@@ -89,9 +82,18 @@ export async function POST(
       )
     }
 
+    // 항목 정보 resolve (마스터 + 유저 커스텀 양쪽)
+    const resolvedMap = await resolveStandardItems(
+      [standard_item_id], user.id, supabase
+    )
+    const enrichedData = {
+      ...data,
+      standard_items_master: resolvedMap.get(standard_item_id) ?? null,
+    }
+
     return NextResponse.json({
       success: true,
-      data
+      data: enrichedData
     })
 
   } catch (error) {
