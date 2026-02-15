@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { Camera, X, Loader2, Image as ImageIcon } from 'lucide-react'
+import { Camera, X, Loader2, Image as ImageIcon, Repeat } from 'lucide-react'
 import type { LogCategory, DailyLogInput, MedicinePreset, SnackPreset } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
@@ -686,9 +686,10 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                         const idx = units.indexOf(snackUnit)
                         setSnackUnit(units[(idx + 1) % units.length])
                       }}
-                      className="flex items-center justify-center min-w-[48px] px-3 bg-muted hover:bg-muted/80 rounded-md text-sm font-medium transition-colors"
+                      className="flex items-center justify-center gap-1 min-w-[56px] px-3 bg-muted hover:bg-muted/80 rounded-md text-sm font-medium transition-colors border border-border"
                     >
                       {snackUnit}
+                      <Repeat className="w-3 h-3 text-muted-foreground" />
                     </button>
                   </div>
                 </div>
