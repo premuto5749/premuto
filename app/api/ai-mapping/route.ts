@@ -54,9 +54,12 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // 현재 사용자 ID 가져오기
-    const { data: { user } } = await supabase.auth.getUser()
-    const userId = user?.id
+    // 현재 사용자 인증 확인
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
+    }
+    const userId = user.id
 
     // 1. DB에서 모든 표준 항목 가져오기
     const { data: standardItems, error: standardItemsError } = await supabase
