@@ -259,6 +259,9 @@ export default function DailyLogPage() {
       if (stats.medicine_count > 0) {
         lines.push(`💊 약: ${stats.medicine_count}회`)
       }
+      if (stats.snack_count > 0) {
+        lines.push(`🍪 간식: ${stats.snack_count}회${stats.total_snack_amount > 0 ? ` (${formatNumber(stats.total_snack_amount)}g)` : ''}`)
+      }
       if (stats.poop_count > 0) {
         lines.push(`💩 배변: ${stats.poop_count}회`)
       }
@@ -298,6 +301,11 @@ export default function DailyLogPage() {
       // 약 이름
       if (log.medicine_name) {
         content += ` (${log.medicine_name})`
+      }
+
+      // 간식 이름
+      if (log.snack_name) {
+        content += ` (${log.snack_name})`
       }
 
       // 메모

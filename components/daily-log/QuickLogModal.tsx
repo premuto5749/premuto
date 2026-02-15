@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { Camera, X, Loader2, Image as ImageIcon } from 'lucide-react'
-import type { LogCategory, DailyLogInput, MedicinePreset } from '@/types'
+import type { LogCategory, DailyLogInput, MedicinePreset, SnackPreset } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -52,6 +52,11 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const [medicineInputMode, setMedicineInputMode] = useState<'preset' | 'manual'>('preset')
   const [medicinePresets, setMedicinePresets] = useState<MedicinePreset[]>([])
   const [selectedPreset, setSelectedPreset] = useState<MedicinePreset | null>(null)
+  // 간식 상태
+  const [snackInputMode, setSnackInputMode] = useState<'preset' | 'manual'>('preset')
+  const [snackPresets, setSnackPresets] = useState<SnackPreset[]>([])
+  const [selectedSnackPreset, setSelectedSnackPreset] = useState<SnackPreset | null>(null)
+  const [snackName, setSnackName] = useState('')
   const [logTime, setLogTime] = useState(getCurrentTime())
   const [logDate, setLogDate] = useState(getCurrentDate())
   const [photos, setPhotos] = useState<File[]>([])
@@ -99,27 +104,31 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     }
   }, [photoPreviews])
 
-  // 약 프리셋 로드 (현재 선택된 반려동물에 맞는 프리셋만)
+  // 약/간식 프리셋 로드 (현재 선택된 반려동물에 맞는 프리셋만)
   useEffect(() => {
     const fetchPresets = async () => {
       try {
-        // pet_id가 있으면 해당 반려동물용 + 전체 공통 프리셋만 가져옴
-        const url = petId
-          ? `/api/medicine-presets?pet_id=${petId}`
-          : '/api/medicine-presets'
-        const res = await fetch(url)
-        if (res.ok) {
-          const data = await res.json()
+        const petQuery = petId ? `?pet_id=${petId}` : ''
+        const [medRes, snackRes] = await Promise.all([
+          fetch(`/api/medicine-presets${petQuery}`),
+          fetch(`/api/snack-presets${petQuery}`)
+        ])
+        if (medRes.ok) {
+          const data = await medRes.json()
           setMedicinePresets(data.data || [])
         }
+        if (snackRes.ok) {
+          const data = await snackRes.json()
+          setSnackPresets(data.data || [])
+        }
       } catch (err) {
-        console.error('Failed to fetch medicine presets:', err)
+        console.error('Failed to fetch presets:', err)
       }
     }
     fetchPresets()
   }, [petId])
 
-  const categories: LogCategory[] = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing']
+  const categories: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine']
 
   const resetForm = () => {
     setSelectedCategory(null)
@@ -131,6 +140,9 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setMedicineDosageUnit('정')
     setMedicineInputMode('preset')
     setSelectedPreset(null)
+    setSnackInputMode('preset')
+    setSelectedSnackPreset(null)
+    setSnackName('')
     setLogTime(getCurrentTime())
     setLogDate(defaultDate || getCurrentDate())
     // 사진 미리보기 URL 정리
@@ -289,6 +301,22 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         }
       }
 
+      // 간식 이름 조합
+      let fullSnackName: string | null = null
+      let snackCalories: number | null = null
+      if (selectedCategory === 'snack') {
+        if (snackInputMode === 'preset' && selectedSnackPreset) {
+          fullSnackName = selectedSnackPreset.name
+          if (selectedSnackPreset.calories_per_unit && amount) {
+            const inputAmount = parseFloat(amount)
+            const baseAmount = selectedSnackPreset.default_amount || 1
+            snackCalories = Math.round((inputAmount / baseAmount) * selectedSnackPreset.calories_per_unit * 100) / 100
+          }
+        } else if (snackInputMode === 'manual' && snackName) {
+          fullSnackName = snackName
+        }
+      }
+
       const logData: DailyLogInput = {
         category: selectedCategory,
         pet_id: petId || null,
@@ -299,6 +327,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         memo: memo || null,
         photo_urls: photoUrls,
         medicine_name: fullMedicineName,
+        snack_name: fullSnackName,
+        calories: snackCalories,
       }
 
       const response = await fetch('/api/daily-logs', {
@@ -437,9 +467,17 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                   </div>
                 </div>
 
-                {/* 페이지 2: 체중 */}
+                {/* 페이지 2: 호흡수 + 체중 */}
                 <div className="min-w-full">
                   <div className="grid grid-cols-3 gap-3 py-4">
+                    <button
+                      onClick={() => handleCategoryClick('breathing')}
+                      disabled={isSubmitting}
+                      className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
+                    >
+                      <span className="text-3xl mb-2">{LOG_CATEGORY_CONFIG.breathing.icon}</span>
+                      <span className="text-sm font-medium">{LOG_CATEGORY_CONFIG.breathing.label}</span>
+                    </button>
                     <button
                       onClick={() => handleCategoryClick('weight')}
                       disabled={isSubmitting}
@@ -554,8 +592,98 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </div>
             )}
 
-            {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/체중 제외) */}
-            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && selectedCategory !== 'weight' && (
+            {/* 간식 선택 (간식일 때만) */}
+            {selectedCategory === 'snack' && (
+              <div className="space-y-3">
+                {/* 프리셋/직접입력 탭 */}
+                <Tabs value={snackInputMode} onValueChange={(v) => {
+                  setSnackInputMode(v as 'preset' | 'manual')
+                  setSelectedSnackPreset(null)
+                  setSnackName('')
+                  setAmount('')
+                }}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="preset">프리셋 선택</TabsTrigger>
+                    <TabsTrigger value="manual">직접 입력</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                {/* 프리셋 선택 모드 */}
+                {snackInputMode === 'preset' && (
+                  <div>
+                    {snackPresets.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {snackPresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => {
+                              if (selectedSnackPreset?.id === preset.id) {
+                                setSelectedSnackPreset(null)
+                                setAmount('')
+                              } else {
+                                setSelectedSnackPreset(preset)
+                                if (preset.default_amount) {
+                                  setAmount(preset.default_amount.toString())
+                                }
+                              }
+                            }}
+                            className={`p-3 rounded-lg border-2 text-left transition-all ${
+                              selectedSnackPreset?.id === preset.id
+                                ? 'border-primary bg-primary/10'
+                                : 'border-muted hover:border-primary/50'
+                            }`}
+                          >
+                            <div className="font-medium text-sm">{preset.name}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {preset.default_amount && `${preset.default_amount}${preset.unit}`}
+                              {preset.calories_per_unit && ` · ${preset.calories_per_unit}kcal`}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground text-sm">
+                        등록된 간식이 없습니다.<br />
+                        간식/약 관리에서 간식을 추가하세요.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 직접 입력 모드 */}
+                {snackInputMode === 'manual' && (
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">간식 이름</label>
+                    <Input
+                      placeholder="예: 츄르, 닭가슴살"
+                      value={snackName}
+                      onChange={(e) => setSnackName(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {/* 급여량 입력 (프리셋/직접 공통) */}
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">급여량</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="간식량"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="flex-1"
+                    />
+                    <span className="flex items-center text-muted-foreground px-3 bg-muted rounded-md">
+                      {selectedSnackPreset?.unit || 'g'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/체중/간식 제외) */}
+            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && selectedCategory !== 'weight' && selectedCategory !== 'snack' && (
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
                   {LOG_CATEGORY_CONFIG[selectedCategory].placeholder || '양'}

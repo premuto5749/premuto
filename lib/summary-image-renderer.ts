@@ -41,10 +41,10 @@ function buildStatItems(stats: DailyStats): StatItem[] {
       count: stats.water_count,
     },
     {
-      icon: LOG_CATEGORY_CONFIG.medicine.icon,
-      label: '약',
-      value: stats.medicine_count > 0 ? `${stats.medicine_count}회` : '-',
-      count: stats.medicine_count,
+      icon: LOG_CATEGORY_CONFIG.snack.icon,
+      label: '간식',
+      value: stats.snack_count > 0 ? `${stats.snack_count}회` : '-',
+      count: stats.snack_count,
     },
     {
       icon: LOG_CATEGORY_CONFIG.poop.icon,
@@ -57,6 +57,12 @@ function buildStatItems(stats: DailyStats): StatItem[] {
       label: '배뇨',
       value: stats.pee_count > 0 ? `${stats.pee_count}회` : '-',
       count: stats.pee_count,
+    },
+    {
+      icon: LOG_CATEGORY_CONFIG.medicine.icon,
+      label: '약',
+      value: stats.medicine_count > 0 ? `${stats.medicine_count}회` : '-',
+      count: stats.medicine_count,
     },
     {
       icon: LOG_CATEGORY_CONFIG.breathing.icon,
@@ -206,10 +212,10 @@ export async function renderSummaryImage(options: RenderOptions): Promise<Blob> 
   ctx.drawImage(tintedLogo, outputWidth - padding - logoSize, padding)
   clearShadow()
 
-  // 하단 스탯 영역 (3x2 그리드)
+  // 하단 스탯 영역 (3xN 그리드)
   const statItems = buildStatItems(stats)
   const cols = 3
-  const rows = 2
+  const rows = Math.ceil(statItems.length / cols)
   const rowHeight = outputWidth * 0.13
   const statAreaBottom = canvasHeight - padding
   const statAreaTop = statAreaBottom - rows * rowHeight

@@ -199,7 +199,7 @@ export interface BatchSaveResponse {
 // 일일 건강 기록 (Daily Log) 타입
 // ============================================
 
-export type LogCategory = 'meal' | 'water' | 'medicine' | 'poop' | 'pee' | 'breathing' | 'weight'
+export type LogCategory = 'meal' | 'water' | 'snack' | 'medicine' | 'poop' | 'pee' | 'breathing' | 'weight'
 
 export interface DailyLog {
   id: string
@@ -213,6 +213,8 @@ export interface DailyLog {
   memo: string | null        // 메모
   photo_urls: string[]       // 사진 URL 배열 (최대 5장)
   medicine_name: string | null  // 약 이름 (category가 medicine일 때)
+  snack_name: string | null     // 간식 이름 (category가 snack일 때)
+  calories: number | null       // 칼로리 (category가 snack일 때)
   created_at: string
   updated_at: string
 }
@@ -227,6 +229,8 @@ export interface DailyLogInput {
   memo?: string | null
   photo_urls?: string[]      // 사진 URL 배열 (최대 5장)
   medicine_name?: string | null
+  snack_name?: string | null
+  calories?: number | null
 }
 
 export interface DailyStats {
@@ -242,6 +246,9 @@ export interface DailyStats {
   pee_count: number
   avg_breathing_rate: number | null
   breathing_count: number
+  snack_count: number
+  total_snack_amount: number
+  total_snack_calories: number
 }
 
 // ============================================
@@ -282,6 +289,28 @@ export interface MedicinePresetInput {
   preset_name: string
   pet_id?: string | null     // null = 모든 반려동물, string = 특정 반려동물
   medicines: Medicine[]
+}
+
+export interface SnackPreset {
+  id: string
+  user_id: string
+  pet_id: string | null
+  name: string
+  default_amount: number | null
+  calories_per_unit: number | null
+  unit: string
+  memo: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SnackPresetInput {
+  name: string
+  pet_id?: string | null
+  default_amount?: number | null
+  calories_per_unit?: number | null
+  unit?: string
+  memo?: string | null
 }
 
 // ============================================
@@ -443,6 +472,13 @@ export const LOG_CATEGORY_CONFIG: Record<LogCategory, {
     unit: 'ml',
     placeholder: '음수량 (ml)',
     color: 'bg-blue-100 text-blue-700'
+  },
+  snack: {
+    label: '간식',
+    icon: '🍪',
+    unit: 'g',
+    placeholder: '간식량 (g)',
+    color: 'bg-pink-100 text-pink-700'
   },
   medicine: {
     label: '약',
