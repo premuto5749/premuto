@@ -476,8 +476,8 @@ export const LOG_CATEGORY_CONFIG: Record<LogCategory, {
   snack: {
     label: '간식',
     icon: '🍪',
-    unit: 'g',
-    placeholder: '간식량 (g)',
+    unit: '개',
+    placeholder: '간식량',
     color: 'bg-pink-100 text-pink-700'
   },
   medicine: {

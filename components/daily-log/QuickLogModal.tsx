@@ -57,6 +57,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const [snackPresets, setSnackPresets] = useState<SnackPreset[]>([])
   const [selectedSnackPreset, setSelectedSnackPreset] = useState<SnackPreset | null>(null)
   const [snackName, setSnackName] = useState('')
+  const [snackUnit, setSnackUnit] = useState('개')
   const [logTime, setLogTime] = useState(getCurrentTime())
   const [logDate, setLogDate] = useState(getCurrentDate())
   const [photos, setPhotos] = useState<File[]>([])
@@ -128,7 +129,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     fetchPresets()
   }, [petId])
 
-  const categories: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine']
+  const categories: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'breathing']
 
   const resetForm = () => {
     setSelectedCategory(null)
@@ -143,6 +144,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setSnackInputMode('preset')
     setSelectedSnackPreset(null)
     setSnackName('')
+    setSnackUnit('개')
     setLogTime(getCurrentTime())
     setLogDate(defaultDate || getCurrentDate())
     // 사진 미리보기 URL 정리
@@ -323,7 +325,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         logged_at: getLoggedAtISO(),
         amount: amount ? parseFloat(amount) : (selectedCategory === 'poop' || selectedCategory === 'pee' ? 1 : null),
         leftover_amount: selectedCategory === 'meal' ? (leftoverAmount ? parseFloat(leftoverAmount) : 0) : null,
-        unit: config.unit,
+        unit: selectedCategory === 'snack' ? snackUnit : config.unit,
         memo: memo || null,
         photo_urls: photoUrls,
         medicine_name: fullMedicineName,
@@ -467,16 +469,16 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                   </div>
                 </div>
 
-                {/* 페이지 2: 호흡수 + 체중 */}
+                {/* 페이지 2: 약 + 체중 */}
                 <div className="min-w-full">
                   <div className="grid grid-cols-3 gap-3 py-4">
                     <button
-                      onClick={() => handleCategoryClick('breathing')}
+                      onClick={() => handleCategoryClick('medicine')}
                       disabled={isSubmitting}
                       className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
                     >
-                      <span className="text-3xl mb-2">{LOG_CATEGORY_CONFIG.breathing.icon}</span>
-                      <span className="text-sm font-medium">{LOG_CATEGORY_CONFIG.breathing.label}</span>
+                      <span className="text-3xl mb-2">{LOG_CATEGORY_CONFIG.medicine.icon}</span>
+                      <span className="text-sm font-medium">{LOG_CATEGORY_CONFIG.medicine.label}</span>
                     </button>
                     <button
                       onClick={() => handleCategoryClick('weight')}
@@ -601,6 +603,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                   setSelectedSnackPreset(null)
                   setSnackName('')
                   setAmount('')
+                  setSnackUnit('개')
                 }}>
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="preset">프리셋 선택</TabsTrigger>
@@ -621,8 +624,10 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                               if (selectedSnackPreset?.id === preset.id) {
                                 setSelectedSnackPreset(null)
                                 setAmount('')
+                                setSnackUnit('개')
                               } else {
                                 setSelectedSnackPreset(preset)
+                                setSnackUnit(preset.unit || '개')
                                 if (preset.default_amount) {
                                   setAmount(preset.default_amount.toString())
                                 }
@@ -674,9 +679,17 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                       onChange={(e) => setAmount(e.target.value)}
                       className="flex-1"
                     />
-                    <span className="flex items-center text-muted-foreground px-3 bg-muted rounded-md">
-                      {selectedSnackPreset?.unit || 'g'}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const units = ['개', '봉', 'g', 'ml']
+                        const idx = units.indexOf(snackUnit)
+                        setSnackUnit(units[(idx + 1) % units.length])
+                      }}
+                      className="flex items-center justify-center min-w-[48px] px-3 bg-muted hover:bg-muted/80 rounded-md text-sm font-medium transition-colors"
+                    >
+                      {snackUnit}
+                    </button>
                   </div>
                 </div>
               </div>

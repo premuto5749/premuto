@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react'
-import type { DailyLog } from '@/types'
+import type { DailyLog, MedicinePreset, SnackPreset } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
 import { formatNumber } from '@/lib/utils'
@@ -34,9 +35,10 @@ interface TimelineProps {
   logs: DailyLog[]
   onDelete?: (id: string) => void
   onUpdate?: (id: string, data: Partial<DailyLog>) => Promise<void>
+  petId?: string
 }
 
-export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
+export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -56,9 +58,41 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const editCameraInputRef = useRef<HTMLInputElement>(null)
   const editGalleryInputRef = useRef<HTMLInputElement>(null)
+  // 프리셋 상태 (수정 모드에서 사용)
+  const [medicinePresets, setMedicinePresets] = useState<MedicinePreset[]>([])
+  const [snackPresets, setSnackPresets] = useState<SnackPreset[]>([])
+  const [editMedicineInputMode, setEditMedicineInputMode] = useState<'preset' | 'manual'>('manual')
+  const [editSnackInputMode, setEditSnackInputMode] = useState<'preset' | 'manual'>('manual')
+  const [selectedMedicinePreset, setSelectedMedicinePreset] = useState<MedicinePreset | null>(null)
+  const [selectedSnackEditPreset, setSelectedSnackEditPreset] = useState<SnackPreset | null>(null)
   // Lightbox carousel state
   const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([])
   const [lightboxIndex, setLightboxIndex] = useState(0)
+
+  // 프리셋 로드
+  useEffect(() => {
+    if (!petId) return
+    const fetchPresets = async () => {
+      try {
+        const petQuery = `?pet_id=${petId}`
+        const [medRes, snackRes] = await Promise.all([
+          fetch(`/api/medicine-presets${petQuery}`),
+          fetch(`/api/snack-presets${petQuery}`)
+        ])
+        if (medRes.ok) {
+          const data = await medRes.json()
+          setMedicinePresets(data.data || [])
+        }
+        if (snackRes.ok) {
+          const data = await snackRes.json()
+          setSnackPresets(data.data || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch presets:', err)
+      }
+    }
+    fetchPresets()
+  }, [petId])
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -158,11 +192,19 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setEditPhotos(selectedLog.photo_urls || [])
     setNewPhotoFiles([])
     setNewPhotoPreviews([])
+    setEditMedicineInputMode('manual')
+    setEditSnackInputMode('manual')
+    setSelectedMedicinePreset(null)
+    setSelectedSnackEditPreset(null)
     setIsEditing(true)
   }
 
   const handleCancelEdit = () => {
     setIsEditing(false)
+    setEditMedicineInputMode('manual')
+    setEditSnackInputMode('manual')
+    setSelectedMedicinePreset(null)
+    setSelectedSnackEditPreset(null)
     if (selectedLog) {
       setEditAmount(selectedLog.amount?.toString() || '')
       setEditLeftoverAmount(selectedLog.leftover_amount?.toString() || '')
@@ -340,6 +382,11 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                   <div className="flex-1 py-3 px-2">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{config.label}</span>
+                      {log.category === 'snack' && log.snack_name && (
+                        <span className="text-sm text-pink-600">
+                          {log.snack_name}
+                        </span>
+                      )}
                       {formatValue(log) && (
                         <span className="text-sm text-muted-foreground">
                           {formatValue(log)}
@@ -348,11 +395,6 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                       {log.category === 'medicine' && log.medicine_name && (
                         <span className="text-sm text-purple-600">
                           {log.medicine_name}
-                        </span>
-                      )}
-                      {log.category === 'snack' && log.snack_name && (
-                        <span className="text-sm text-pink-600">
-                          {log.snack_name}
                         </span>
                       )}
                       {/* 사진 아이콘 표시 */}
@@ -498,27 +540,146 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
                   {/* 약 이름 (약인 경우만) */}
                   {selectedLog.category === 'medicine' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-medicine">약 이름</Label>
-                      <Input
-                        id="edit-medicine"
-                        value={editMedicineName}
-                        onChange={(e) => setEditMedicineName(e.target.value)}
-                        placeholder="약 이름 입력"
-                      />
+                    <div className="space-y-3">
+                      <Tabs value={editMedicineInputMode} onValueChange={(v) => {
+                        setEditMedicineInputMode(v as 'preset' | 'manual')
+                        setSelectedMedicinePreset(null)
+                        if (v === 'manual') {
+                          setEditMedicineName(selectedLog.medicine_name || '')
+                        }
+                      }}>
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="preset">프리셋 선택</TabsTrigger>
+                          <TabsTrigger value="manual">직접 입력</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+
+                      {editMedicineInputMode === 'preset' && (
+                        <div>
+                          {medicinePresets.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              {medicinePresets.map((preset) => (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  onClick={() => {
+                                    if (selectedMedicinePreset?.id === preset.id) {
+                                      setSelectedMedicinePreset(null)
+                                      setEditMedicineName(selectedLog.medicine_name || '')
+                                    } else {
+                                      setSelectedMedicinePreset(preset)
+                                      const medicineList = preset.medicines.map(m =>
+                                        `${m.name} ${m.dosage}${m.dosage_unit === 'tablet' ? '정' : m.dosage_unit}`
+                                      ).join(', ')
+                                      setEditMedicineName(`${preset.preset_name} (${medicineList})`)
+                                    }
+                                  }}
+                                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                    selectedMedicinePreset?.id === preset.id
+                                      ? 'border-primary bg-primary/10'
+                                      : 'border-muted hover:border-primary/50'
+                                  }`}
+                                >
+                                  <div className="font-medium text-sm">{preset.preset_name}</div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {preset.medicines.map(m => m.name).join(', ')}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4 text-muted-foreground text-sm">
+                              등록된 프리셋이 없습니다.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {editMedicineInputMode === 'manual' && (
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-medicine">약 이름</Label>
+                          <Input
+                            id="edit-medicine"
+                            value={editMedicineName}
+                            onChange={(e) => setEditMedicineName(e.target.value)}
+                            placeholder="약 이름 입력"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* 간식 이름 (간식인 경우만) */}
                   {selectedLog.category === 'snack' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-snack">간식 이름</Label>
-                      <Input
-                        id="edit-snack"
-                        value={editSnackName}
-                        onChange={(e) => setEditSnackName(e.target.value)}
-                        placeholder="간식 이름 입력"
-                      />
+                    <div className="space-y-3">
+                      <Tabs value={editSnackInputMode} onValueChange={(v) => {
+                        setEditSnackInputMode(v as 'preset' | 'manual')
+                        setSelectedSnackEditPreset(null)
+                        if (v === 'manual') {
+                          setEditSnackName(selectedLog.snack_name || '')
+                          setEditAmount(selectedLog.amount?.toString() || '')
+                        }
+                      }}>
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="preset">프리셋 선택</TabsTrigger>
+                          <TabsTrigger value="manual">직접 입력</TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+
+                      {editSnackInputMode === 'preset' && (
+                        <div>
+                          {snackPresets.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              {snackPresets.map((preset) => (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  onClick={() => {
+                                    if (selectedSnackEditPreset?.id === preset.id) {
+                                      setSelectedSnackEditPreset(null)
+                                      setEditSnackName(selectedLog.snack_name || '')
+                                      setEditAmount(selectedLog.amount?.toString() || '')
+                                    } else {
+                                      setSelectedSnackEditPreset(preset)
+                                      setEditSnackName(preset.name)
+                                      if (preset.default_amount) {
+                                        setEditAmount(preset.default_amount.toString())
+                                      }
+                                    }
+                                  }}
+                                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                                    selectedSnackEditPreset?.id === preset.id
+                                      ? 'border-primary bg-primary/10'
+                                      : 'border-muted hover:border-primary/50'
+                                  }`}
+                                >
+                                  <div className="font-medium text-sm">{preset.name}</div>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {preset.default_amount && `${preset.default_amount}${preset.unit}`}
+                                    {preset.calories_per_unit && ` · ${preset.calories_per_unit}kcal`}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4 text-muted-foreground text-sm">
+                              등록된 간식이 없습니다.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {editSnackInputMode === 'manual' && (
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-snack">간식 이름</Label>
+                          <Input
+                            id="edit-snack"
+                            value={editSnackName}
+                            onChange={(e) => setEditSnackName(e.target.value)}
+                            placeholder="간식 이름 입력"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
