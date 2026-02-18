@@ -215,12 +215,23 @@ export async function uploadOcrSourceToDrive(
  * 일일기록 사진 → Drive 백업 트리거
  * Supabase Storage에서 다운로드 → Drive로 업로드
  */
+const CATEGORY_LABEL_KO: Record<string, string> = {
+  meal: '식사',
+  water: '음수',
+  snack: '간식',
+  medicine: '약',
+  poop: '배변',
+  pee: '배뇨',
+  breathing: '호흡수',
+}
+
 export async function triggerDailyLogDriveBackup(
   userId: string,
   petId: string,
   loggedAt: string,
   photoUrls: string[],
-  logId: string
+  logId: string,
+  category?: string
 ): Promise<void> {
   try {
     // Drive 연결 확인
@@ -241,10 +252,11 @@ export async function triggerDailyLogDriveBackup(
 
     const BUCKET_NAME = 'daily-log-photos'
 
-    // Drive 파일명 생성: {날짜}_{시분}_{순번}.{확장자}
+    // Drive 파일명 생성: {날짜}_{시분}_{카테고리}_{순번}.{확장자}
     const dateStr = loggedAt.split('T')[0] || 'unknown-date'
     const timePart = loggedAt.includes('T') ? loggedAt.split('T')[1]?.slice(0, 5).replace(':', '') : ''
     const timeStr = timePart ? `_${timePart}` : ''
+    const categoryStr = category ? `_${CATEGORY_LABEL_KO[category] || category}` : ''
 
     for (let i = 0; i < photoUrls.length; i++) {
       const pathOrUrl = photoUrls[i]
@@ -267,9 +279,9 @@ export async function triggerDailyLogDriveBackup(
       const ext = origName.includes('.') ? origName.slice(origName.lastIndexOf('.')) : '.jpg'
       const mimeType = ext === '.png' ? 'image/png' : 'image/jpeg'
 
-      // Drive 파일명: 2025-12-08_1430_1.jpg
+      // Drive 파일명: 2025-12-08_1430_식사_1.jpg
       const seq = photoUrls.length > 1 ? `_${i + 1}` : ''
-      const driveFileName = `${dateStr}${timeStr}${seq}${ext}`
+      const driveFileName = `${dateStr}${timeStr}${categoryStr}${seq}${ext}`
 
       await uploadDailyLogPhotoToDrive(
         userId,

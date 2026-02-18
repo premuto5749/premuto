@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
     // Google Drive 백업 (waitUntil: 응답 즉시 반환 + 런타임 수명 연장으로 백업 보장)
     if (data.photo_urls?.length > 0 && pet_id) {
       waitUntil(
-        triggerDailyLogDriveBackup(user.id, pet_id, data.logged_at, data.photo_urls, data.id)
+        triggerDailyLogDriveBackup(user.id, pet_id, data.logged_at, data.photo_urls, data.id, data.category)
           .catch(err => console.error('[GoogleDrive] Daily log backup failed:', err))
       )
     }
