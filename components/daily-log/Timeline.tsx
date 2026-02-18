@@ -30,11 +30,37 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 
+// 타임라인에 표시할 항목 (산책은 시작/종료 분리)
+interface TimelineItem {
+  log: DailyLog
+  walkPhase?: 'start' | 'end' // walk 카테고리일 때만 설정
+  displayTime: string // 정렬 및 표시에 사용할 시간
+}
+
 interface TimelineProps {
   logs: DailyLog[]
   onDelete?: (id: string) => void
   onUpdate?: (id: string, data: Partial<DailyLog>) => Promise<void>
   petId?: string
+}
+
+function buildTimelineItems(logs: DailyLog[]): TimelineItem[] {
+  const items: TimelineItem[] = []
+  for (const log of logs) {
+    if (log.category === 'walk') {
+      // 산책 시작 항목
+      items.push({ log, walkPhase: 'start', displayTime: log.logged_at })
+      // 산책 종료 항목 (종료된 경우에만)
+      if (log.walk_end_at) {
+        items.push({ log, walkPhase: 'end', displayTime: log.walk_end_at })
+      }
+    } else {
+      items.push({ log, displayTime: log.logged_at })
+    }
+  }
+  // 시간순 정렬 (최신이 위)
+  items.sort((a, b) => new Date(b.displayTime).getTime() - new Date(a.displayTime).getTime())
+  return items
 }
 
 export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
@@ -99,7 +125,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     return `${hours}:${minutes}`
   }
 
-  const formatValue = (log: DailyLog) => {
+  const formatValue = (log: DailyLog, walkPhase?: 'start' | 'end') => {
     const config = LOG_CATEGORY_CONFIG[log.category]
 
     if (log.category === 'poop' || log.category === 'pee') {
@@ -111,8 +137,10 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     }
 
     if (log.category === 'walk') {
-      if (!log.walk_end_at) return '산책 중'
-      if (log.amount !== null && log.amount !== undefined) return `${formatNumber(log.amount)}분`
+      if (walkPhase === 'end' && log.amount !== null && log.amount !== undefined) {
+        return `${formatNumber(log.amount)}분`
+      }
+      if (walkPhase === 'start' && !log.walk_end_at) return '산책 중'
       return ''
     }
 
@@ -327,14 +355,19 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     )
   }
 
+  const timelineItems = buildTimelineItems(logs)
+
   return (
     <>
       <div className="space-y-3">
-        {logs.map((log) => {
+        {timelineItems.map((item) => {
+          const { log, walkPhase, displayTime } = item
           const config = LOG_CATEGORY_CONFIG[log.category]
+          const itemKey = walkPhase ? `${log.id}-${walkPhase}` : log.id
+          const walkLabel = walkPhase === 'start' ? '산책 시작' : walkPhase === 'end' ? '산책 종료' : null
           return (
             <Card
-              key={log.id}
+              key={itemKey}
               className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => handleOpenDetail(log)}
             >
@@ -342,8 +375,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                 <div className="flex items-center">
                   {/* 시간 */}
                   <div className="w-16 py-3 text-center text-muted-foreground border-r">
-                    <div className="text-[11px] leading-tight">{formatTime(log.logged_at).period}</div>
-                    <div className="text-sm leading-tight">{formatTime(log.logged_at).clock}</div>
+                    <div className="text-[11px] leading-tight">{formatTime(displayTime).period}</div>
+                    <div className="text-sm leading-tight">{formatTime(displayTime).clock}</div>
                   </div>
 
                   {/* 아이콘 */}
@@ -354,15 +387,15 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                   {/* 내용 */}
                   <div className="flex-1 py-3 px-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium">{config.label}</span>
+                      <span className="font-medium">{walkLabel || config.label}</span>
                       {log.category === 'snack' && log.snack_name && (
                         <span className="text-sm text-pink-600">
                           {log.snack_name}
                         </span>
                       )}
-                      {formatValue(log) && (
+                      {formatValue(log, walkPhase) && (
                         <span className="text-sm text-muted-foreground">
-                          {formatValue(log)}
+                          {formatValue(log, walkPhase)}
                         </span>
                       )}
                       {log.category === 'medicine' && log.medicine_name && (
