@@ -490,7 +490,18 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         const endAt = getLoggedAtISO()
         const startTime = new Date(activeWalk.logged_at).getTime()
         const endTime = new Date(endAt).getTime()
-        const durationMinutes = Math.max(1, Math.round((endTime - startTime) / 60000))
+
+        if (endTime <= startTime) {
+          toast({
+            title: '종료 시간 오류',
+            description: '종료 시간은 시작 시간 이후여야 합니다.',
+            variant: 'destructive',
+          })
+          setIsSubmitting(false)
+          return
+        }
+
+        const durationMinutes = Math.round((endTime - startTime) / 60000) || 1
 
         const response = await fetch('/api/daily-logs', {
           method: 'PATCH',
