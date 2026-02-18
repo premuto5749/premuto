@@ -70,11 +70,28 @@ function buildTimelineItems(logs: DailyLog[]): TimelineItem[] {
   // 산책 그룹 마킹: walk_id가 있는 활동과 해당 산책 시작/종료를 그룹화
   for (const item of items) {
     if (item.walkPhase) {
-      // 산책 시작/종료 항목
       item.walkGroupId = item.log.id
     } else if (item.log.walk_id) {
-      // 산책 중 기록된 활동
       item.walkGroupId = item.log.walk_id
+    }
+  }
+
+  // 산책 그룹 항목을 연속 배치 (중간에 끼인 비그룹 항목을 그룹 아래로 이동)
+  const walkGroupIds = new Set(items.filter(i => i.walkGroupId).map(i => i.walkGroupId!))
+  for (const gid of walkGroupIds) {
+    const indices = items.map((item, i) => item.walkGroupId === gid ? i : -1).filter(i => i >= 0)
+    if (indices.length <= 1) continue
+    const first = indices[0]
+    const last = indices[indices.length - 1]
+    // first~last 사이에 비그룹 항목이 있으면 그룹 뒤로 이동
+    const groupItems: TimelineItem[] = []
+    const nonGroupItems: TimelineItem[] = []
+    for (let i = first; i <= last; i++) {
+      if (items[i].walkGroupId === gid) groupItems.push(items[i])
+      else nonGroupItems.push(items[i])
+    }
+    if (nonGroupItems.length > 0) {
+      items.splice(first, last - first + 1, ...groupItems, ...nonGroupItems)
     }
   }
 
