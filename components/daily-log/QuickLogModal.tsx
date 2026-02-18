@@ -270,8 +270,9 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   // 날짜와 시간을 ISO 문자열로 변환 (한국 시간 KST, UTC+9 명시)
   const getLoggedAtISO = () => {
     // KST 타임존을 명시적으로 포함하여 시간대 변환 문제 방지
-    // 예: "2025-02-01T14:30:00+09:00"
-    return `${logDate}T${logTime}:00+09:00`
+    // 현재 초를 포함하여 같은 분 내 기록도 생성 순서 유지
+    const seconds = String(new Date().getSeconds()).padStart(2, '0')
+    return `${logDate}T${logTime}:${seconds}+09:00`
   }
 
   const handleSubmit = async () => {

@@ -58,8 +58,14 @@ function buildTimelineItems(logs: DailyLog[]): TimelineItem[] {
       items.push({ log, displayTime: log.logged_at })
     }
   }
-  // 시간순 정렬 (최신이 위)
-  items.sort((a, b) => new Date(b.displayTime).getTime() - new Date(a.displayTime).getTime())
+  // 시간순 정렬 (최신이 위), 동일 시간은 created_at으로 tiebreak
+  items.sort((a, b) => {
+    const timeDiff = new Date(b.displayTime).getTime() - new Date(a.displayTime).getTime()
+    if (timeDiff !== 0) return timeDiff
+    const aCreated = a.log.created_at ? new Date(a.log.created_at).getTime() : 0
+    const bCreated = b.log.created_at ? new Date(b.log.created_at).getTime() : 0
+    return bCreated - aCreated
+  })
 
   // 산책 그룹 마킹: walk_id가 있는 활동과 해당 산책 시작/종료를 그룹화
   for (const item of items) {
