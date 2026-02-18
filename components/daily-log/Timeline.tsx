@@ -34,6 +34,8 @@ import {
 interface TimelineItem {
   log: DailyLog
   walkPhase?: 'start' | 'end' // walk 카테고리일 때만 설정
+  walkGroupId?: string // 산책 그룹에 속한 항목 (시작/중간활동/종료)
+  walkGroupPos?: 'start' | 'middle' | 'end' | 'only' // 그룹 내 위치
   displayTime: string // 정렬 및 표시에 사용할 시간
 }
 
@@ -48,9 +50,7 @@ function buildTimelineItems(logs: DailyLog[]): TimelineItem[] {
   const items: TimelineItem[] = []
   for (const log of logs) {
     if (log.category === 'walk') {
-      // 산책 시작 항목
       items.push({ log, walkPhase: 'start', displayTime: log.logged_at })
-      // 산책 종료 항목 (종료된 경우에만)
       if (log.walk_end_at) {
         items.push({ log, walkPhase: 'end', displayTime: log.walk_end_at })
       }
@@ -60,6 +60,30 @@ function buildTimelineItems(logs: DailyLog[]): TimelineItem[] {
   }
   // 시간순 정렬 (최신이 위)
   items.sort((a, b) => new Date(b.displayTime).getTime() - new Date(a.displayTime).getTime())
+
+  // 산책 그룹 마킹: walk_id가 있는 활동과 해당 산책 시작/종료를 그룹화
+  for (const item of items) {
+    if (item.walkPhase) {
+      // 산책 시작/종료 항목
+      item.walkGroupId = item.log.id
+    } else if (item.log.walk_id) {
+      // 산책 중 기록된 활동
+      item.walkGroupId = item.log.walk_id
+    }
+  }
+
+  // 그룹 내 위치(start/middle/end) 결정 — 연속된 같은 walkGroupId 기준
+  for (let i = 0; i < items.length; i++) {
+    const gid = items[i].walkGroupId
+    if (!gid) continue
+    const prevSame = i > 0 && items[i - 1].walkGroupId === gid
+    const nextSame = i < items.length - 1 && items[i + 1].walkGroupId === gid
+    if (prevSame && nextSame) items[i].walkGroupPos = 'middle'
+    else if (prevSame) items[i].walkGroupPos = 'end'
+    else if (nextSame) items[i].walkGroupPos = 'start'
+    else items[i].walkGroupPos = 'only'
+  }
+
   return items
 }
 
@@ -359,70 +383,85 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
   return (
     <>
-      <div className="space-y-3">
-        {timelineItems.map((item) => {
-          const { log, walkPhase, displayTime } = item
+      <div>
+        {timelineItems.map((item, idx) => {
+          const { log, walkPhase, walkGroupId, walkGroupPos, displayTime } = item
           const config = LOG_CATEGORY_CONFIG[log.category]
           const itemKey = walkPhase ? `${log.id}-${walkPhase}` : log.id
           const walkLabel = walkPhase === 'start' ? '산책 시작' : walkPhase === 'end' ? '산책 종료' : null
+          const isInWalkGroup = !!walkGroupId
+
+          // 산책 그룹 왼쪽 라인 스타일
+          const groupBorderClass = isInWalkGroup
+            ? `border-l-[3px] border-l-green-400 ${
+                walkGroupPos === 'start' ? 'rounded-tl-lg' :
+                walkGroupPos === 'end' ? 'rounded-bl-lg' : ''
+              }`
+            : ''
+
+          // 산책 중 활동(walk_id 연결)은 살짝 들여쓰기
+          const isWalkChild = !walkPhase && !!log.walk_id
+
+          // 그룹 내 연속 항목은 간격 좁게, 그 외는 기본 간격
+          const isGroupContinuation = isInWalkGroup && (walkGroupPos === 'middle' || walkGroupPos === 'end')
+          const marginClass = idx === 0 ? '' : isGroupContinuation ? 'mt-px' : 'mt-3'
+
           return (
-            <Card
-              key={itemKey}
-              className="overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => handleOpenDetail(log)}
-            >
-              <CardContent className="p-0">
-                <div className="flex items-center">
-                  {/* 시간 */}
-                  <div className="w-16 py-3 text-center text-muted-foreground border-r">
-                    <div className="text-[11px] leading-tight">{formatTime(displayTime).period}</div>
-                    <div className="text-sm leading-tight">{formatTime(displayTime).clock}</div>
-                  </div>
+            <div key={itemKey} className={`${marginClass} ${isWalkChild ? 'ml-3' : ''}`}>
+              <Card
+                className={`overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors ${groupBorderClass}`}
+                onClick={() => handleOpenDetail(log)}
+              >
+                <CardContent className="p-0">
+                  <div className="flex items-center">
+                    {/* 시간 */}
+                    <div className="w-16 py-3 text-center text-muted-foreground border-r">
+                      <div className="text-[11px] leading-tight">{formatTime(displayTime).period}</div>
+                      <div className="text-sm leading-tight">{formatTime(displayTime).clock}</div>
+                    </div>
 
-                  {/* 아이콘 */}
-                  <div className="w-14 py-3 text-center text-2xl">
-                    {config.icon}
-                  </div>
+                    {/* 아이콘 */}
+                    <div className="w-14 py-3 text-center text-2xl">
+                      {config.icon}
+                    </div>
 
-                  {/* 내용 */}
-                  <div className="flex-1 py-3 px-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{walkLabel || config.label}</span>
-                      {log.category === 'snack' && log.snack_name && (
-                        <span className="text-sm text-pink-600">
-                          {log.snack_name}
-                        </span>
-                      )}
-                      {formatValue(log, walkPhase) && (
-                        <span className="text-sm text-muted-foreground">
-                          {formatValue(log, walkPhase)}
-                        </span>
-                      )}
-                      {log.category === 'medicine' && log.medicine_name && (
-                        <span className="text-sm text-purple-600">
-                          {log.medicine_name}
-                        </span>
-                      )}
-                      {/* 사진 아이콘 표시 */}
-                      {log.photo_urls && log.photo_urls.length > 0 && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                          <ImageIcon className="w-3 h-3" />
-                          {log.photo_urls.length}
-                        </span>
-                      )}
-                      {log.walk_id && (
-                        <span className="text-xs" title="산책 중 기록">🐕</span>
+                    {/* 내용 */}
+                    <div className="flex-1 py-3 px-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{walkLabel || config.label}</span>
+                        {log.category === 'snack' && log.snack_name && (
+                          <span className="text-sm text-pink-600">
+                            {log.snack_name}
+                          </span>
+                        )}
+                        {formatValue(log, walkPhase) && (
+                          <span className="text-sm text-muted-foreground">
+                            {formatValue(log, walkPhase)}
+                          </span>
+                        )}
+                        {log.category === 'medicine' && log.medicine_name && (
+                          <span className="text-sm text-purple-600">
+                            {log.medicine_name}
+                          </span>
+                        )}
+                        {/* 사진 아이콘 표시 */}
+                        {log.photo_urls && log.photo_urls.length > 0 && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                            <ImageIcon className="w-3 h-3" />
+                            {log.photo_urls.length}
+                          </span>
+                        )}
+                      </div>
+                      {log.memo && (
+                        <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
+                          {log.memo}
+                        </p>
                       )}
                     </div>
-                    {log.memo && (
-                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
-                        {log.memo}
-                      </p>
-                    )}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           )
         })}
       </div>
