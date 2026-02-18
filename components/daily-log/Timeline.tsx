@@ -110,6 +110,12 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       return `${Number(log.amount).toFixed(1)}kg`
     }
 
+    if (log.category === 'walk') {
+      if (!log.walk_end_at) return '산책 중'
+      if (log.amount !== null && log.amount !== undefined) return `${formatNumber(log.amount)}분`
+      return ''
+    }
+
     // 식사의 경우 급여량과 식사량 표시
     if (log.category === 'meal' && log.amount !== null && log.amount !== undefined) {
       const leftover = log.leftover_amount || 0
@@ -371,6 +377,9 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                           {log.photo_urls.length}
                         </span>
                       )}
+                      {log.walk_id && (
+                        <span className="text-xs" title="산책 중 기록">🐕</span>
+                      )}
                     </div>
                     {log.memo && (
                       <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
@@ -488,7 +497,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                   )}
 
                   {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/간식 제외) */}
-                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'medicine' && selectedLog.category !== 'snack' && (
+                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'medicine' && selectedLog.category !== 'snack' && selectedLog.category !== 'walk' && (
                     <div className="space-y-2">
                       <Label htmlFor="edit-amount">
                         {selectedLog.category === 'breathing' ? '호흡수' : '양'} ({LOG_CATEGORY_CONFIG[selectedLog.category].unit})
@@ -673,8 +682,41 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                     </div>
                   )}
 
-                  {/* 양 (음수, 호흡수 - 배변/배뇨/식사 제외) */}
-                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.amount !== null && (
+                  {/* 산책 정보 */}
+                  {selectedLog.category === 'walk' && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">시작 시각</span>
+                        <span className="font-medium">
+                          {new Date(selectedLog.logged_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      {selectedLog.walk_end_at ? (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">종료 시각</span>
+                            <span className="font-medium">
+                              {new Date(selectedLog.walk_end_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          {selectedLog.amount && (
+                            <div className="flex justify-between border-t pt-2">
+                              <span className="text-sm font-medium">산책 시간</span>
+                              <span className="font-medium text-green-700">{formatNumber(selectedLog.amount)}분</span>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">상태</span>
+                          <span className="text-sm font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded">진행 중</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 양 (음수, 호흡수 - 배변/배뇨/식사/산책 제외) */}
+                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'walk' && selectedLog.amount !== null && (
                     <div>
                       <p className="text-sm text-muted-foreground">
                         {selectedLog.category === 'breathing' ? '호흡수' : '양'}

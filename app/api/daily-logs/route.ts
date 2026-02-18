@@ -70,6 +70,27 @@ export async function GET(request: NextRequest) {
     const petId = searchParams.get('pet_id')        // 반려동물 필터
     const showDeleted = searchParams.get('deleted') === 'true' // 삭제된 기록 조회
     const latestWeight = searchParams.get('latest_weight') // 최근 체중 조회
+    const activeWalk = searchParams.get('active_walk') // 진행 중 산책 조회
+
+    // 진행 중 산책 조회 (날짜 무관, walk_end_at IS NULL)
+    if (activeWalk === 'true' && petId) {
+      const { data: walkLog } = await supabase
+        .from('daily_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('pet_id', petId)
+        .eq('category', 'walk')
+        .is('deleted_at', null)
+        .is('walk_end_at', null)
+        .order('logged_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      return NextResponse.json({
+        success: true,
+        data: walkLog || null
+      })
+    }
 
     // 최근 체중 조회 (carry-forward)
     if (latestWeight === 'true' && petId) {
@@ -212,7 +233,7 @@ export async function POST(request: NextRequest) {
 
     const body: DailyLogInput = await request.json()
 
-    const { category, pet_id, logged_at, amount, leftover_amount, unit, memo, photo_urls, medicine_name, snack_name, calories, input_source } = body
+    const { category, pet_id, logged_at, amount, leftover_amount, unit, memo, photo_urls, medicine_name, snack_name, calories, input_source, walk_end_at, walk_id } = body
 
     if (!category) {
       return NextResponse.json(
@@ -234,7 +255,9 @@ export async function POST(request: NextRequest) {
       medicine_name: category === 'medicine' ? medicine_name : null,
       snack_name: category === 'snack' ? snack_name : null,
       calories: category === 'snack' ? (calories ?? null) : null,
-      input_source: input_source || 'manual'
+      input_source: input_source || 'manual',
+      walk_end_at: category === 'walk' ? (walk_end_at ?? null) : null,
+      walk_id: walk_id || null,
     }
 
     // 첫 번째 시도: leftover_amount 포함

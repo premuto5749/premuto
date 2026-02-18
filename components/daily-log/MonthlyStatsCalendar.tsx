@@ -19,9 +19,10 @@ const CATEGORY_DOT_COLORS: Record<string, string> = {
   pee: 'bg-yellow-400',
   breathing: 'bg-teal-400',
   weight: 'bg-emerald-500',
+  walk: 'bg-green-400',
 }
 
-const CATEGORY_ORDER = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing'] as const
+const CATEGORY_ORDER = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing', 'walk'] as const
 
 interface MonthlyStatsCalendarProps {
   year: number
@@ -54,6 +55,8 @@ function formatSummaryValue(stats: DailyStats, category: string): string {
       return stats.pee_count > 0 ? `${stats.pee_count}회` : '-'
     case 'breathing':
       return stats.avg_breathing_rate ? `${Math.round(stats.avg_breathing_rate)}회/분` : '-'
+    case 'walk':
+      return stats.walk_count > 0 ? `${stats.walk_count}회 ${formatNumber(stats.total_walk_duration)}분` : '-'
     default:
       return '-'
   }
@@ -112,6 +115,7 @@ export function MonthlyStatsCalendar({
       if (stats.poop_count > 0) cats.push('poop')
       if (stats.pee_count > 0) cats.push('pee')
       if (stats.breathing_count > 0) cats.push('breathing')
+      if (stats.walk_count > 0) cats.push('walk')
     }
     if (weightMap[dateKey]) cats.push('weight')
     return cats

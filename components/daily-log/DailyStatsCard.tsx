@@ -125,6 +125,14 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
       count: stats.medicine_count,
       color: LOG_CATEGORY_CONFIG.medicine.color,
     },
+    {
+      category: 'walk' as LogCategory,
+      icon: LOG_CATEGORY_CONFIG.walk.icon,
+      label: '산책',
+      value: stats.walk_count > 0 ? `${stats.walk_count}회 ${formatNumber(stats.total_walk_duration)}분` : '-',
+      count: stats.walk_count,
+      color: LOG_CATEGORY_CONFIG.walk.color,
+    },
   ]
 
   const page1Items = allStatItems.slice(0, 6)

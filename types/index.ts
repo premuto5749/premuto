@@ -199,7 +199,7 @@ export interface BatchSaveResponse {
 // 일일 건강 기록 (Daily Log) 타입
 // ============================================
 
-export type LogCategory = 'meal' | 'water' | 'snack' | 'medicine' | 'poop' | 'pee' | 'breathing' | 'weight'
+export type LogCategory = 'meal' | 'water' | 'snack' | 'medicine' | 'poop' | 'pee' | 'breathing' | 'weight' | 'walk'
 
 export interface DailyLog {
   id: string
@@ -216,6 +216,8 @@ export interface DailyLog {
   snack_name: string | null     // 간식 이름 (category가 snack일 때)
   calories: number | null       // 칼로리 (category가 snack일 때)
   input_source?: 'preset' | 'manual'  // 프리셋/직접입력 구분
+  walk_end_at?: string | null    // 산책 종료 시각 (null = 진행 중)
+  walk_id?: string | null        // 산책 중 기록한 활동 연결용
   created_at: string
   updated_at: string
 }
@@ -233,6 +235,8 @@ export interface DailyLogInput {
   snack_name?: string | null
   calories?: number | null
   input_source?: 'preset' | 'manual'
+  walk_end_at?: string | null    // 산책 종료 시각
+  walk_id?: string | null        // 산책 중 다른 활동 연결
 }
 
 export interface DailyStats {
@@ -251,6 +255,8 @@ export interface DailyStats {
   snack_count: number
   total_snack_amount: number
   total_snack_calories: number
+  walk_count: number
+  total_walk_duration: number
 }
 
 // ============================================
@@ -516,5 +522,12 @@ export const LOG_CATEGORY_CONFIG: Record<LogCategory, {
     unit: 'kg',
     placeholder: '체중 (kg)',
     color: 'bg-emerald-100 text-emerald-700'
+  },
+  walk: {
+    label: '산책',
+    icon: '🐕',
+    unit: '분',
+    placeholder: '산책 시간',
+    color: 'bg-green-100 text-green-700'
   }
 }
