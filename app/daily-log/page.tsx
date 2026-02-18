@@ -40,6 +40,7 @@ export default function DailyLogPage() {
   const [isBreathingTimerOpen, setIsBreathingTimerOpen] = useState(false)
   const [logs, setLogs] = useState<DailyLog[]>([])
   const [stats, setStats] = useState<DailyStats | null>(null)
+  const [activeWalk, setActiveWalk] = useState<DailyLog | null>(null)
   const [selectedDate, setSelectedDate] = useState(() => {
     return getKSTToday()
   })
@@ -75,12 +76,13 @@ export default function DailyLogPage() {
       // pet_id 파라미터 추가
       const petParam = currentPet ? `&pet_id=${currentPet.id}` : ''
 
-      // 기록 + 통계 + 체중 + 급여계획 병렬 조회
-      const [logsRes, statsRes, weightRes, planRes] = await Promise.all([
+      // 기록 + 통계 + 체중 + 급여계획 + 진행중산책 병렬 조회
+      const [logsRes, statsRes, weightRes, planRes, walkRes] = await Promise.all([
         fetch(`/api/daily-logs?date=${selectedDate}${petParam}`),
         fetch(`/api/daily-logs?date=${selectedDate}&stats=true${petParam}`),
         currentPet ? fetch(`/api/daily-logs?latest_weight=true&pet_id=${currentPet.id}&date=${selectedDate}`) : Promise.resolve(null),
         currentPet ? fetch(`/api/feeding-plans?pet_id=${currentPet.id}&date=${selectedDate}`) : Promise.resolve(null),
+        currentPet ? fetch(`/api/daily-logs?active_walk=true&pet_id=${currentPet.id}`) : Promise.resolve(null),
       ])
 
       if (logsRes.ok) {
@@ -110,11 +112,19 @@ export default function DailyLogPage() {
       } else {
         setActivePlan(null)
       }
+
+      if (walkRes && walkRes.ok) {
+        const walkData = await walkRes.json()
+        setActiveWalk(walkData.data || null)
+      } else {
+        setActiveWalk(null)
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error)
       setLogs([])
       setStats(null)
       setActivePlan(null)
+      setActiveWalk(null)
     } finally {
       setIsLoading(false)
       isInitialLoadDone.current = true
@@ -274,6 +284,9 @@ export default function DailyLogPage() {
       if (stats.breathing_count > 0 && stats.avg_breathing_rate) {
         lines.push(`🫁 호흡수: 평균 ${formatNumber(Math.round(stats.avg_breathing_rate))}회/분 (${stats.breathing_count}회 측정)`)
       }
+      if (stats.walk_count > 0) {
+        lines.push(`🐕 산책: ${stats.walk_count}회 (총 ${formatNumber(stats.total_walk_duration)}분)`)
+      }
       if (currentWeight) {
         lines.push(`⚖️ 체중: ${currentWeight}kg`)
       }
@@ -296,8 +309,16 @@ export default function DailyLogPage() {
 
       let content = `${config.icon} ${config.label}`
 
-      // 양 표시 (배변/배뇨 제외)
-      if (log.amount !== null && log.category !== 'poop' && log.category !== 'pee') {
+      // 산책 표시
+      if (log.category === 'walk') {
+        if (!log.walk_end_at) {
+          content += ' (진행 중)'
+        } else if (log.amount) {
+          content += ` ${formatNumber(log.amount)}분`
+        }
+      }
+      // 양 표시 (배변/배뇨/산책 제외)
+      else if (log.amount !== null && log.category !== 'poop' && log.category !== 'pee') {
         content += ` ${formatNumber(log.amount)}${log.unit || config.unit}`
       }
 
@@ -509,6 +530,7 @@ export default function DailyLogPage() {
         }}
         currentWeight={currentWeight}
         onWeightLogged={refreshPets}
+        activeWalk={activeWalk}
       />
 
       {/* 호흡수 타이머 모달 */}

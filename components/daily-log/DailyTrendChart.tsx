@@ -23,6 +23,7 @@ const CATEGORY_COLORS: Record<LogCategory, string> = {
   pee: '#eab308',      // yellow
   breathing: '#14b8a6', // teal
   weight: '#10b981',    // emerald
+  walk: '#22c55e',      // green
 }
 
 function getCategoryValue(stats: DailyStats, category: LogCategory): number | null {
@@ -43,6 +44,8 @@ function getCategoryValue(stats: DailyStats, category: LogCategory): number | nu
       return stats.breathing_count > 0 && stats.avg_breathing_rate ? Math.round(stats.avg_breathing_rate) : null
     case 'weight':
       return null // 체중은 weightMap에서 별도 처리
+    case 'walk':
+      return stats.walk_count > 0 ? stats.total_walk_duration : null
   }
 }
 
@@ -56,6 +59,7 @@ function getCategoryUnit(category: LogCategory): string {
     case 'pee': return '회'
     case 'breathing': return '회/분'
     case 'weight': return 'kg'
+    case 'walk': return '분'
   }
 }
 

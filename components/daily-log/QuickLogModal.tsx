@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { Camera, X, Loader2, Image as ImageIcon, Repeat } from 'lucide-react'
-import type { LogCategory, DailyLogInput, MedicinePreset, SnackPreset } from '@/types'
+import type { LogCategory, DailyLog, DailyLogInput, MedicinePreset, SnackPreset } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -25,6 +25,7 @@ interface QuickLogModalProps {
   onBreathingSelect?: () => void // 호흡수 선택 시 타이머 모달 열기
   currentWeight?: number | null // 현재 체중 (체중 기록 페이지에서 pre-fill)
   onWeightLogged?: () => void // 체중 기록 후 콜백
+  activeWalk?: DailyLog | null // 현재 진행 중인 산책
 }
 
 // 현재 시간을 HH:MM 형식으로 반환
@@ -42,7 +43,7 @@ const getCurrentDate = () => {
   return `${year}-${month}-${day}`
 }
 
-export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId, onBreathingSelect, currentWeight, onWeightLogged }: QuickLogModalProps) {
+export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId, onBreathingSelect, currentWeight, onWeightLogged, activeWalk }: QuickLogModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const [amount, setAmount] = useState('')
   const [leftoverAmount, setLeftoverAmount] = useState('')  // 남긴 양 (식사용)
@@ -329,6 +330,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
             snack_name: preset.name,
             calories: presetCalories,
             input_source: 'preset',
+            walk_id: activeWalk?.id || null,
           }
 
           const response = await fetch('/api/daily-logs', {
@@ -367,6 +369,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         snack_name: fullSnackName,
         calories: snackCalories,
         input_source: (selectedCategory === 'medicine' && medicineInputMode === 'preset') ? 'preset' : 'manual',
+        walk_id: activeWalk?.id || null,
       }
 
       const response = await fetch('/api/daily-logs', {
@@ -454,6 +457,76 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     }
   }
 
+  // 산책 시작/종료 제출
+  const handleWalkSubmit = async () => {
+    if (!petId) return
+
+    setIsSubmitting(true)
+    try {
+      if (!activeWalk) {
+        // 산책 시작: POST
+        const logData: DailyLogInput = {
+          category: 'walk',
+          pet_id: petId,
+          logged_at: getLoggedAtISO(),
+          walk_end_at: null,
+          memo: memo || null,
+        }
+
+        const response = await fetch('/api/daily-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(logData),
+        })
+
+        if (!response.ok) throw new Error('Failed to start walk')
+
+        toast({
+          title: '산책 시작',
+          description: '🐕 산책이 시작되었습니다. 종료 시 다시 기록해주세요.',
+        })
+      } else {
+        // 산책 종료: PATCH
+        const endAt = getLoggedAtISO()
+        const startTime = new Date(activeWalk.logged_at).getTime()
+        const endTime = new Date(endAt).getTime()
+        const durationMinutes = Math.max(1, Math.round((endTime - startTime) / 60000))
+
+        const response = await fetch('/api/daily-logs', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: activeWalk.id,
+            walk_end_at: endAt,
+            amount: durationMinutes,
+            unit: '분',
+            memo: memo || activeWalk.memo || null,
+          }),
+        })
+
+        if (!response.ok) throw new Error('Failed to end walk')
+
+        toast({
+          title: '산책 종료',
+          description: `🐕 산책 ${durationMinutes}분 기록되었습니다.`,
+        })
+      }
+
+      resetForm()
+      onOpenChange(false)
+      onSuccess?.()
+    } catch (error) {
+      console.error('Walk submit error:', error)
+      toast({
+        title: activeWalk ? '산책 종료 실패' : '산책 시작 실패',
+        description: '다시 시도해주세요.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleCategoryClick = (category: LogCategory) => {
     // 호흡수 선택 시 타이머 모달 열기
     if (category === 'breathing' && onBreathingSelect) {
@@ -469,13 +542,36 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {selectedCategory ? LOG_CATEGORY_CONFIG[selectedCategory].icon + ' ' + LOG_CATEGORY_CONFIG[selectedCategory].label + ' 기록' : '빠른 기록'}
+            {selectedCategory
+              ? selectedCategory === 'walk' && activeWalk
+                ? '🐕 산책 종료'
+                : LOG_CATEGORY_CONFIG[selectedCategory].icon + ' ' + LOG_CATEGORY_CONFIG[selectedCategory].label + ' 기록'
+              : '빠른 기록'}
           </DialogTitle>
           <DialogDescription className="sr-only">일일 건강 기록 입력</DialogDescription>
         </DialogHeader>
 
         {!selectedCategory ? (
-          // 카테고리 선택 화면 (스와이프: 페이지1=6개 카테고리, 페이지2=체중)
+          // 카테고리 선택 화면 (스와이프: 페이지1=6개 카테고리, 페이지2=체중+산책)
+          <div className="space-y-2">
+          {/* 산책 중 배너 */}
+          {activeWalk && (
+            <button
+              onClick={() => setSelectedCategory('walk')}
+              className="w-full p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between hover:bg-green-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🐕</span>
+                <span className="text-sm font-medium text-green-800">
+                  산책 중 {(() => {
+                    const elapsed = Math.floor((Date.now() - new Date(activeWalk.logged_at).getTime()) / 60000)
+                    return `${elapsed}분 경과`
+                  })()}
+                </span>
+              </div>
+              <span className="text-xs text-green-600">종료하기 →</span>
+            </button>
+          )}
           <div
             onTouchStart={handleCategoryTouchStart}
             onTouchEnd={handleCategoryTouchEnd}
@@ -524,6 +620,20 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                       <span className="text-3xl mb-2">{LOG_CATEGORY_CONFIG.weight.icon}</span>
                       <span className="text-sm font-medium">{LOG_CATEGORY_CONFIG.weight.label}</span>
                     </button>
+                    <button
+                      onClick={() => handleCategoryClick('walk')}
+                      disabled={isSubmitting}
+                      className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 transition-all ${
+                        activeWalk
+                          ? 'border-green-500 bg-green-50 hover:bg-green-100'
+                          : 'border-muted hover:border-primary hover:bg-muted/50'
+                      }`}
+                    >
+                      <span className="text-3xl mb-2">{LOG_CATEGORY_CONFIG.walk.icon}</span>
+                      <span className="text-sm font-medium">
+                        {activeWalk ? '산책 중' : LOG_CATEGORY_CONFIG.walk.label}
+                      </span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -541,12 +651,14 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               />
             </div>
           </div>
+          </div>
         ) : (
           // 입력 화면
           <div className="space-y-4 py-4">
-            {/* 시간 선택 */}
+            {/* 시간 선택 (산책 종료 모드에서는 산책 폼 내부에 종료 시간 표시) */}
+            {!(selectedCategory === 'walk' && activeWalk) && (
             <div>
-              <label className="text-sm font-medium mb-1.5 block">시간</label>
+              <label className="text-sm font-medium mb-1.5 block">{selectedCategory === 'walk' ? '시작 시간' : '시간'}</label>
               <div className="flex gap-2">
                 <Input
                   type="date"
@@ -562,6 +674,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                 />
               </div>
             </div>
+            )}
 
             {/* 식사 양 입력 (급여량, 남긴양, 식사량) */}
             {selectedCategory === 'meal' && (
@@ -627,6 +740,55 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     kg
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* 산책 입력 */}
+            {selectedCategory === 'walk' && (
+              <div className="space-y-3">
+                {!activeWalk ? (
+                  // 산책 시작 모드
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200 text-center space-y-2">
+                    <div className="text-4xl">🐕</div>
+                    <p className="text-sm text-green-800">산책을 시작합니다</p>
+                    <p className="text-xs text-green-600">종료 시 다시 산책 버튼을 눌러주세요</p>
+                  </div>
+                ) : (
+                  // 산책 종료 모드
+                  <div className="space-y-3">
+                    <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">시작 시각</span>
+                        <span className="font-medium text-sm">
+                          {new Date(activeWalk.logged_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-sm text-muted-foreground">경과 시간</span>
+                        <span className="font-medium text-green-700">
+                          {Math.floor((Date.now() - new Date(activeWalk.logged_at).getTime()) / 60000)}분
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1.5 block">종료 시간</label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="date"
+                          value={logDate}
+                          onChange={(e) => setLogDate(e.target.value)}
+                          className="w-1/2"
+                        />
+                        <Input
+                          type="time"
+                          value={logTime}
+                          onChange={(e) => setLogTime(e.target.value)}
+                          className="w-1/2"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -763,7 +925,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
             )}
 
             {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/체중/간식 제외) */}
-            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && selectedCategory !== 'weight' && selectedCategory !== 'snack' && (
+            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && selectedCategory !== 'weight' && selectedCategory !== 'snack' && selectedCategory !== 'walk' && (
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
                   {LOG_CATEGORY_CONFIG[selectedCategory].placeholder || '양'}
@@ -883,8 +1045,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
             </div>
             )}
 
-            {/* 사진 첨부 (체중 제외) */}
-            {selectedCategory !== 'weight' && (
+            {/* 사진 첨부 (체중, 산책 제외) */}
+            {selectedCategory !== 'weight' && selectedCategory !== 'walk' && (
             <div>
               <label className="text-sm font-medium mb-1.5 block">
                 사진 (선택, 최대 {MAX_PHOTOS}장)
@@ -973,8 +1135,12 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                 뒤로
               </Button>
               <Button
-                onClick={selectedCategory === 'weight' ? handleWeightSubmit : handleSubmit}
-                disabled={selectedCategory === 'weight' ? (isWeightSubmitting || !weightInput || !petId) : (isSubmitting || isUploading || (selectedCategory === 'medicine' && medicineInputMode === 'preset' && !selectedPreset) || (selectedCategory === 'snack' && snackInputMode === 'preset' && Object.keys(snackSelections).length === 0))}
+                onClick={selectedCategory === 'weight' ? handleWeightSubmit : selectedCategory === 'walk' ? handleWalkSubmit : handleSubmit}
+                disabled={
+                  selectedCategory === 'weight' ? (isWeightSubmitting || !weightInput || !petId)
+                  : selectedCategory === 'walk' ? (isSubmitting || !petId)
+                  : (isSubmitting || isUploading || (selectedCategory === 'medicine' && medicineInputMode === 'preset' && !selectedPreset) || (selectedCategory === 'snack' && snackInputMode === 'preset' && Object.keys(snackSelections).length === 0))
+                }
                 className="flex-1"
               >
                 {isUploading ? (
@@ -984,6 +1150,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                   </>
                 ) : (isSubmitting || isWeightSubmitting) ? (
                   '저장 중...'
+                ) : selectedCategory === 'walk' ? (
+                  activeWalk ? '종료하기' : '시작하기'
                 ) : (
                   '저장'
                 )}
