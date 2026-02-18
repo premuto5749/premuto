@@ -813,7 +813,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                 {snackInputMode === 'preset' && (
                   <div className="space-y-2">
                     {snackPresets.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
                         {snackPresets.map((preset) => {
                           const count = snackSelections[preset.id] || 0
                           return (
