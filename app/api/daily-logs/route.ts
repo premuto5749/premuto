@@ -506,11 +506,12 @@ export async function PATCH(request: NextRequest) {
       const previousWalkId = data.walk_id
       try {
         // 먼저 기존 walk_id 해제 (시간이 바뀌었으므로 더 이상 해당 산책 범위가 아닐 수 있음)
-        await supabase
+        const { error: clearErr } = await supabase
           .from('daily_logs')
           .update({ walk_id: null })
           .eq('id', data.id)
           .eq('user_id', user.id)
+        if (clearErr) throw clearErr
 
         // 새 시간에 해당하는 산책이 있으면 할당
         const assignedWalkId = await autoAssignWalkId(supabase, user.id, data.id, data.logged_at, data.pet_id)
@@ -557,12 +558,13 @@ export async function PATCH(request: NextRequest) {
 
         // 2) 이전에 이 산책에 연결되었던 로그의 walk_id를 먼저 해제 (시간 변경 대응)
         if (previousIds.length > 0) {
-          await supabase
+          const { error: unlinkErr } = await supabase
             .from('daily_logs')
             .update({ walk_id: null })
             .eq('user_id', user.id)
             .eq('walk_id', walkId)
             .neq('id', walkId)
+          if (unlinkErr) throw unlinkErr
         }
 
         // 3) 시작~종료 사이에 기록된 로그에 walk_id 할당
@@ -580,7 +582,8 @@ export async function PATCH(request: NextRequest) {
           assignQuery = assignQuery.eq('pet_id', walkPetId)
         }
 
-        await assignQuery
+        const { error: assignErr } = await assignQuery
+        if (assignErr) throw assignErr
       } catch (walkIdError) {
         console.error('Walk ID auto-assign error:', walkIdError)
         // 재할당 실패 시, 해제된 로그를 원래 walk_id로 복구
