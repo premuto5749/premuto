@@ -13,16 +13,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { BreathingTimerModal } from '@/components/daily-log/BreathingTimerModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
@@ -76,7 +66,6 @@ export default function DailyLogPage() {
 
   // 산책 전용 상태
   const [isWalkEndOpen, setIsWalkEndOpen] = useState(false)
-  const [isWalkStartConfirmOpen, setIsWalkStartConfirmOpen] = useState(false)
   const [walkEndDate, setWalkEndDate] = useState('')
   const [walkEndTime, setWalkEndTime] = useState('')
   const [isWalkSubmitting, setIsWalkSubmitting] = useState(false)
@@ -319,7 +308,7 @@ export default function DailyLogPage() {
     if (activeWalk) {
       openWalkEndDialog()
     } else {
-      setIsWalkStartConfirmOpen(true)
+      handleWalkStart()
     }
   }
 
@@ -649,7 +638,7 @@ export default function DailyLogPage() {
       </main>
 
       {/* 플로팅 버튼 그룹 */}
-      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3">
+      <div className="fixed bottom-6 right-6 flex flex-col items-center gap-3">
         {/* 산책 버튼 */}
         <button
           onClick={handleWalkFABClick}
@@ -763,30 +752,6 @@ export default function DailyLogPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* 산책 시작 확인 모달 */}
-      <AlertDialog open={isWalkStartConfirmOpen} onOpenChange={setIsWalkStartConfirmOpen}>
-        <AlertDialogContent className="sm:max-w-xs">
-          <AlertDialogHeader>
-            <AlertDialogTitle>🐕 산책 시작</AlertDialogTitle>
-            <AlertDialogDescription>
-              산책을 시작하시겠습니까?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => {
-                setIsWalkStartConfirmOpen(false)
-                handleWalkStart()
-              }}
-            >
-              시작하기
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
