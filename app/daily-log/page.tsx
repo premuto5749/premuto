@@ -649,21 +649,12 @@ export default function DailyLogPage() {
       </main>
 
       {/* 플로팅 버튼 그룹 */}
-      <div className="fixed bottom-6 right-6 flex flex-row items-end gap-3">
-        {/* 빠른 기록 추가 버튼 */}
-        <Button
-          size="lg"
-          className="w-14 h-14 rounded-full shadow-lg"
-          onClick={() => setIsModalOpen(true)}
-        >
-          <Plus className="w-6 h-6" />
-        </Button>
-
+      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3">
         {/* 산책 버튼 */}
         <button
           onClick={handleWalkFABClick}
           disabled={isWalkSubmitting || !currentPet}
-          className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all ${
+          className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
             activeWalk
               ? 'bg-green-500 text-white animate-pulse'
               : 'bg-white border-2 border-green-400 text-green-700 hover:bg-green-50'
@@ -672,9 +663,18 @@ export default function DailyLogPage() {
           {isWalkSubmitting ? (
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
-            <span className="text-xl">🐕</span>
+            <span className="text-lg">🐕</span>
           )}
         </button>
+
+        {/* 빠른 기록 추가 버튼 */}
+        <Button
+          size="lg"
+          className="w-14 h-14 rounded-full shadow-lg"
+          onClick={() => setIsModalOpen(true)}
+        >
+          <Plus className="w-6 h-6" />
+        </Button>
       </div>
 
       {/* 빠른 기록 모달 */}
