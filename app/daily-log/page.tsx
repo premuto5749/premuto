@@ -13,6 +13,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { BreathingTimerModal } from '@/components/daily-log/BreathingTimerModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
@@ -69,6 +79,7 @@ export default function DailyLogPage() {
   const [walkEndDate, setWalkEndDate] = useState('')
   const [walkEndTime, setWalkEndTime] = useState('')
   const [isWalkSubmitting, setIsWalkSubmitting] = useState(false)
+  const [isWalkStartConfirmOpen, setIsWalkStartConfirmOpen] = useState(false)
 
   // 반려동물 로딩 완료 후 currentPet이 없으면 기본 반려동물 자동 선택
   useEffect(() => {
@@ -308,7 +319,7 @@ export default function DailyLogPage() {
     if (activeWalk) {
       openWalkEndDialog()
     } else {
-      handleWalkStart()
+      setIsWalkStartConfirmOpen(true)
     }
   }
 
@@ -752,6 +763,30 @@ export default function DailyLogPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 산책 시작 확인 모달 */}
+      <AlertDialog open={isWalkStartConfirmOpen} onOpenChange={setIsWalkStartConfirmOpen}>
+        <AlertDialogContent className="sm:max-w-xs">
+          <AlertDialogHeader>
+            <AlertDialogTitle>산책 시작</AlertDialogTitle>
+            <AlertDialogDescription>
+              산책을 시작하시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => {
+                setIsWalkStartConfirmOpen(false)
+                handleWalkStart()
+              }}
+            >
+              시작하기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

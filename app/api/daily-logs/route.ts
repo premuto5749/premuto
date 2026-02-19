@@ -519,16 +519,19 @@ export async function PATCH(request: NextRequest) {
         console.error('Walk ID re-assign on time edit error:', err)
         // 재할당 실패 시 원래 walk_id로 복구
         if (previousWalkId) {
-          try {
-            await supabase
-              .from('daily_logs')
-              .update({ walk_id: previousWalkId })
-              .eq('id', data.id)
-              .eq('user_id', user.id)
-            data = { ...data, walk_id: previousWalkId }
-          } catch (restoreErr) {
+          const { error: restoreErr } = await supabase
+            .from('daily_logs')
+            .update({ walk_id: previousWalkId })
+            .eq('id', data.id)
+            .eq('user_id', user.id)
+          if (restoreErr) {
             console.error('Walk ID restore failed:', restoreErr)
+            data = { ...data, walk_id: null }
+          } else {
+            data = { ...data, walk_id: previousWalkId }
           }
+        } else {
+          data = { ...data, walk_id: null }
         }
       }
     }
@@ -582,13 +585,12 @@ export async function PATCH(request: NextRequest) {
         console.error('Walk ID auto-assign error:', walkIdError)
         // 재할당 실패 시, 해제된 로그를 원래 walk_id로 복구
         if (previousIds.length > 0) {
-          try {
-            await supabase
-              .from('daily_logs')
-              .update({ walk_id: walkId })
-              .in('id', previousIds)
-              .eq('user_id', user.id)
-          } catch (restoreErr) {
+          const { error: restoreErr } = await supabase
+            .from('daily_logs')
+            .update({ walk_id: walkId })
+            .in('id', previousIds)
+            .eq('user_id', user.id)
+          if (restoreErr) {
             console.error('Walk ID restore failed:', restoreErr)
           }
         }
