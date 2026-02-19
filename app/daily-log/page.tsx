@@ -1,8 +1,18 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon, Share2, ImagePlus } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon, Share2, ImagePlus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { BreathingTimerModal } from '@/components/daily-log/BreathingTimerModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
@@ -53,6 +63,12 @@ export default function DailyLogPage() {
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading, refreshPets } = usePet()
   const [currentWeight, setCurrentWeight] = useState<number | null>(null)
   const [activePlan, setActivePlan] = useState<FeedingPlan | null>(null)
+
+  // 산책 전용 상태
+  const [isWalkEndOpen, setIsWalkEndOpen] = useState(false)
+  const [walkEndDate, setWalkEndDate] = useState('')
+  const [walkEndTime, setWalkEndTime] = useState('')
+  const [isWalkSubmitting, setIsWalkSubmitting] = useState(false)
 
   // 반려동물 로딩 완료 후 currentPet이 없으면 기본 반려동물 자동 선택
   useEffect(() => {
@@ -181,6 +197,119 @@ export default function DailyLogPage() {
     })
 
     fetchData()
+  }
+
+  // 산책 시작 (원터치)
+  const handleWalkStart = async () => {
+    if (!currentPet) return
+    setIsWalkSubmitting(true)
+    try {
+      const now = new Date()
+      const seconds = String(now.getSeconds()).padStart(2, '0')
+      const dateStr = now.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+      const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' })
+      const loggedAt = `${dateStr}T${timeStr}:${seconds}+09:00`
+
+      const response = await fetch('/api/daily-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: 'walk',
+          pet_id: currentPet.id,
+          logged_at: loggedAt,
+          walk_end_at: null,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to start walk')
+
+      toast({
+        title: '산책 시작',
+        description: '🐕 산책이 시작되었습니다.',
+      })
+      fetchData()
+    } catch (error) {
+      console.error('Walk start error:', error)
+      toast({
+        title: '산책 시작 실패',
+        description: '다시 시도해주세요.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsWalkSubmitting(false)
+    }
+  }
+
+  // 산책 종료 다이얼로그 열기
+  const openWalkEndDialog = () => {
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' })
+    setWalkEndDate(dateStr)
+    setWalkEndTime(timeStr)
+    setIsWalkEndOpen(true)
+  }
+
+  // 산책 종료 제출
+  const handleWalkEnd = async () => {
+    if (!activeWalk) return
+    setIsWalkSubmitting(true)
+    try {
+      const seconds = String(new Date().getSeconds()).padStart(2, '0')
+      const endAt = `${walkEndDate}T${walkEndTime}:${seconds}+09:00`
+      const startTime = new Date(activeWalk.logged_at).getTime()
+      const endTime = new Date(endAt).getTime()
+
+      if (endTime <= startTime) {
+        toast({
+          title: '종료 시간 오류',
+          description: '종료 시간은 시작 시간 이후여야 합니다.',
+          variant: 'destructive',
+        })
+        setIsWalkSubmitting(false)
+        return
+      }
+
+      const durationMinutes = Math.round((endTime - startTime) / 60000) || 1
+
+      const response = await fetch('/api/daily-logs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeWalk.id,
+          walk_end_at: endAt,
+          amount: durationMinutes,
+          unit: '분',
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to end walk')
+
+      toast({
+        title: '산책 종료',
+        description: `🐕 산책 ${durationMinutes}분 기록되었습니다.`,
+      })
+      setIsWalkEndOpen(false)
+      fetchData()
+    } catch (error) {
+      console.error('Walk end error:', error)
+      toast({
+        title: '산책 종료 실패',
+        description: '다시 시도해주세요.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsWalkSubmitting(false)
+    }
+  }
+
+  // 산책 FAB 클릭 핸들러
+  const handleWalkFABClick = () => {
+    if (activeWalk) {
+      openWalkEndDialog()
+    } else {
+      handleWalkStart()
+    }
   }
 
   const goToPrevDay = () => {
@@ -508,14 +637,34 @@ export default function DailyLogPage() {
         )}
       </main>
 
-      {/* 플로팅 추가 버튼 */}
-      <Button
-        size="lg"
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg"
-        onClick={() => setIsModalOpen(true)}
-      >
-        <Plus className="w-6 h-6" />
-      </Button>
+      {/* 플로팅 버튼 그룹 */}
+      <div className="fixed bottom-6 right-6 flex flex-col items-center gap-3">
+        {/* 산책 버튼 */}
+        <button
+          onClick={handleWalkFABClick}
+          disabled={isWalkSubmitting || !currentPet}
+          className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
+            activeWalk
+              ? 'bg-green-500 text-white animate-pulse'
+              : 'bg-white border-2 border-green-400 text-green-700 hover:bg-green-50'
+          } disabled:opacity-50`}
+        >
+          {isWalkSubmitting ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <span className="text-lg">🐕</span>
+          )}
+        </button>
+
+        {/* 빠른 기록 추가 버튼 */}
+        <Button
+          size="lg"
+          className="w-14 h-14 rounded-full shadow-lg"
+          onClick={() => setIsModalOpen(true)}
+        >
+          <Plus className="w-6 h-6" />
+        </Button>
+      </div>
 
       {/* 빠른 기록 모달 */}
       <QuickLogModal
@@ -550,6 +699,59 @@ export default function DailyLogPage() {
         date={selectedDate}
         petName={currentPet?.name || ''}
       />
+
+      {/* 산책 종료 다이얼로그 */}
+      <Dialog open={isWalkEndOpen} onOpenChange={setIsWalkEndOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>🐕 산책 종료</DialogTitle>
+            <DialogDescription className="sr-only">산책 종료 시간 입력</DialogDescription>
+          </DialogHeader>
+          {activeWalk && (
+            <div className="space-y-3 py-2">
+              <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">시작 시각</span>
+                  <span className="font-medium text-sm">
+                    {new Date(activeWalk.logged_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm text-muted-foreground">경과 시간</span>
+                  <span className="font-medium text-green-700">
+                    {Math.floor((Date.now() - new Date(activeWalk.logged_at).getTime()) / 60000)}분
+                  </span>
+                </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium mb-1.5 block">종료 시간</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    value={walkEndDate}
+                    onChange={(e) => setWalkEndDate(e.target.value)}
+                    className="w-1/2"
+                  />
+                  <Input
+                    type="time"
+                    value={walkEndTime}
+                    onChange={(e) => setWalkEndTime(e.target.value)}
+                    className="w-1/2"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsWalkEndOpen(false)} disabled={isWalkSubmitting} className="flex-1">
+              취소
+            </Button>
+            <Button onClick={handleWalkEnd} disabled={isWalkSubmitting} className="flex-1 bg-green-600 hover:bg-green-700">
+              {isWalkSubmitting ? '종료 중...' : '종료하기'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

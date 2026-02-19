@@ -130,6 +130,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false)
   const editCameraInputRef = useRef<HTMLInputElement>(null)
   const editGalleryInputRef = useRef<HTMLInputElement>(null)
+  const [editWalkEndDate, setEditWalkEndDate] = useState<string>('')
+  const [editWalkEndTime, setEditWalkEndTime] = useState<string>('')
   const [editMedicineInputMode, setEditMedicineInputMode] = useState<'preset' | 'manual'>('manual')
   const [editSnackInputMode, setEditSnackInputMode] = useState<'preset' | 'manual'>('manual')
   // Lightbox carousel state
@@ -225,6 +227,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setEditSnackName(log.snack_name || '')
     setEditDate(extractDateFromISO(log.logged_at))
     setEditTime(extractTimeFromISO(log.logged_at))
+    setEditWalkEndDate(log.walk_end_at ? extractDateFromISO(log.walk_end_at) : '')
+    setEditWalkEndTime(log.walk_end_at ? extractTimeFromISO(log.walk_end_at) : '')
     setEditPhotos(log.photo_urls || [])
     setNewPhotoFiles([])
     setNewPhotoPreviews([])
@@ -239,6 +243,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setEditSnackName(selectedLog.snack_name || '')
     setEditDate(extractDateFromISO(selectedLog.logged_at))
     setEditTime(extractTimeFromISO(selectedLog.logged_at))
+    setEditWalkEndDate(selectedLog.walk_end_at ? extractDateFromISO(selectedLog.walk_end_at) : '')
+    setEditWalkEndTime(selectedLog.walk_end_at ? extractTimeFromISO(selectedLog.walk_end_at) : '')
     setEditPhotos(selectedLog.photo_urls || [])
     setNewPhotoFiles([])
     setNewPhotoPreviews([])
@@ -261,6 +267,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       setEditSnackName(selectedLog.snack_name || '')
       setEditDate(extractDateFromISO(selectedLog.logged_at))
       setEditTime(extractTimeFromISO(selectedLog.logged_at))
+      setEditWalkEndDate(selectedLog.walk_end_at ? extractDateFromISO(selectedLog.walk_end_at) : '')
+      setEditWalkEndTime(selectedLog.walk_end_at ? extractTimeFromISO(selectedLog.walk_end_at) : '')
       setEditPhotos(selectedLog.photo_urls || [])
       setNewPhotoFiles([])
       setNewPhotoPreviews([])
@@ -308,8 +316,20 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
         photo_urls: [...editPhotos, ...uploadedPhotoUrls],
       }
 
-      // 배변/배뇨가 아닌 경우에만 양 업데이트
-      if (selectedLog.category !== 'poop' && selectedLog.category !== 'pee') {
+      // 산책인 경우 종료 시간 및 소요 시간 업데이트
+      if (selectedLog.category === 'walk' && editWalkEndDate && editWalkEndTime) {
+        const newWalkEndAt = new Date(`${editWalkEndDate}T${editWalkEndTime}:00`).toISOString()
+        updateData.walk_end_at = newWalkEndAt
+        // 소요 시간 자동 계산
+        const startMs = new Date(newLoggedAt).getTime()
+        const endMs = new Date(newWalkEndAt).getTime()
+        if (endMs > startMs) {
+          updateData.amount = Math.round((endMs - startMs) / 60000) || 1
+        }
+      }
+
+      // 배변/배뇨/산책이 아닌 경우에만 양 업데이트 (산책은 위에서 자동 계산)
+      if (selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'walk') {
         updateData.amount = editAmount ? parseFloat(editAmount) : null
       }
 
@@ -533,7 +553,61 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
               {isEditing ? (
                 /* 수정 모드 */
                 <div className="space-y-4 py-4">
-                  {/* 날짜/시간 편집 */}
+                  {/* 산책 시간 편집 (시작/종료 분리) */}
+                  {selectedLog.category === 'walk' ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="mb-1.5 block">시작 시각</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Input
+                            type="date"
+                            value={editDate}
+                            onChange={(e) => setEditDate(e.target.value)}
+                          />
+                          <Input
+                            type="time"
+                            value={editTime}
+                            onChange={(e) => setEditTime(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      {selectedLog.walk_end_at && (
+                        <div>
+                          <Label className="mb-1.5 block">종료 시각</Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <Input
+                              type="date"
+                              value={editWalkEndDate}
+                              onChange={(e) => setEditWalkEndDate(e.target.value)}
+                            />
+                            <Input
+                              type="time"
+                              value={editWalkEndTime}
+                              onChange={(e) => setEditWalkEndTime(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {/* 산책 시간 계산 결과 */}
+                      {editWalkEndDate && editWalkEndTime && editDate && editTime && (() => {
+                        const startMs = new Date(`${editDate}T${editTime}:00`).getTime()
+                        const endMs = new Date(`${editWalkEndDate}T${editWalkEndTime}:00`).getTime()
+                        const durationMin = Math.round((endMs - startMs) / 60000)
+                        if (durationMin > 0) {
+                          return (
+                            <div className="p-3 bg-green-50 rounded-md border border-green-200">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm text-muted-foreground">산책 시간</span>
+                                <span className="font-medium text-green-700">{durationMin}분</span>
+                              </div>
+                            </div>
+                          )
+                        }
+                        return null
+                      })()}
+                    </div>
+                  ) : (
+                  /* 일반 날짜/시간 편집 */
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="edit-date">날짜</Label>
@@ -554,6 +628,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                       />
                     </div>
                   </div>
+                  )}
 
                   {/* 식사 양 입력 (급여량, 남긴양) */}
                   {selectedLog.category === 'meal' && (
