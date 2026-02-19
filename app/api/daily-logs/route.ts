@@ -47,6 +47,51 @@ async function convertPathsToSignedUrls(
   return results
 }
 
+// 비산책 로그의 logged_at이 완료된 산책 시간대에 해당하면 walk_id 자동 할당
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function autoAssignWalkId(supabase: any, userId: string, logId: string, loggedAt: string, petId: string | null) {
+  try {
+    // 해당 시간을 포함하는 완료된 산책 조회
+    let walkQuery = supabase
+      .from('daily_logs')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('category', 'walk')
+      .is('deleted_at', null)
+      .not('walk_end_at', 'is', null)
+      .lte('logged_at', loggedAt)
+      .gte('walk_end_at', loggedAt)
+      .limit(1)
+      .maybeSingle()
+
+    if (petId) {
+      walkQuery = supabase
+        .from('daily_logs')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('pet_id', petId)
+        .eq('category', 'walk')
+        .is('deleted_at', null)
+        .not('walk_end_at', 'is', null)
+        .lte('logged_at', loggedAt)
+        .gte('walk_end_at', loggedAt)
+        .limit(1)
+        .maybeSingle()
+    }
+
+    const { data: walk } = await walkQuery
+    if (walk) {
+      await supabase
+        .from('daily_logs')
+        .update({ walk_id: walk.id })
+        .eq('id', logId)
+        .eq('user_id', userId)
+    }
+  } catch (err) {
+    console.error('Auto-assign walk_id error:', err)
+  }
+}
+
 // GET: 기록 조회 (날짜 범위 또는 특정 날짜)
 export async function GET(request: NextRequest) {
   try {
@@ -285,6 +330,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // 비산책 로그이고 walk_id가 없으면, 완료된 산책 시간대에 해당하는지 확인 후 자동 할당
+    if (data.category !== 'walk' && !data.walk_id && data.logged_at) {
+      await autoAssignWalkId(supabase, user.id, data.id, data.logged_at, data.pet_id)
+      // 할당 결과 반영을 위해 다시 조회
+      const { data: refreshed } = await supabase
+        .from('daily_logs')
+        .select('*')
+        .eq('id', data.id)
+        .single()
+      if (refreshed) data = refreshed
+    }
+
     // photo_urls를 Signed URL로 변환
     const processedData = {
       ...data,
@@ -458,6 +515,31 @@ export async function PATCH(request: NextRequest) {
     if (error) {
       console.error('Daily log update error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // 비산책 로그의 시간이 수정된 경우, 완료된 산책 시간대에 해당하면 walk_id 자동 할당/해제
+    if (data.category !== 'walk' && 'logged_at' in updates) {
+      try {
+        // 먼저 기존 walk_id 해제 (시간이 바뀌었으므로 더 이상 해당 산책 범위가 아닐 수 있음)
+        await supabase
+          .from('daily_logs')
+          .update({ walk_id: null })
+          .eq('id', data.id)
+          .eq('user_id', user.id)
+
+        // 새 시간에 해당하는 산책이 있으면 할당
+        await autoAssignWalkId(supabase, user.id, data.id, data.logged_at, data.pet_id)
+
+        // 결과 반영
+        const { data: refreshed } = await supabase
+          .from('daily_logs')
+          .select('*')
+          .eq('id', data.id)
+          .single()
+        if (refreshed) data = refreshed
+      } catch (err) {
+        console.error('Walk ID re-assign on time edit error:', err)
+      }
     }
 
     // 산책 기록이 종료되거나 시간이 수정된 경우, 해당 시간대의 로그에 walk_id 자동 할당
