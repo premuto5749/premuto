@@ -51,8 +51,7 @@ async function convertPathsToSignedUrls(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function autoAssignWalkId(supabase: any, userId: string, logId: string, loggedAt: string, petId: string | null) {
   try {
-    // 해당 시간을 포함하는 완료된 산책 조회
-    let walkQuery = supabase
+    let query = supabase
       .from('daily_logs')
       .select('id')
       .eq('user_id', userId)
@@ -61,25 +60,12 @@ async function autoAssignWalkId(supabase: any, userId: string, logId: string, lo
       .not('walk_end_at', 'is', null)
       .lte('logged_at', loggedAt)
       .gte('walk_end_at', loggedAt)
-      .limit(1)
-      .maybeSingle()
 
     if (petId) {
-      walkQuery = supabase
-        .from('daily_logs')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('pet_id', petId)
-        .eq('category', 'walk')
-        .is('deleted_at', null)
-        .not('walk_end_at', 'is', null)
-        .lte('logged_at', loggedAt)
-        .gte('walk_end_at', loggedAt)
-        .limit(1)
-        .maybeSingle()
+      query = query.eq('pet_id', petId)
     }
 
-    const { data: walk } = await walkQuery
+    const { data: walk } = await query.limit(1).maybeSingle()
     if (walk) {
       await supabase
         .from('daily_logs')
