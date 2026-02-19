@@ -13,6 +13,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { QuickLogModal } from '@/components/daily-log/QuickLogModal'
 import { BreathingTimerModal } from '@/components/daily-log/BreathingTimerModal'
 import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
@@ -66,6 +76,7 @@ export default function DailyLogPage() {
 
   // 산책 전용 상태
   const [isWalkEndOpen, setIsWalkEndOpen] = useState(false)
+  const [isWalkStartConfirmOpen, setIsWalkStartConfirmOpen] = useState(false)
   const [walkEndDate, setWalkEndDate] = useState('')
   const [walkEndTime, setWalkEndTime] = useState('')
   const [isWalkSubmitting, setIsWalkSubmitting] = useState(false)
@@ -308,7 +319,7 @@ export default function DailyLogPage() {
     if (activeWalk) {
       openWalkEndDialog()
     } else {
-      handleWalkStart()
+      setIsWalkStartConfirmOpen(true)
     }
   }
 
@@ -638,24 +649,7 @@ export default function DailyLogPage() {
       </main>
 
       {/* 플로팅 버튼 그룹 */}
-      <div className="fixed bottom-6 right-6 flex flex-col items-center gap-3">
-        {/* 산책 버튼 */}
-        <button
-          onClick={handleWalkFABClick}
-          disabled={isWalkSubmitting || !currentPet}
-          className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
-            activeWalk
-              ? 'bg-green-500 text-white animate-pulse'
-              : 'bg-white border-2 border-green-400 text-green-700 hover:bg-green-50'
-          } disabled:opacity-50`}
-        >
-          {isWalkSubmitting ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <span className="text-lg">🐕</span>
-          )}
-        </button>
-
+      <div className="fixed bottom-6 right-6 flex flex-row items-end gap-3">
         {/* 빠른 기록 추가 버튼 */}
         <Button
           size="lg"
@@ -664,6 +658,23 @@ export default function DailyLogPage() {
         >
           <Plus className="w-6 h-6" />
         </Button>
+
+        {/* 산책 버튼 */}
+        <button
+          onClick={handleWalkFABClick}
+          disabled={isWalkSubmitting || !currentPet}
+          className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all ${
+            activeWalk
+              ? 'bg-green-500 text-white animate-pulse'
+              : 'bg-white border-2 border-green-400 text-green-700 hover:bg-green-50'
+          } disabled:opacity-50`}
+        >
+          {isWalkSubmitting ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <span className="text-xl">🐕</span>
+          )}
+        </button>
       </div>
 
       {/* 빠른 기록 모달 */}
@@ -752,6 +763,30 @@ export default function DailyLogPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 산책 시작 확인 모달 */}
+      <AlertDialog open={isWalkStartConfirmOpen} onOpenChange={setIsWalkStartConfirmOpen}>
+        <AlertDialogContent className="sm:max-w-xs">
+          <AlertDialogHeader>
+            <AlertDialogTitle>🐕 산책 시작</AlertDialogTitle>
+            <AlertDialogDescription>
+              산책을 시작하시겠습니까?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-green-600 hover:bg-green-700"
+              onClick={() => {
+                setIsWalkStartConfirmOpen(false)
+                handleWalkStart()
+              }}
+            >
+              시작하기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
