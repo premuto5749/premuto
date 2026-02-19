@@ -519,13 +519,16 @@ export async function PATCH(request: NextRequest) {
         console.error('Walk ID re-assign on time edit error:', err)
         // 재할당 실패 시 원래 walk_id로 복구
         if (previousWalkId) {
-          await supabase
-            .from('daily_logs')
-            .update({ walk_id: previousWalkId })
-            .eq('id', data.id)
-            .eq('user_id', user.id)
-            .then(() => { data = { ...data, walk_id: previousWalkId } })
-            .catch((restoreErr: unknown) => console.error('Walk ID restore failed:', restoreErr))
+          try {
+            await supabase
+              .from('daily_logs')
+              .update({ walk_id: previousWalkId })
+              .eq('id', data.id)
+              .eq('user_id', user.id)
+            data = { ...data, walk_id: previousWalkId }
+          } catch (restoreErr) {
+            console.error('Walk ID restore failed:', restoreErr)
+          }
         }
       }
     }
