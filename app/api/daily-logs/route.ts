@@ -460,6 +460,44 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // 산책 기록이 종료되거나 시간이 수정된 경우, 해당 시간대의 로그에 walk_id 자동 할당
+    if (data.category === 'walk' && data.walk_end_at && data.logged_at) {
+      try {
+        const walkId = data.id
+        const walkStart = data.logged_at
+        const walkEnd = data.walk_end_at
+        const walkPetId = data.pet_id
+
+        // 1) 이전에 이 산책에 연결되었던 로그의 walk_id를 먼저 해제 (시간 변경 대응)
+        await supabase
+          .from('daily_logs')
+          .update({ walk_id: null })
+          .eq('user_id', user.id)
+          .eq('walk_id', walkId)
+          .neq('id', walkId)
+
+        // 2) 시작~종료 사이에 기록된 로그에 walk_id 할당
+        let assignQuery = supabase
+          .from('daily_logs')
+          .update({ walk_id: walkId })
+          .eq('user_id', user.id)
+          .is('deleted_at', null)
+          .neq('category', 'walk')
+          .neq('id', walkId)
+          .gte('logged_at', walkStart)
+          .lte('logged_at', walkEnd)
+
+        if (walkPetId) {
+          assignQuery = assignQuery.eq('pet_id', walkPetId)
+        }
+
+        await assignQuery
+      } catch (walkIdError) {
+        // walk_id 할당 실패는 치명적이지 않으므로 로그만 남김
+        console.error('Walk ID auto-assign error:', walkIdError)
+      }
+    }
+
     // photo_urls를 Signed URL로 변환
     const processedData = {
       ...data,
