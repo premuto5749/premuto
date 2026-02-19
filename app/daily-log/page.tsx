@@ -638,7 +638,7 @@ export default function DailyLogPage() {
       </main>
 
       {/* 플로팅 버튼 그룹 */}
-      <div className="fixed bottom-6 right-6 flex flex-col items-center gap-3">
+      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3">
         {/* 산책 버튼 */}
         <button
           onClick={handleWalkFABClick}
