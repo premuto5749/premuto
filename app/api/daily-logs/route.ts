@@ -528,7 +528,12 @@ export async function PATCH(request: NextRequest) {
             data = { ...data, walk_id: previousWalkId }
           } catch (restoreErr) {
             console.error('Walk ID restore failed:', restoreErr)
+            // DB는 walk_id: null 상태이므로 응답도 일치시킴
+            data = { ...data, walk_id: null }
           }
+        } else {
+          // previousWalkId가 없으면 DB 상태(null)에 맞춤
+          data = { ...data, walk_id: null }
         }
       }
     }
