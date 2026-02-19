@@ -48,8 +48,9 @@ async function convertPathsToSignedUrls(
 }
 
 // 비산책 로그의 logged_at이 완료된 산책 시간대에 해당하면 walk_id 자동 할당
+// 반환값: 할당된 walk_id 또는 null (재조회 불필요하도록)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function autoAssignWalkId(supabase: any, userId: string, logId: string, loggedAt: string, petId: string | null) {
+async function autoAssignWalkId(supabase: any, userId: string, logId: string, loggedAt: string, petId: string | null): Promise<string | null> {
   try {
     let query = supabase
       .from('daily_logs')
@@ -72,9 +73,12 @@ async function autoAssignWalkId(supabase: any, userId: string, logId: string, lo
         .update({ walk_id: walk.id })
         .eq('id', logId)
         .eq('user_id', userId)
+      return walk.id
     }
+    return null
   } catch (err) {
     console.error('Auto-assign walk_id error:', err)
+    return null
   }
 }
 
@@ -318,14 +322,8 @@ export async function POST(request: NextRequest) {
 
     // 비산책 로그이고 walk_id가 없으면, 완료된 산책 시간대에 해당하는지 확인 후 자동 할당
     if (data.category !== 'walk' && !data.walk_id && data.logged_at) {
-      await autoAssignWalkId(supabase, user.id, data.id, data.logged_at, data.pet_id)
-      // 할당 결과 반영을 위해 다시 조회
-      const { data: refreshed } = await supabase
-        .from('daily_logs')
-        .select('*')
-        .eq('id', data.id)
-        .single()
-      if (refreshed) data = refreshed
+      const assignedWalkId = await autoAssignWalkId(supabase, user.id, data.id, data.logged_at, data.pet_id)
+      if (assignedWalkId) data = { ...data, walk_id: assignedWalkId }
     }
 
     // photo_urls를 Signed URL로 변환
@@ -514,15 +512,8 @@ export async function PATCH(request: NextRequest) {
           .eq('user_id', user.id)
 
         // 새 시간에 해당하는 산책이 있으면 할당
-        await autoAssignWalkId(supabase, user.id, data.id, data.logged_at, data.pet_id)
-
-        // 결과 반영
-        const { data: refreshed } = await supabase
-          .from('daily_logs')
-          .select('*')
-          .eq('id', data.id)
-          .single()
-        if (refreshed) data = refreshed
+        const assignedWalkId = await autoAssignWalkId(supabase, user.id, data.id, data.logged_at, data.pet_id)
+        data = { ...data, walk_id: assignedWalkId }
       } catch (err) {
         console.error('Walk ID re-assign on time edit error:', err)
       }
