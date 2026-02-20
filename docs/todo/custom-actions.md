@@ -117,6 +117,15 @@ DailyStatsCard, MonthlyStatsCalendar, MonthlyStatsCard: built-in 카테고리만
 - `components/layout/AppHeader.tsx`: `/manage` → `/settings?tab=preset` 변경
 - `app/manage/page.tsx`: redirect('/settings?tab=preset')로 교체
 
+## Step 11: 휴지통을 설정 페이지 안으로 이동
+
+현재 `/trash` 페이지가 독립 메뉴로 존재하지만 사용 빈도가 낮으므로 설정 페이지의 "데이터" 탭 안으로 통합한다.
+
+- `app/settings/page.tsx`: "데이터" 탭에 휴지통 섹션 추가 (기존 TrashSection 컴포넌트 재사용 또는 인라인)
+- `components/layout/AppHeader.tsx`: navItems에서 `/trash` 항목 제거
+- `app/trash/page.tsx`: `/settings?tab=data` 로 리다이렉트 처리 (하위호환)
+- 설정 탭 구조: `pet` → `preset` → `theme` → `account` → `data(휴지통 포함)` (5→6탭 또는 데이터 탭 내 섹션)
+
 ---
 
 ## 구현 현황
@@ -144,6 +153,7 @@ DailyStatsCard, MonthlyStatsCalendar, MonthlyStatsCard: built-in 카테고리만
 - [ ] PR 생성
 - [ ] DB 마이그레이션 실행 (`npx supabase db push`)
 - [ ] 기능 테스트 (설정 > 프리셋, 빠른 기록 > 커스텀 버튼)
+- [ ] Step 11: 휴지통 → 설정 "데이터" 탭 안으로 이동 (미구현)
 
 ---
 
