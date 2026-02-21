@@ -747,6 +747,7 @@ function DataManagementSection() {
   const [exporting, setExporting] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [isCheckingExport, setIsCheckingExport] = useState(false)
   const [showExportConfirm, setShowExportConfirm] = useState(false)
   const [exportRemaining, setExportRemaining] = useState(0)
@@ -878,14 +879,23 @@ function DataManagementSection() {
       const res = await fetch('/api/settings', { method: 'DELETE' })
       const data = await res.json()
       if (data.success) {
-        // 로그아웃 처리
-        window.location.href = '/auth/signout'
+        // 로그아웃 처리 (POST 방식으로 signout 호출)
+        const form = document.createElement('form')
+        form.method = 'POST'
+        form.action = '/auth/signout'
+        document.body.appendChild(form)
+        form.submit()
+        return
+      } else {
+        toast({ title: '계정 삭제 실패', description: data.error || '다시 시도해주세요.', variant: 'destructive' })
       }
     } catch (error) {
       console.error('Failed to delete account:', error)
+      toast({ title: '계정 삭제 실패', description: '네트워크 오류가 발생했습니다.', variant: 'destructive' })
     } finally {
       setDeleting(false)
       setDeleteDialogOpen(false)
+      setDeleteConfirmText('')
     }
   }
 
@@ -1050,7 +1060,10 @@ function DataManagementSection() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+            setDeleteDialogOpen(open)
+            if (!open) setDeleteConfirmText('')
+          }}>
             <AlertDialogTrigger asChild>
               <Button variant="destructive">
                 <Trash2 className="w-4 h-4 mr-2" />
@@ -1060,15 +1073,27 @@ function DataManagementSection() {
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>정말 삭제하시겠습니까?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  이 작업은 되돌릴 수 없습니다. 모든 일일 기록, 검사 결과, 설정이 영구적으로 삭제됩니다.
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    <p>이 작업은 되돌릴 수 없습니다. 모든 일일 기록, 검사 결과, 설정이 영구적으로 삭제됩니다.</p>
+                    <p className="font-medium text-destructive">
+                      확인을 위해 아래에 <span className="font-bold">&quot;삭제합니다&quot;</span>를 입력해주세요.
+                    </p>
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder="삭제합니다"
+                      className="mt-2"
+                      autoComplete="off"
+                    />
+                  </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>취소</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleDeleteAccount}
-                  disabled={deleting}
+                  disabled={deleting || deleteConfirmText !== '삭제합니다'}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   {deleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
