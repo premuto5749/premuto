@@ -25,6 +25,11 @@ export async function generateMetadata(): Promise<Metadata> {
       description: settings.siteDescription,
       images: settings.ogImageUrl ? [settings.ogImageUrl] : undefined,
     },
+    verification: {
+      other: {
+        "naver-site-verification": ["e592e6afde54f2ec9dba0806388b4888ed6d0183"],
+      },
+    },
     other: {
       ...Sentry.getTraceData(),
     },
