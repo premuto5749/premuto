@@ -201,6 +201,19 @@ export interface BatchSaveResponse {
 
 export type LogCategory = 'meal' | 'water' | 'snack' | 'medicine' | 'poop' | 'pee' | 'breathing' | 'weight' | 'walk'
 
+// 산책 경로 좌표 (GPS 위치)
+export interface WalkRoutePoint {
+  lat: number
+  lng: number
+  timestamp: number  // Unix timestamp (ms)
+}
+
+// 산책 경로 데이터
+export interface WalkRoute {
+  coordinates: WalkRoutePoint[]
+  distance_meters: number   // 총 이동 거리 (미터)
+}
+
 export interface DailyLog {
   id: string
   user_id: string            // 소유자 ID (RLS로 본인 기록만 조회 가능)
@@ -218,6 +231,7 @@ export interface DailyLog {
   input_source?: 'preset' | 'manual'  // 프리셋/직접입력 구분
   walk_end_at?: string | null    // 산책 종료 시각 (null = 진행 중)
   walk_id?: string | null        // 산책 중 기록한 활동 연결용
+  walk_route?: WalkRoute | null  // 산책 경로 데이터 (GPS 좌표)
   created_at: string
   updated_at: string
 }
@@ -237,6 +251,7 @@ export interface DailyLogInput {
   input_source?: 'preset' | 'manual'
   walk_end_at?: string | null    // 산책 종료 시각
   walk_id?: string | null        // 산책 중 다른 활동 연결
+  walk_route?: WalkRoute | null  // 산책 경로 데이터
 }
 
 export interface DailyStats {

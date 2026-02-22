@@ -29,6 +29,7 @@ import { DailyStatsCard } from '@/components/daily-log/DailyStatsCard'
 import { Timeline } from '@/components/daily-log/Timeline'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { DailySummaryOverlay } from '@/components/daily-log/DailySummaryOverlay'
+import dynamic from 'next/dynamic'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +37,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
-import type { DailyLog, DailyStats, LogCategory, FeedingPlan } from '@/types'
+import type { DailyLog, DailyStats, LogCategory, FeedingPlan, WalkRoute } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { formatNumber, formatLocalDate } from '@/lib/utils'
 import { calculateCalories, calculateIntake, calculateMixedCalorieDensity } from '@/lib/calorie'
@@ -47,6 +48,12 @@ import {
 } from "@/components/ui/popover"
 import { Calendar } from '@/components/ui/calendar'
 import { usePet } from '@/contexts/PetContext'
+
+// WalkTracker는 Leaflet(window 필요)을 사용하므로 SSR 비활성화
+const WalkTracker = dynamic(
+  () => import('@/components/daily-log/WalkTracker').then(mod => ({ default: mod.WalkTracker })),
+  { ssr: false }
+)
 
 // 한국 시간(KST, UTC+9) 기준 오늘 날짜 반환
 function getKSTToday(): string {
@@ -283,22 +290,36 @@ export default function DailyLogPage() {
 
       const durationMinutes = Math.round((endTime - startTime) / 60000) || 1
 
+      // 경로 데이터 포함
+      const routeData = walkRouteRef.current
+      const patchBody: Record<string, unknown> = {
+        id: activeWalk.id,
+        walk_end_at: endAt,
+        amount: durationMinutes,
+        unit: '분',
+      }
+      if (routeData && routeData.coordinates.length >= 2) {
+        patchBody.walk_route = routeData
+      }
+
       const response = await fetch('/api/daily-logs', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: activeWalk.id,
-          walk_end_at: endAt,
-          amount: durationMinutes,
-          unit: '분',
-        }),
+        body: JSON.stringify(patchBody),
       })
 
       if (!response.ok) throw new Error('Failed to end walk')
 
+      // 경로 데이터 초기화
+      walkRouteRef.current = null
+
+      const distanceStr = routeData && routeData.distance_meters > 0
+        ? `, ${(routeData.distance_meters / 1000).toFixed(2)}km`
+        : ''
+
       toast({
         title: '산책 종료',
-        description: `🐕 산책 ${durationMinutes}분 기록되었습니다.`,
+        description: `🐕 산책 ${durationMinutes}분${distanceStr} 기록되었습니다.`,
       })
       setIsWalkEndOpen(false)
       fetchData()
@@ -313,6 +334,24 @@ export default function DailyLogPage() {
       setIsWalkSubmitting(false)
     }
   }
+
+  // 산책 경로 업데이트 (WalkTracker에서 주기적으로 호출)
+  const walkRouteRef = useRef<WalkRoute | null>(null)
+
+  const handleWalkRouteUpdate = useCallback((route: WalkRoute) => {
+    walkRouteRef.current = route
+    // 서버에 경로 중간 저장 (비동기, 실패 무시)
+    if (activeWalk) {
+      fetch('/api/daily-logs', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: activeWalk.id,
+          walk_route: route,
+        }),
+      }).catch(() => { /* 중간 저장 실패는 무시 */ })
+    }
+  }, [activeWalk])
 
   // 산책 FAB 클릭 핸들러
   const handleWalkFABClick = () => {
@@ -631,6 +670,14 @@ export default function DailyLogPage() {
               currentWeight={currentWeight}
               calorieData={calorieData}
             />
+
+            {/* 산책 실시간 추적 */}
+            {activeWalk && (
+              <WalkTracker
+                activeWalk={activeWalk}
+                onRouteUpdate={handleWalkRouteUpdate}
+              />
+            )}
 
             {/* 타임라인 */}
             <div>

@@ -1,13 +1,20 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import type { DailyLog } from '@/types'
+
+// WalkRouteMap은 Leaflet을 사용하므로 SSR 비활성화
+const WalkRouteMap = dynamic(
+  () => import('@/components/daily-log/WalkRouteMap').then(mod => ({ default: mod.WalkRouteMap })),
+  { ssr: false }
+)
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
 import { formatNumber } from '@/lib/utils'
@@ -487,6 +494,13 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                             {log.medicine_name}
                           </span>
                         )}
+                        {/* 경로 아이콘 표시 */}
+                        {log.category === 'walk' && log.walk_route?.coordinates && log.walk_route.coordinates.length >= 2 && (
+                          <span className="text-xs text-green-600 flex items-center gap-0.5">
+                            <MapPin className="w-3 h-3" />
+                            {(log.walk_route.distance_meters / 1000).toFixed(1)}km
+                          </span>
+                        )}
                         {/* 사진 아이콘 표시 */}
                         {log.photo_urls && log.photo_urls.length > 0 && (
                           <span className="text-xs text-muted-foreground flex items-center gap-0.5">
@@ -882,6 +896,18 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                           <span className="text-sm font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded">진행 중</span>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* 산책 경로 지도 */}
+                  {selectedLog.category === 'walk' && selectedLog.walk_route &&
+                   selectedLog.walk_route.coordinates && selectedLog.walk_route.coordinates.length >= 2 && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5" />
+                        산책 경로
+                      </p>
+                      <WalkRouteMap route={selectedLog.walk_route} height="200px" />
                     </div>
                   )}
 
