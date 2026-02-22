@@ -263,17 +263,25 @@ export interface DailyStats {
 // 설정 관련 타입
 // ============================================
 
+export interface CardLayoutItem {
+  category: LogCategory
+  visible: boolean
+}
+
 export interface UserSettings {
   id: string
   user_id: string
   // 테마 설정
   theme: 'light' | 'dark' | 'system'
+  // 카드 배치 설정
+  card_layout: CardLayoutItem[] | null
   created_at: string
   updated_at: string
 }
 
 export interface UserSettingsInput {
   theme?: 'light' | 'dark' | 'system'
+  card_layout?: CardLayoutItem[] | null
 }
 
 export interface Medicine {
