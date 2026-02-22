@@ -123,6 +123,11 @@ export default function LoginPage() {
     setError(null)
 
     try {
+      // signup 모드에서 약관 동의 시점을 쿠키에 저장 (OAuth 리다이렉트 후 callback에서 읽음)
+      if (mode === 'signup' && agreedToTerms) {
+        document.cookie = `terms_accepted_at=${new Date().toISOString()}; path=/; max-age=600; SameSite=Lax`
+      }
+
       const supabase = createClient()
       const { error: socialError } = await supabase.auth.signInWithOAuth({
         provider,
@@ -224,6 +229,25 @@ export default function LoginPage() {
             </div>
           ) : (
             <>
+              {/* 약관 동의 (가입 모드 - 카카오/이메일 공통) */}
+              {mode === 'signup' && (
+                <div className="flex items-start gap-2 mb-1">
+                  <Checkbox
+                    id="terms"
+                    checked={agreedToTerms}
+                    onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                    disabled={isLoading}
+                    className="mt-0.5"
+                  />
+                  <label htmlFor="terms" className="text-sm leading-snug text-muted-foreground cursor-pointer">
+                    <Link href="/terms" target="_blank" className="underline hover:text-foreground">서비스 이용약관</Link>
+                    {' 및 '}
+                    <Link href="/privacy" target="_blank" className="underline hover:text-foreground">개인정보 처리방침</Link>
+                    에 동의합니다.
+                  </label>
+                </div>
+              )}
+
               {/* 카카오 로그인 (로그인/가입 모드에서만) */}
               {mode !== 'forgot-password' && (
                 <div className="space-y-3">
@@ -232,7 +256,7 @@ export default function LoginPage() {
                     variant="outline"
                     className="w-full h-12 rounded-full text-base font-medium gap-3 bg-[#FEE500] hover:bg-[#FDD835] border-[#FEE500] hover:border-[#FDD835] text-[#3C1E1E]"
                     onClick={() => handleSocialLogin('kakao')}
-                    disabled={isLoading}
+                    disabled={isLoading || (mode === 'signup' && !agreedToTerms)}
                   >
                     <svg viewBox="0 0 24 24" className="w-5 h-5" aria-hidden="true">
                       <path d="M12 3C6.48 3 2 6.48 2 10.8c0 2.76 1.84 5.18 4.6 6.56-.2.72-.74 2.6-.84 3-.14.48.17.47.36.34.15-.1 2.4-1.63 3.36-2.3.5.07 1.01.1 1.52.1 5.52 0 10-3.48 10-7.8S17.52 3 12 3z" fill="#3C1E1E"/>
@@ -327,24 +351,6 @@ export default function LoginPage() {
                           </button>
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {mode === 'signup' && (
-                    <div className="flex items-start gap-2">
-                      <Checkbox
-                        id="terms"
-                        checked={agreedToTerms}
-                        onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
-                        disabled={isLoading}
-                        className="mt-0.5"
-                      />
-                      <label htmlFor="terms" className="text-sm leading-snug text-muted-foreground cursor-pointer">
-                        <Link href="/terms" target="_blank" className="underline hover:text-foreground">서비스 이용약관</Link>
-                        {' 및 '}
-                        <Link href="/privacy" target="_blank" className="underline hover:text-foreground">개인정보 처리방침</Link>
-                        에 동의합니다.
-                      </label>
                     </div>
                   )}
 

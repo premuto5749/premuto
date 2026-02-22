@@ -25,7 +25,22 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      return NextResponse.redirect(new URL(next, request.url))
+      // OAuth 가입 시 약관 동의 시점 기록 (쿠키에서 읽어 user_metadata에 저장)
+      const termsAcceptedAt = request.cookies.get('terms_accepted_at')?.value
+      if (termsAcceptedAt && !user?.user_metadata?.terms_accepted_at) {
+        await supabase.auth.updateUser({
+          data: { terms_accepted_at: termsAcceptedAt }
+        })
+      }
+
+      const response = NextResponse.redirect(new URL(next, request.url))
+
+      // 약관 동의 쿠키 삭제
+      if (termsAcceptedAt) {
+        response.cookies.delete('terms_accepted_at')
+      }
+
+      return response
     }
   }
 
