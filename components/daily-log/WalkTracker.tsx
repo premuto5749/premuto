@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { MapPin, Loader2, Navigation, AlertCircle } from 'lucide-react'
+import { MapPin, Loader2, Navigation, AlertCircle, Smartphone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { WalkRoutePoint, WalkRoute, DailyLog } from '@/types'
 import L from 'leaflet'
@@ -41,6 +41,8 @@ function calculateTotalDistance(points: WalkRoutePoint[]): number {
 const TRACKING_INTERVAL = 5000 // 5초
 // 최소 이동 거리 (미터) - 노이즈 필터링
 const MIN_MOVE_DISTANCE = 3
+// 백그라운드 복귀 시 누락 구간으로 간주할 최대 시간 (밀리초)
+const MAX_GAP_DURATION = 5 * 60 * 1000 // 5분
 
 /**
  * 산책 중 실시간 GPS 경로를 추적하고 지도에 표시하는 컴포넌트
@@ -57,6 +59,8 @@ export function WalkTracker({ activeWalk, onRouteUpdate }: WalkTrackerProps) {
   const [gpsError, setGpsError] = useState<string | null>(null)
   const [isMapExpanded, setIsMapExpanded] = useState(false)
   const [elapsedMinutes, setElapsedMinutes] = useState(0)
+  const [wakeLockActive, setWakeLockActive] = useState(false)
+  const [wasBackgrounded, setWasBackgrounded] = useState(false)
 
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
@@ -66,11 +70,114 @@ export function WalkTracker({ activeWalk, onRouteUpdate }: WalkTrackerProps) {
   const watchIdRef = useRef<number | null>(null)
   const pointsRef = useRef<WalkRoutePoint[]>(points)
   const saveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const backgroundTimestampRef = useRef<number | null>(null)
 
   // pointsRef는 항상 최신 상태 유지
   useEffect(() => {
     pointsRef.current = points
   }, [points])
+
+  // Wake Lock 요청 — 화면 꺼짐 방지로 GPS 유지
+  const requestWakeLock = useCallback(async () => {
+    if (!('wakeLock' in navigator)) return
+    try {
+      wakeLockRef.current = await navigator.wakeLock.request('screen')
+      setWakeLockActive(true)
+      wakeLockRef.current.addEventListener('release', () => {
+        setWakeLockActive(false)
+        wakeLockRef.current = null
+      })
+    } catch {
+      // 배터리 부족 등의 이유로 거부될 수 있음
+      setWakeLockActive(false)
+    }
+  }, [])
+
+  const releaseWakeLock = useCallback(async () => {
+    if (wakeLockRef.current) {
+      await wakeLockRef.current.release()
+      wakeLockRef.current = null
+      setWakeLockActive(false)
+    }
+  }, [])
+
+  // Page Visibility — 백그라운드 진입/복귀 처리
+  useEffect(() => {
+    if (!isTracking) return
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // 백그라운드 진입: 타임스탬프 저장 + 경로 즉시 저장
+        backgroundTimestampRef.current = Date.now()
+        const currentPoints = pointsRef.current
+        if (currentPoints.length >= 2 && onRouteUpdate) {
+          onRouteUpdate({
+            coordinates: currentPoints,
+            distance_meters: calculateTotalDistance(currentPoints),
+          })
+        }
+      } else {
+        // 포그라운드 복귀
+        const bgTimestamp = backgroundTimestampRef.current
+        backgroundTimestampRef.current = null
+
+        // Wake Lock 재요청 (일부 브라우저에서 백그라운드 시 해제됨)
+        requestWakeLock()
+
+        // 현재 위치 즉시 취득하여 경로 연결
+        if (bgTimestamp) {
+          const gapDuration = Date.now() - bgTimestamp
+          if (gapDuration > TRACKING_INTERVAL * 2) {
+            setWasBackgrounded(true)
+            setTimeout(() => setWasBackgrounded(false), 3000)
+          }
+
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords
+              const timestamp = position.timestamp
+
+              setPoints(prev => {
+                if (prev.length === 0) return prev
+                const last = prev[prev.length - 1]
+                const dist = haversineDistance(last.lat, last.lng, latitude, longitude)
+
+                // 너무 먼 거리(5분 이상 이동 불가 거리)는 GPS 오류로 판단
+                if (gapDuration > MAX_GAP_DURATION && dist > 5000) return prev
+                if (dist < MIN_MOVE_DISTANCE) return prev
+
+                const newPoint: WalkRoutePoint = { lat: latitude, lng: longitude, timestamp }
+                const updated = [...prev, newPoint]
+
+                // 지도에 복귀 지점 반영
+                const map = mapInstanceRef.current
+                if (map) {
+                  const latLng: [number, number] = [latitude, longitude]
+                  if (polylineRef.current) {
+                    polylineRef.current.addLatLng(latLng)
+                  }
+                  if (currentMarkerRef.current) {
+                    currentMarkerRef.current.setLatLng(latLng)
+                  }
+                  map.panTo(latLng)
+                }
+
+                return updated
+              })
+            },
+            () => {
+              // 복귀 시 위치 취득 실패 — watchPosition이 이어서 처리
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+          )
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [isTracking, onRouteUpdate, requestWakeLock])
 
   // 경과 시간 업데이트
   useEffect(() => {
@@ -187,6 +294,7 @@ export function WalkTracker({ activeWalk, onRouteUpdate }: WalkTrackerProps) {
     setGpsError(null)
     setIsTracking(true)
     setIsMapExpanded(true)
+    requestWakeLock()
 
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
@@ -271,7 +379,7 @@ export function WalkTracker({ activeWalk, onRouteUpdate }: WalkTrackerProps) {
         maximumAge: TRACKING_INTERVAL,
       }
     )
-  }, [])
+  }, [requestWakeLock])
 
   // GPS 추적 중지
   const stopTracking = useCallback(() => {
@@ -280,6 +388,7 @@ export function WalkTracker({ activeWalk, onRouteUpdate }: WalkTrackerProps) {
       watchIdRef.current = null
     }
     setIsTracking(false)
+    releaseWakeLock()
 
     // 마지막 경로 저장
     if (pointsRef.current.length >= 2 && onRouteUpdate) {
@@ -288,7 +397,7 @@ export function WalkTracker({ activeWalk, onRouteUpdate }: WalkTrackerProps) {
         distance_meters: calculateTotalDistance(pointsRef.current),
       })
     }
-  }, [onRouteUpdate])
+  }, [onRouteUpdate, releaseWakeLock])
 
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {
@@ -301,6 +410,9 @@ export function WalkTracker({ activeWalk, onRouteUpdate }: WalkTrackerProps) {
       }
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove()
+      }
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release()
       }
     }
   }, [])
@@ -401,10 +513,25 @@ export function WalkTracker({ activeWalk, onRouteUpdate }: WalkTrackerProps) {
 
       {/* 추적 상태 표시 */}
       {isTracking && (
-        <div className="px-4 py-2 bg-green-100 border-t border-green-200 flex items-center gap-2">
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-green-600" />
-          <span className="text-xs text-green-700">GPS 경로 기록 중...</span>
-          <span className="text-xs text-green-500 ml-auto">{points.length}개 포인트</span>
+        <div className="px-4 py-2 bg-green-100 border-t border-green-200">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-green-600" />
+            <span className="text-xs text-green-700">GPS 경로 기록 중...</span>
+            <span className="text-xs text-green-500 ml-auto">{points.length}개 포인트</span>
+          </div>
+          {/* Wake Lock 상태 */}
+          <div className="flex items-center gap-1.5 mt-1">
+            <Smartphone className="w-3 h-3 text-green-500" />
+            <span className="text-[11px] text-green-600">
+              {wakeLockActive ? '화면 유지 활성' : '화면 유지 미지원'}
+            </span>
+          </div>
+          {/* 백그라운드 복귀 안내 */}
+          {wasBackgrounded && (
+            <div className="mt-1 text-[11px] text-amber-600">
+              앱 전환에서 복귀했습니다. 경로를 이어서 기록합니다.
+            </div>
+          )}
         </div>
       )}
     </div>
