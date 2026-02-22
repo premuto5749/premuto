@@ -56,7 +56,10 @@ export default function LoginPage() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            data: {
+              terms_accepted_at: new Date().toISOString(),
+            }
           }
         })
 

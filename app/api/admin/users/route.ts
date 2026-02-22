@@ -53,11 +53,11 @@ export async function GET() {
     // 3. user_profiles에서 tier 정보
     const { data: profiles } = await supabase
       .from('user_profiles')
-      .select('user_id, tier, created_at, updated_at')
+      .select('user_id, tier, terms_accepted_at, created_at, updated_at')
 
-    const profileMap = new Map<string, { tier: string; created_at: string; updated_at: string }>()
+    const profileMap = new Map<string, { tier: string; terms_accepted_at: string | null; created_at: string; updated_at: string }>()
     for (const p of profiles || []) {
-      profileMap.set(p.user_id, { tier: p.tier, created_at: p.created_at, updated_at: p.updated_at })
+      profileMap.set(p.user_id, { tier: p.tier, terms_accepted_at: p.terms_accepted_at, created_at: p.created_at, updated_at: p.updated_at })
     }
 
     // 4. 누적 OCR 사용량 + 마지막 활동 시간 (usage_logs 전체)
@@ -156,6 +156,7 @@ export async function GET() {
         daily_logs: dailyCountMap.get(userId) || 0,
         joined_at: authUser?.created_at || profile?.created_at || null,
         last_active: lastActive,
+        terms_accepted_at: profile?.terms_accepted_at || null,
       }
     })
 

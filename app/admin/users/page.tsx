@@ -45,6 +45,7 @@ interface UserInfo {
   daily_logs: number
   joined_at: string | null
   last_active: string | null
+  terms_accepted_at: string | null
 }
 
 function formatDate(dateStr: string | null): string {
@@ -306,6 +307,7 @@ export default function AdminUsersPage() {
                   <TableHead className="w-[200px]">계정</TableHead>
                   <TableHead className="w-[90px]">역할</TableHead>
                   <TableHead className="w-[70px]">Tier</TableHead>
+                  <TableHead className="text-center w-[50px]">약관</TableHead>
                   <TableHead className="text-center w-[80px]">가입일</TableHead>
                   <TableHead className="text-center w-[100px]">마지막 접속</TableHead>
                   <TableHead className="text-center">OCR</TableHead>
@@ -317,7 +319,7 @@ export default function AdminUsersPage() {
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       등록된 사용자가 없습니다
                     </TableCell>
                   </TableRow>
@@ -378,6 +380,13 @@ export default function AdminUsersPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={tierInfo.variant}>{tierInfo.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center text-xs">
+                          {user.terms_accepted_at ? (
+                            <span className="text-green-600" title={formatDateTime(user.terms_accepted_at)}>O</span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-center text-xs text-muted-foreground">
                           {formatDate(user.joined_at)}

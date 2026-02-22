@@ -98,9 +98,22 @@ export async function getUserTier(userId: string): Promise<TierName> {
   if (error) {
     if (error.code === 'PGRST116') {
       // 프로필이 없음 → 자동 생성
+      // user_metadata에서 이용약관 동의 시점 읽기
+      let termsAcceptedAt: string | null = null
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        termsAcceptedAt = user?.user_metadata?.terms_accepted_at || null
+      } catch {
+        // metadata 조회 실패 시 무시
+      }
+
       const { error: insertError } = await supabase
         .from('user_profiles')
-        .insert({ user_id: userId, tier: 'free' })
+        .insert({
+          user_id: userId,
+          tier: 'free',
+          ...(termsAcceptedAt ? { terms_accepted_at: termsAcceptedAt } : {}),
+        })
 
       if (insertError) {
         console.error('[Tier] Failed to create user_profile:', insertError.message)
