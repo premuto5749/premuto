@@ -3,7 +3,7 @@
  * Canvas 2D API로 반려동물 사진 위에 건강 기록 오버레이 합성
  */
 
-import type { DailyStats } from '@/types'
+import type { DailyStats, LogCategory } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { formatNumber } from '@/lib/utils'
 
@@ -17,9 +17,11 @@ interface RenderOptions {
   theme: SummaryTheme
   logoImg: HTMLImageElement
   outputWidth?: number
+  visibleCategories?: LogCategory[]
 }
 
 interface StatItem {
+  category: LogCategory
   icon: string
   label: string
   value: string
@@ -29,42 +31,49 @@ interface StatItem {
 function buildStatItems(stats: DailyStats): StatItem[] {
   return [
     {
+      category: 'meal',
       icon: LOG_CATEGORY_CONFIG.meal.icon,
       label: '식사',
       value: stats.total_meal_amount > 0 ? `${formatNumber(stats.total_meal_amount)}g` : '-',
       count: stats.meal_count,
     },
     {
+      category: 'water',
       icon: LOG_CATEGORY_CONFIG.water.icon,
       label: '음수',
       value: stats.total_water_amount > 0 ? `${formatNumber(stats.total_water_amount)}ml` : '-',
       count: stats.water_count,
     },
     {
+      category: 'snack',
       icon: LOG_CATEGORY_CONFIG.snack.icon,
       label: '간식',
       value: stats.snack_count > 0 ? `${stats.snack_count}회` : '-',
       count: stats.snack_count,
     },
     {
+      category: 'poop',
       icon: LOG_CATEGORY_CONFIG.poop.icon,
       label: '배변',
       value: stats.poop_count > 0 ? `${stats.poop_count}회` : '-',
       count: stats.poop_count,
     },
     {
+      category: 'pee',
       icon: LOG_CATEGORY_CONFIG.pee.icon,
       label: '배뇨',
       value: stats.pee_count > 0 ? `${stats.pee_count}회` : '-',
       count: stats.pee_count,
     },
     {
+      category: 'medicine',
       icon: LOG_CATEGORY_CONFIG.medicine.icon,
       label: '약',
       value: stats.medicine_count > 0 ? `${stats.medicine_count}회` : '-',
       count: stats.medicine_count,
     },
     {
+      category: 'breathing',
       icon: LOG_CATEGORY_CONFIG.breathing.icon,
       label: '호흡수',
       value: stats.avg_breathing_rate ? `${Math.round(stats.avg_breathing_rate)}회/분` : '-',
@@ -119,7 +128,7 @@ function formatDateKorean(dateStr: string): string {
 }
 
 export async function renderSummaryImage(options: RenderOptions): Promise<Blob> {
-  const { photo, petName, date, stats, theme, logoImg, outputWidth = 1080 } = options
+  const { photo, petName, date, stats, theme, logoImg, outputWidth = 1080, visibleCategories } = options
 
   // 폰트 로드 대기
   try {
@@ -213,7 +222,15 @@ export async function renderSummaryImage(options: RenderOptions): Promise<Blob> 
   clearShadow()
 
   // 하단 스탯 영역 (3xN 그리드)
-  const statItems = buildStatItems(stats)
+  const allStatItems = buildStatItems(stats)
+  const statItems = visibleCategories
+    ? (() => {
+        const itemMap = new Map(allStatItems.map(i => [i.category, i]))
+        return visibleCategories
+          .map(cat => itemMap.get(cat))
+          .filter((item): item is NonNullable<typeof item> => !!item)
+      })()
+    : allStatItems
   const cols = 3
   const rows = Math.ceil(statItems.length / cols)
   const rowHeight = outputWidth * 0.13
@@ -266,7 +283,7 @@ export async function renderSummaryImage(options: RenderOptions): Promise<Blob> 
     ctx.fillText(item.value, x, y + iconFontSize + valueFontSize + 4)
 
     // 횟수 (meal, water에만 표시)
-    if (item.count > 0 && (i === 0 || i === 1)) {
+    if (item.count > 0 && (item.category === 'meal' || item.category === 'water')) {
       const countFontSize = outputWidth * 0.024
       ctx.font = `700 ${valueFontSize}px ${fontFamily}`
       const vw = ctx.measureText(item.value).width

@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+import { Settings2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { LOG_CATEGORY_CONFIG, type LogCategory } from '@/types'
 import type { DailyStats } from '@/types'
@@ -13,9 +15,10 @@ interface MonthlyStatsCardProps {
   weightMap?: Record<string, number> // key: YYYY-MM-DD, value: kg
   selectedCategory: LogCategory
   onSelectCategory: (category: LogCategory) => void
+  visibleCategories?: LogCategory[]
 }
 
-export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, selectedCategory, onSelectCategory }: MonthlyStatsCardProps) {
+export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, selectedCategory, onSelectCategory, visibleCategories }: MonthlyStatsCardProps) {
   const statsArray = Object.values(statsMap)
   const daysWithRecords = statsArray.length
 
@@ -60,7 +63,7 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
     .sort(([a], [b]) => b.localeCompare(a)) // 최신 날짜 먼저
   const latestWeight = weightEntries.length > 0 ? weightEntries[0][1] : null
 
-  const items: { category: LogCategory; label: string; value: string }[] = [
+  const allItems: { category: LogCategory; label: string; value: string }[] = [
     {
       category: 'meal',
       label: '식사',
@@ -103,6 +106,16 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
     },
   ]
 
+  // Filter and sort by visibleCategories if provided
+  const items = visibleCategories
+    ? (() => {
+        const itemMap = new Map(allItems.map(i => [i.category, i]))
+        return visibleCategories
+          .map(cat => itemMap.get(cat))
+          .filter((item): item is NonNullable<typeof item> => !!item)
+      })()
+    : allItems
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -110,9 +123,14 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
           <CardTitle className="text-lg">
             {year}년 {month + 1}월 요약
           </CardTitle>
-          <span className="text-sm text-muted-foreground">
-            {daysWithRecords}일 기록 기준
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {daysWithRecords}일 기록 기준
+            </span>
+            <Link href="/settings?tab=layout" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Settings2 className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

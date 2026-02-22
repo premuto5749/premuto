@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff, Crown, User, Flame, CalendarDays, FileText, TestTube2, Scale } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff, Crown, User, Flame, CalendarDays, FileText, TestTube2, Scale, LayoutGrid } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { UserSettings, Pet, PetInput } from '@/types'
@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatLocalDate } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { GoogleDriveSection } from '@/components/settings/GoogleDriveSection'
+import { CardLayoutSection } from '@/components/settings/CardLayoutSection'
 
 function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab: string; isOnboarding?: boolean }) {
   const [loading, setLoading] = useState(true)
@@ -104,7 +105,7 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
         )}
 
         <Tabs defaultValue={defaultTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="pet" className="text-xs sm:text-sm">
               <PawPrint className="w-4 h-4 mr-1 hidden sm:inline" />
               반려동물
@@ -112,6 +113,10 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
             <TabsTrigger value="theme" className="text-xs sm:text-sm">
               <Palette className="w-4 h-4 mr-1 hidden sm:inline" />
               테마
+            </TabsTrigger>
+            <TabsTrigger value="layout" className="text-xs sm:text-sm">
+              <LayoutGrid className="w-4 h-4 mr-1 hidden sm:inline" />
+              카드 배치
             </TabsTrigger>
             <TabsTrigger value="account" className="text-xs sm:text-sm">
               <KeyRound className="w-4 h-4 mr-1 hidden sm:inline" />
@@ -136,6 +141,11 @@ function SettingsPageContent({ defaultTab, isOnboarding = false }: { defaultTab:
               saving={saving}
               setSaving={setSaving}
             />
+          </TabsContent>
+
+          {/* 카드 배치 */}
+          <TabsContent value="layout">
+            <CardLayoutSection />
           </TabsContent>
 
           {/* 계정 관리 */}

@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/popover"
 import { Calendar } from '@/components/ui/calendar'
 import { usePet } from '@/contexts/PetContext'
+import { useCardLayout } from '@/hooks/use-card-layout'
 
 // 한국 시간(KST, UTC+9) 기준 오늘 날짜 반환
 function getKSTToday(): string {
@@ -71,6 +72,7 @@ export default function DailyLogPage() {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const { toast } = useToast()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading, refreshPets } = usePet()
+  const { dailyCategories, imageCategories } = useCardLayout()
   const [currentWeight, setCurrentWeight] = useState<number | null>(null)
   const [activePlan, setActivePlan] = useState<FeedingPlan | null>(null)
 
@@ -630,6 +632,7 @@ export default function DailyLogPage() {
               onCategoryClick={handleCategoryClick}
               currentWeight={currentWeight}
               calorieData={calorieData}
+              visibleCategories={dailyCategories}
             />
 
             {/* 타임라인 */}
@@ -709,6 +712,7 @@ export default function DailyLogPage() {
         stats={stats}
         date={selectedDate}
         petName={currentPet?.name || ''}
+        visibleCategories={imageCategories}
       />
 
       {/* 산책 종료 다이얼로그 */}
