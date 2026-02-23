@@ -30,6 +30,7 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
   const peeDays = statsArray.filter(s => s.pee_count > 0)
   const breathingDays = statsArray.filter(s => s.breathing_count > 0 && s.avg_breathing_rate)
   const snackDays = statsArray.filter(s => s.snack_count > 0)
+  const walkDays = statsArray.filter(s => s.walk_count > 0)
 
   // 평균 계산 (해당 카테고리 기록이 있는 날만 기준)
   const avgMeal = mealDays.length > 0
@@ -52,6 +53,9 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
     : 0
   const avgSnack = snackDays.length > 0
     ? snackDays.reduce((sum, s) => sum + s.snack_count, 0) / snackDays.length
+    : 0
+  const avgWalkDuration = walkDays.length > 0
+    ? walkDays.reduce((sum, s) => sum + s.total_walk_duration, 0) / walkDays.length
     : 0
 
   // 체중: weightMap에서 마지막(최신) 기록 가져오기
@@ -98,6 +102,11 @@ export function MonthlyStatsCard({ year, month, statsMap, weightMap = {}, select
       category: 'breathing',
       label: '호흡수',
       value: avgBreathing > 0 ? `${Math.round(avgBreathing)}회/분` : '-',
+    },
+    {
+      category: 'walk',
+      label: '산책',
+      value: avgWalkDuration > 0 ? `${formatNumber(Math.round(avgWalkDuration))}분/일` : '-',
     },
     {
       category: 'weight',

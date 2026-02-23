@@ -5,7 +5,7 @@ import type { CardLayoutItem, LogCategory } from '@/types'
 
 // 각 소비자별 기본 카테고리 순서
 const DAILY_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'breathing', 'medicine', 'walk']
-const MONTHLY_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine', 'breathing', 'weight']
+const MONTHLY_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine', 'breathing', 'walk', 'weight']
 const IMAGE_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine', 'breathing']
 
 // 요약 카드 대상 카테고리 (설정 UI용 — weight는 요약 카드가 아닌 반려동물 프로필에서 관리)
