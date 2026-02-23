@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { X } from 'lucide-react'
@@ -26,6 +27,10 @@ interface ViewOptionsProps {
   onOrganFilterChange: (organ: string | null) => void
   panelFilter: string | null
   onPanelFilterChange: (panel: string | null) => void
+  dateFrom: string | null
+  onDateFromChange: (date: string | null) => void
+  dateTo: string | null
+  onDateToChange: (date: string | null) => void
 }
 
 const SORT_TYPE_LABELS: Record<SortType, string> = {
@@ -59,6 +64,10 @@ export function ViewOptions({
   onOrganFilterChange,
   panelFilter,
   onPanelFilterChange,
+  dateFrom,
+  onDateFromChange,
+  dateTo,
+  onDateToChange,
 }: ViewOptionsProps) {
   const handleSortTypeChange = (value: string) => {
     const newSortType = value as SortType
@@ -76,9 +85,11 @@ export function ViewOptions({
   const handleClearFilters = () => {
     onOrganFilterChange(null)
     onPanelFilterChange(null)
+    onDateFromChange(null)
+    onDateToChange(null)
   }
 
-  const hasActiveFilter = organFilter || panelFilter
+  const hasActiveFilter = organFilter || panelFilter || dateFrom || dateTo
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -145,6 +156,26 @@ export function ViewOptions({
         </div>
       )}
 
+      {/* 기간 필터 */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground whitespace-nowrap">기간:</span>
+        <Input
+          type="date"
+          value={dateFrom || ''}
+          onChange={(e) => onDateFromChange(e.target.value || null)}
+          max={dateTo || undefined}
+          className="w-[140px] h-9"
+        />
+        <span className="text-sm text-muted-foreground">~</span>
+        <Input
+          type="date"
+          value={dateTo || ''}
+          onChange={(e) => onDateToChange(e.target.value || null)}
+          min={dateFrom || undefined}
+          className="w-[140px] h-9"
+        />
+      </div>
+
       {/* 활성 필터 표시 및 초기화 */}
       {hasActiveFilter && (
         <div className="flex items-center gap-2">
@@ -163,6 +194,15 @@ export function ViewOptions({
               <X
                 className="w-3 h-3 cursor-pointer hover:text-destructive"
                 onClick={() => onPanelFilterChange(null)}
+              />
+            </Badge>
+          )}
+          {(dateFrom || dateTo) && (
+            <Badge variant="secondary" className="gap-1">
+              {dateFrom || '...'} ~ {dateTo || '...'}
+              <X
+                className="w-3 h-3 cursor-pointer hover:text-destructive"
+                onClick={() => { onDateFromChange(null); onDateToChange(null) }}
               />
             </Badge>
           )}

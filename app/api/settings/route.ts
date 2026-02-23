@@ -33,6 +33,7 @@ export async function GET() {
       id: null,
       user_id: user.id,
       theme: 'system',
+      card_layout: null,
       created_at: null,
       updated_at: null,
     }

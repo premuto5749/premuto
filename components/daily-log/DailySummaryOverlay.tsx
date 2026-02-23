@@ -7,7 +7,7 @@ import { Camera, Image as ImageIcon, Loader2, Sun, Moon, RefreshCw } from 'lucid
 import { useToast } from '@/hooks/use-toast'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import { renderSummaryImage, type SummaryTheme } from '@/lib/summary-image-renderer'
-import type { DailyStats } from '@/types'
+import type { DailyStats, LogCategory } from '@/types'
 
 interface DailySummaryOverlayProps {
   open: boolean
@@ -15,9 +15,10 @@ interface DailySummaryOverlayProps {
   stats: DailyStats | null
   date: string
   petName: string
+  visibleCategories?: LogCategory[]
 }
 
-export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }: DailySummaryOverlayProps) {
+export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName, visibleCategories }: DailySummaryOverlayProps) {
   const [photo, setPhoto] = useState<File | null>(null)
   const [theme, setTheme] = useState<SummaryTheme>('white')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -70,6 +71,7 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
         stats,
         theme: t,
         logoImg: logo,
+        visibleCategories,
       })
 
       setResultBlob(blob)
@@ -90,7 +92,7 @@ export function DailySummaryOverlay({ open, onOpenChange, stats, date, petName }
       setIsRendering(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats, petName, date, toast]) // previewUrl 의존성 제거 - 추가 시 무한 렌더 루프
+  }, [stats, petName, date, toast, visibleCategories]) // previewUrl 의존성 제거 - 추가 시 무한 렌더 루프
 
   // 사진 변경 또는 로고 로드 완료 시 렌더링
   useEffect(() => {
