@@ -106,10 +106,13 @@ export async function getUserTier(userId: string): Promise<TierName> {
         const { data: { user } } = await supabase.auth.getUser()
         termsAcceptedAt = user?.user_metadata?.terms_accepted_at || null
 
-        // 카카오 로그인인 경우 전화번호 추출
+        // 전화번호 추출: 카카오 identity_data 또는 이메일 가입 시 user_metadata
         const kakaoIdentity = user?.identities?.find(i => i.provider === 'kakao')
         if (kakaoIdentity?.identity_data) {
           phone = (kakaoIdentity.identity_data as Record<string, string>).phone_number || null
+        }
+        if (!phone && user?.user_metadata?.phone) {
+          phone = user.user_metadata.phone as string
         }
 
         // 랜덤 닉네임 생성 (카카오/이메일 공통)

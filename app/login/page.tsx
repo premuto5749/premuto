@@ -18,6 +18,7 @@ export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [phone, setPhone] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mode, setMode] = useState<AuthMode>('login')
@@ -59,6 +60,7 @@ export default function LoginPage() {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: {
               terms_accepted_at: new Date().toISOString(),
+              ...(phone.trim() ? { phone: phone.trim() } : {}),
             }
           }
         })
@@ -327,6 +329,21 @@ export default function LoginPage() {
                           </button>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {mode === 'signup' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">전화번호</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="010-0000-0000"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        disabled={isLoading}
+                        className="h-12 rounded-full px-5"
+                      />
                     </div>
                   )}
 
