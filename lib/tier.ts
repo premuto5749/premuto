@@ -102,31 +102,42 @@ export async function getUserTier(userId: string): Promise<TierName> {
       let termsAcceptedAt: string | null = null
       let nickname: string | null = null
       let phone: string | null = null
+      let profileImage: string | null = null
       try {
         const { data: { user } } = await supabase.auth.getUser()
         termsAcceptedAt = user?.user_metadata?.terms_accepted_at || null
 
-        // 카카오 로그인인 경우 전화번호 추출
+        // 카카오 identity_data에서 프로필 정보 추출
         const kakaoIdentity = user?.identities?.find(i => i.provider === 'kakao')
         if (kakaoIdentity?.identity_data) {
-          phone = (kakaoIdentity.identity_data as Record<string, string>).phone_number || null
+          const kData = kakaoIdentity.identity_data as Record<string, string>
+          phone = kData.phone_number || null
+          nickname = kData.name || null
+          profileImage = kData.avatar_url || kData.picture || null
         }
 
-        // 랜덤 닉네임 생성 (카카오/이메일 공통)
-        const adjectives = [
-          '행복한', '귀여운', '건강한', '씩씩한', '사랑스런', '활발한', '다정한', '용감한',
-          '똑똑한', '느긋한', '장난꾸러기', '포근한', '반짝이는', '수줍은', '든든한', '깜찍한',
-          '졸린', '배고픈', '신나는', '당당한', '소중한', '따뜻한', '호기심많은', '얌전한',
-        ]
-        const animals = [
-          '강아지', '고양이', '토끼', '햄스터', '앵무새', '거북이', '물고기', '다람쥐',
-          '고슴도치', '수달', '펭귄', '부엉이', '여우', '판다', '코알라', '미어캣',
-          '치와와', '푸들', '시바견', '먼치킨', '페르시안', '래브라도', '비숑', '말티즈',
-        ]
-        const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
-        const animal = animals[Math.floor(Math.random() * animals.length)]
-        const num = Math.floor(Math.random() * 1000)
-        nickname = `${adj}${animal}${num}`
+        // 이메일 가입 시 user_metadata에서 전화번호
+        if (!phone && user?.user_metadata?.phone) {
+          phone = user.user_metadata.phone as string
+        }
+
+        // 닉네임이 없으면 랜덤 생성
+        if (!nickname) {
+          const adjectives = [
+            '행복한', '귀여운', '건강한', '씩씩한', '사랑스런', '활발한', '다정한', '용감한',
+            '똑똑한', '느긋한', '장난꾸러기', '포근한', '반짝이는', '수줍은', '든든한', '깜찍한',
+            '졸린', '배고픈', '신나는', '당당한', '소중한', '따뜻한', '호기심많은', '얌전한',
+          ]
+          const animals = [
+            '강아지', '고양이', '토끼', '햄스터', '앵무새', '거북이', '물고기', '다람쥐',
+            '고슴도치', '수달', '펭귄', '부엉이', '여우', '판다', '코알라', '미어캣',
+            '치와와', '푸들', '시바견', '먼치킨', '페르시안', '래브라도', '비숑', '말티즈',
+          ]
+          const adj = adjectives[Math.floor(Math.random() * adjectives.length)]
+          const animal = animals[Math.floor(Math.random() * animals.length)]
+          const num = Math.floor(Math.random() * 1000)
+          nickname = `${adj}${animal}${num}`
+        }
       } catch {
         // metadata 조회 실패 시 무시
       }
@@ -139,6 +150,7 @@ export async function getUserTier(userId: string): Promise<TierName> {
           ...(termsAcceptedAt ? { terms_accepted_at: termsAcceptedAt } : {}),
           ...(nickname ? { nickname } : {}),
           ...(phone ? { phone } : {}),
+          ...(profileImage ? { profile_image: profileImage } : {}),
         })
 
       if (insertError) {

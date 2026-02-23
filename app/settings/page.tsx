@@ -1131,6 +1131,7 @@ function AccountInfoSection() {
     lastRecordDate: string | null
   } | null>(null)
   const [nickname, setNickname] = useState<string>('')
+  const [profileImage, setProfileImage] = useState<string | null>(null)
   const [editingNickname, setEditingNickname] = useState(false)
   const [nicknameInput, setNicknameInput] = useState('')
   const [savingNickname, setSavingNickname] = useState(false)
@@ -1146,8 +1147,9 @@ function AccountInfoSection() {
         const statsJson = await statsRes.json()
         if (statsJson.success) setStats(statsJson.data)
         const profileJson = await profileRes.json()
-        if (profileJson.success && profileJson.data?.nickname) {
-          setNickname(profileJson.data.nickname)
+        if (profileJson.success) {
+          if (profileJson.data?.nickname) setNickname(profileJson.data.nickname)
+          if (profileJson.data?.profile_image) setProfileImage(profileJson.data.profile_image)
         }
       } catch (error) {
         console.error('Failed to load account info:', error)
@@ -1236,8 +1238,20 @@ function AccountInfoSection() {
         <CardDescription>계정 및 구독 정보를 확인하세요</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* 기본 정보 */}
+        {/* 프로필 이미지 + 기본 정보 */}
         <div className="p-4 bg-muted rounded-lg space-y-3">
+          {profileImage && (
+            <div className="flex justify-center mb-2">
+              <Image
+                src={profileImage}
+                alt="프로필"
+                width={64}
+                height={64}
+                className="w-16 h-16 rounded-full object-cover border-2 border-background"
+                unoptimized
+              />
+            </div>
+          )}
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">닉네임</span>
             {editingNickname ? (

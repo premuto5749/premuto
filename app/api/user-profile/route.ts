@@ -17,12 +17,12 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('nickname, phone')
+      .select('nickname, phone, profile_image')
       .eq('user_id', user.id)
       .single()
 
     if (error) {
-      return NextResponse.json({ success: true, data: { nickname: null, phone: null } })
+      return NextResponse.json({ success: true, data: { nickname: null, phone: null, profile_image: null } })
     }
 
     return NextResponse.json({ success: true, data })
