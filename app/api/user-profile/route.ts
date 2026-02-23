@@ -25,6 +25,16 @@ export async function GET() {
       return NextResponse.json({ success: true, data: { nickname: null, phone: null, profile_image: null } })
     }
 
+    // profile_image가 Storage path인 경우 Signed URL로 변환
+    if (data.profile_image && !data.profile_image.startsWith('http')) {
+      const { data: signedData } = await supabase.storage
+        .from('uploads')
+        .createSignedUrl(data.profile_image, 60 * 60 * 24 * 7)
+      if (signedData?.signedUrl) {
+        data.profile_image = signedData.signedUrl
+      }
+    }
+
     return NextResponse.json({ success: true, data })
   } catch (error) {
     console.error('user-profile GET error:', error)
