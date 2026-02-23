@@ -8,8 +8,8 @@ const DAILY_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', '
 const MONTHLY_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine', 'breathing', 'weight']
 const IMAGE_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine', 'breathing']
 
-// 전체 9개 카테고리 (설정 UI용)
-export const ALL_CATEGORIES: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'breathing', 'medicine', 'walk', 'weight']
+// 요약 카드 대상 카테고리 (설정 UI용 — weight는 요약 카드가 아닌 반려동물 프로필에서 관리)
+export const ALL_CATEGORIES: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'breathing', 'medicine', 'walk']
 
 /**
  * savedLayout 기준으로 applicableCategories를 필터/정렬하여 visible 카테고리만 반환
