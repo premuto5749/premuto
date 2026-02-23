@@ -26,22 +26,28 @@ export async function GET(request: NextRequest) {
       }
 
       // 카카오 OAuth 로그인 시 프로필 정보를 user_profiles에 저장
+      // exchangeCodeForSession은 identities를 반환하지 않으므로 getUser()로 별도 조회
       if (user) {
-        const kakaoIdentity = user.identities?.find(i => i.provider === 'kakao')
-        if (kakaoIdentity?.identity_data) {
-          const identityData = kakaoIdentity.identity_data as Record<string, string>
-          try {
-            // 기존 프로필 조회 (terms_accepted_at 존재 여부 확인)
+        try {
+          const { data: { user: fullUser } } = await supabase.auth.getUser()
+          const kakaoIdentity = fullUser?.identities?.find(i => i.provider === 'kakao')
+          if (kakaoIdentity?.identity_data) {
+            const identityData = kakaoIdentity.identity_data as Record<string, string>
+
+            // 기존 프로필 조회
             const { data: profile } = await supabase
               .from('user_profiles')
-              .select('terms_accepted_at, profile_image')
+              .select('nickname, terms_accepted_at, profile_image')
               .eq('user_id', user.id)
               .single()
 
             const updateData: Record<string, string> = {}
 
             if (identityData.phone_number) updateData.phone = identityData.phone_number
-            if (identityData.name) updateData.nickname = identityData.name
+            // 닉네임이 아직 없을 때만 카카오 닉네임 사용 (사용자 수정 보호)
+            if (!profile?.nickname && identityData.name) {
+              updateData.nickname = identityData.name
+            }
             // 사용자가 직접 업로드한 이미지(Storage path)가 없을 때만 카카오 이미지 사용
             if (!profile?.profile_image || profile.profile_image.startsWith('http')) {
               if (identityData.avatar_url || identityData.picture) {
@@ -54,14 +60,22 @@ export async function GET(request: NextRequest) {
             }
 
             if (Object.keys(updateData).length > 0) {
-              await supabase
-                .from('user_profiles')
-                .update(updateData)
-                .eq('user_id', user.id)
+              if (profile) {
+                // 기존 프로필 업데이트
+                await supabase
+                  .from('user_profiles')
+                  .update(updateData)
+                  .eq('user_id', user.id)
+              } else {
+                // 신규 사용자: 프로필 행이 없으면 생성
+                await supabase
+                  .from('user_profiles')
+                  .insert({ user_id: user.id, tier: 'free', ...updateData })
+              }
             }
-          } catch (e) {
-            console.error('Failed to save kakao profile:', e)
           }
+        } catch (e) {
+          console.error('Failed to save kakao profile:', e)
         }
       }
 
