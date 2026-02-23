@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextResponse } from 'next/server'
 import { type NextRequest } from 'next/server'
 
@@ -26,16 +27,18 @@ export async function GET(request: NextRequest) {
       }
 
       // 카카오 OAuth 로그인 시 프로필 정보를 user_profiles에 저장
-      // exchangeCodeForSession은 identities를 반환하지 않으므로 getUser()로 별도 조회
+      // exchangeCodeForSession 후 요청 쿠키에 세션이 없어 getUser()가 실패하므로
+      // Service Role의 admin API로 identities를 조회
       if (user) {
         try {
-          const { data: { user: fullUser } } = await supabase.auth.getUser()
+          const serviceClient = createServiceClient()
+          const { data: { user: fullUser } } = await serviceClient.auth.admin.getUserById(user.id)
           const kakaoIdentity = fullUser?.identities?.find(i => i.provider === 'kakao')
           if (kakaoIdentity?.identity_data) {
             const identityData = kakaoIdentity.identity_data as Record<string, string>
 
-            // 기존 프로필 조회
-            const { data: profile } = await supabase
+            // 기존 프로필 조회 (Service Role로 RLS 우회)
+            const { data: profile } = await serviceClient
               .from('user_profiles')
               .select('nickname, terms_accepted_at, profile_image')
               .eq('user_id', user.id)
@@ -61,14 +64,13 @@ export async function GET(request: NextRequest) {
 
             if (Object.keys(updateData).length > 0) {
               if (profile) {
-                // 기존 프로필 업데이트
-                await supabase
+                await serviceClient
                   .from('user_profiles')
                   .update(updateData)
                   .eq('user_id', user.id)
               } else {
                 // 신규 사용자: 프로필 행이 없으면 생성
-                await supabase
+                await serviceClient
                   .from('user_profiles')
                   .insert({ user_id: user.id, tier: 'free', ...updateData })
               }
