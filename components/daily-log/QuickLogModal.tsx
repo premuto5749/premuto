@@ -13,6 +13,7 @@ import type { LogCategory, DailyLog, DailyLogInput, MedicinePreset, SnackPreset 
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useCardLayout } from '@/hooks/use-card-layout'
 
 const MAX_PHOTOS = 5
 
@@ -74,8 +75,14 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const [weightInput, setWeightInput] = useState('')
   const [isWeightSubmitting, setIsWeightSubmitting] = useState(false)
 
+  // 카드 배치 설정에서 순서 가져오기 (walk 제외, weight는 별도 페이지)
+  const { dailyCategories } = useCardLayout()
+  const orderedCategories = dailyCategories.filter(c => c !== 'walk' && c !== 'weight')
+
   // 카테고리 페이지 스와이프 상태
-  const [categoryPage, setCategoryPage] = useState(0) // 0: 6개 카테고리, 1: 체중
+  const PAGE_SIZE = 6
+  const totalPages = Math.ceil(orderedCategories.length / PAGE_SIZE) + 1 // +1 for weight page
+  const [categoryPage, setCategoryPage] = useState(0)
   const touchStartX = useRef<number>(0)
 
   const handleCategoryTouchStart = useCallback((e: React.TouchEvent) => {
@@ -85,10 +92,10 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const handleCategoryTouchEnd = useCallback((e: React.TouchEvent) => {
     const diff = touchStartX.current - e.changedTouches[0].clientX
     if (Math.abs(diff) > 50) {
-      if (diff > 0 && categoryPage === 0) setCategoryPage(1)
-      else if (diff < 0 && categoryPage === 1) setCategoryPage(0)
+      if (diff > 0 && categoryPage < totalPages - 1) setCategoryPage(p => p + 1)
+      else if (diff < 0 && categoryPage > 0) setCategoryPage(p => p - 1)
     }
-  }, [categoryPage])
+  }, [categoryPage, totalPages])
 
   // 모달이 열릴 때마다 현재 시간으로 초기화 (defaultDate가 있으면 해당 날짜 사용)
   useEffect(() => {
@@ -130,8 +137,6 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     }
     fetchPresets()
   }, [petId])
-
-  const categories: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'breathing']
 
   const resetForm = () => {
     setSelectedCategory(null)
@@ -481,7 +486,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         </DialogHeader>
 
         {!selectedCategory ? (
-          // 카테고리 선택 화면 (스와이프: 페이지1=6개 카테고리, 페이지2=약+체중)
+          // 카테고리 선택 화면 (카드 배치 설정 순서 반영, 마지막 페이지에 체중)
           <div className="space-y-2">
           <div
             onTouchStart={handleCategoryTouchStart}
@@ -490,39 +495,36 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
             <div className="overflow-hidden">
               <div
                 className="flex transition-transform duration-300 ease-in-out"
-                style={{ transform: categoryPage === 1 ? 'translateX(-100%)' : 'translateX(0)' }}
+                style={{ transform: `translateX(-${categoryPage * 100}%)` }}
               >
-                {/* 페이지 1: 6개 카테고리 (3x2) */}
-                <div className="min-w-full">
-                  <div className="grid grid-cols-3 gap-3 py-4">
-                    {categories.map((cat) => {
-                      const config = LOG_CATEGORY_CONFIG[cat]
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => handleCategoryClick(cat)}
-                          disabled={isSubmitting}
-                          className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
-                        >
-                          <span className="text-3xl mb-2">{config.icon}</span>
-                          <span className="text-sm font-medium">{config.label}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                {/* 카테고리 페이지들 (6개씩) */}
+                {Array.from({ length: totalPages - 1 }, (_, pageIdx) => {
+                  const pageCategories = orderedCategories.slice(pageIdx * PAGE_SIZE, (pageIdx + 1) * PAGE_SIZE)
+                  return (
+                    <div key={pageIdx} className="min-w-full">
+                      <div className="grid grid-cols-3 gap-3 py-4">
+                        {pageCategories.map((cat) => {
+                          const config = LOG_CATEGORY_CONFIG[cat]
+                          return (
+                            <button
+                              key={cat}
+                              onClick={() => handleCategoryClick(cat)}
+                              disabled={isSubmitting}
+                              className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
+                            >
+                              <span className="text-3xl mb-2">{config.icon}</span>
+                              <span className="text-sm font-medium">{config.label}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
 
-                {/* 페이지 2: 약 + 체중 */}
+                {/* 마지막 페이지: 체중 */}
                 <div className="min-w-full">
                   <div className="grid grid-cols-3 gap-3 py-4">
-                    <button
-                      onClick={() => handleCategoryClick('medicine')}
-                      disabled={isSubmitting}
-                      className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-muted hover:border-primary hover:bg-muted/50 transition-all"
-                    >
-                      <span className="text-3xl mb-2">{LOG_CATEGORY_CONFIG.medicine.icon}</span>
-                      <span className="text-sm font-medium">{LOG_CATEGORY_CONFIG.medicine.label}</span>
-                    </button>
                     <button
                       onClick={() => handleCategoryClick('weight')}
                       disabled={isSubmitting}
@@ -536,17 +538,18 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </div>
             </div>
 
-            {/* 페이지 인디케이터 */}
-            <div className="flex justify-center gap-2 pb-2">
-              <button
-                className={`w-2 h-2 rounded-full transition-colors ${categoryPage === 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                onClick={() => setCategoryPage(0)}
-              />
-              <button
-                className={`w-2 h-2 rounded-full transition-colors ${categoryPage === 1 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-                onClick={() => setCategoryPage(1)}
-              />
-            </div>
+            {/* 페이지 인디케이터 (2페이지 이상일 때만) */}
+            {totalPages > 1 && (
+              <div className="flex justify-center gap-2 pb-2">
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    className={`w-2 h-2 rounded-full transition-colors ${categoryPage === i ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+                    onClick={() => setCategoryPage(i)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
           </div>
         ) : (
