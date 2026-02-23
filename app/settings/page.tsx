@@ -477,7 +477,8 @@ function PetProfileSection() {
                   </div>
                 </div>
 
-                {/* 칼로리 관련 설정 */}
+                {/* 칼로리 관련 설정 — 편집 시에만 표시 (신규 등록 시 사료 계산기에서 설정) */}
+                {editingPet && (
                 <div className="border-t pt-4 mt-2">
                   <div className="flex items-center gap-2 mb-3">
                     <Scale className="w-4 h-4 text-muted-foreground" />
@@ -522,6 +523,7 @@ function PetProfileSection() {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
 
               <DialogFooter>

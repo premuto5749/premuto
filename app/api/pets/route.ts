@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
 
     const isFirst = count === 0
-    const isDefault = body.is_default ?? isFirst
+    const isDefault = isFirst || (body.is_default ?? false)
 
     // 기본 반려동물로 설정하는 경우 기존 기본 해제
     if (isDefault) {
