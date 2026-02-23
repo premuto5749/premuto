@@ -25,6 +25,22 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // 카카오 OAuth 로그인 시 전화번호를 user_profiles에 저장
+      if (user) {
+        const kakaoIdentity = user.identities?.find(i => i.provider === 'kakao')
+        const phoneNumber = (kakaoIdentity?.identity_data as Record<string, string> | undefined)?.phone_number
+        if (phoneNumber) {
+          try {
+            await supabase
+              .from('user_profiles')
+              .update({ phone: phoneNumber })
+              .eq('user_id', user.id)
+          } catch (e) {
+            console.error('Failed to save kakao phone:', e)
+          }
+        }
+      }
+
       return NextResponse.redirect(new URL(next, request.url))
     }
   }

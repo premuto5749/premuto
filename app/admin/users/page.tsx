@@ -37,6 +37,8 @@ import { useToast } from '@/hooks/use-toast'
 interface UserInfo {
   user_id: string
   email: string
+  nickname: string | null
+  phone: string | null
   tier: string
   role: string | null // 'super_admin' | 'admin' | 'env_admin' | null
   pets: string[]
@@ -45,6 +47,7 @@ interface UserInfo {
   daily_logs: number
   joined_at: string | null
   last_active: string | null
+  terms_accepted_at: string | null
 }
 
 function formatDate(dateStr: string | null): string {
@@ -304,8 +307,10 @@ export default function AdminUsersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[200px]">계정</TableHead>
+                  <TableHead className="w-[100px]">전화번호</TableHead>
                   <TableHead className="w-[90px]">역할</TableHead>
                   <TableHead className="w-[70px]">Tier</TableHead>
+                  <TableHead className="text-center w-[50px]">약관</TableHead>
                   <TableHead className="text-center w-[80px]">가입일</TableHead>
                   <TableHead className="text-center w-[100px]">마지막 접속</TableHead>
                   <TableHead className="text-center">OCR</TableHead>
@@ -317,7 +322,7 @@ export default function AdminUsersPage() {
               <TableBody>
                 {users.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       등록된 사용자가 없습니다
                     </TableCell>
                   </TableRow>
@@ -335,12 +340,20 @@ export default function AdminUsersPage() {
                               {user.email || user.user_id.substring(0, 8) + '...'}
                             </span>
                           </div>
+                          {user.nickname && (
+                            <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                              {user.nickname}
+                            </div>
+                          )}
                           {user.pets.length > 0 && (
                             <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
                               <PawPrint className="w-3 h-3 flex-shrink-0" />
                               {user.pets.join(', ')}
                             </div>
                           )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {user.phone || '-'}
                         </TableCell>
                         <TableCell>
                           {roleInfo ? (
@@ -378,6 +391,13 @@ export default function AdminUsersPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant={tierInfo.variant}>{tierInfo.label}</Badge>
+                        </TableCell>
+                        <TableCell className="text-center text-xs">
+                          {user.terms_accepted_at ? (
+                            <span className="text-green-600" title={formatDateTime(user.terms_accepted_at)}>O</span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-center text-xs text-muted-foreground">
                           {formatDate(user.joined_at)}
