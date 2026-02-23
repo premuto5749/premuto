@@ -25,18 +25,28 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // 카카오 OAuth 로그인 시 전화번호를 user_profiles에 저장
+      // 카카오 OAuth 로그인 시 프로필 정보를 user_profiles에 저장
       if (user) {
         const kakaoIdentity = user.identities?.find(i => i.provider === 'kakao')
-        const phoneNumber = (kakaoIdentity?.identity_data as Record<string, string> | undefined)?.phone_number
-        if (phoneNumber) {
-          try {
-            await supabase
-              .from('user_profiles')
-              .update({ phone: phoneNumber })
-              .eq('user_id', user.id)
-          } catch (e) {
-            console.error('Failed to save kakao phone:', e)
+        if (kakaoIdentity?.identity_data) {
+          const identityData = kakaoIdentity.identity_data as Record<string, string>
+          const updateData: Record<string, string> = {}
+
+          if (identityData.phone_number) updateData.phone = identityData.phone_number
+          if (identityData.name) updateData.nickname = identityData.name
+          if (identityData.avatar_url || identityData.picture) {
+            updateData.profile_image = identityData.avatar_url || identityData.picture
+          }
+
+          if (Object.keys(updateData).length > 0) {
+            try {
+              await supabase
+                .from('user_profiles')
+                .update(updateData)
+                .eq('user_id', user.id)
+            } catch (e) {
+              console.error('Failed to save kakao profile:', e)
+            }
           }
         }
       }
