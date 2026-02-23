@@ -7,6 +7,7 @@ import { MonthlyStatsCard } from '@/components/daily-log/MonthlyStatsCard'
 import { DailyTrendChart } from '@/components/daily-log/DailyTrendChart'
 import { DailyLogExcelExport } from '@/components/daily-log/DailyLogExcelExport'
 import { usePet } from '@/contexts/PetContext'
+import { useCardLayout } from '@/hooks/use-card-layout'
 import type { DailyStats } from '@/types'
 import type { LogCategory } from '@/types'
 
@@ -27,6 +28,7 @@ export default function DailyLogCalendarPage() {
   const [weightMap, setWeightMap] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(true)
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading } = usePet()
+  const { monthlyCategories } = useCardLayout()
 
   // 반려동물 로딩 완료 후 currentPet이 없으면 기본 반려동물 자동 선택
   useEffect(() => {
@@ -139,6 +141,7 @@ export default function DailyLogCalendarPage() {
               weightMap={weightMap}
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}
+              visibleCategories={monthlyCategories}
             />
 
             {/* 추이 그래프 */}
