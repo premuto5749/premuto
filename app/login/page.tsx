@@ -299,6 +299,21 @@ export default function LoginPage() {
                       className="h-12 rounded-full px-5"
                     />
                   </div>
+                  {mode === 'signup' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">전화번호</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="010-0000-0000"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        required
+                        disabled={isLoading}
+                        className="h-12 rounded-full px-5"
+                      />
+                    </div>
+                  )}
                   {mode !== 'forgot-password' && (
                     <div className="space-y-2">
                       <Label htmlFor="password">비밀번호</Label>
@@ -329,21 +344,6 @@ export default function LoginPage() {
                           </button>
                         </div>
                       )}
-                    </div>
-                  )}
-
-                  {mode === 'signup' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">전화번호</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="010-0000-0000"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        disabled={isLoading}
-                        className="h-12 rounded-full px-5"
-                      />
                     </div>
                   )}
 

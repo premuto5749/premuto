@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { UserSettingsInput } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// 계정 삭제 (모든 사용자 데이터 삭제)
+// 계정 삭제 (auth.users 삭제 → CASCADE로 모든 관련 데이터 자동 삭제)
 export async function DELETE() {
   try {
     const supabase = await createClient()
@@ -108,22 +109,30 @@ export async function DELETE() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // 모든 관련 데이터 삭제 (CASCADE로 자동 삭제되지만 명시적으로 삭제)
-    // daily_logs 삭제
-    await supabase.from('daily_logs').delete().eq('user_id', user.id)
+    // Storage에서 사용자 파일 삭제
+    const { data: files } = await supabase.storage
+      .from('uploads')
+      .list(user.id)
+    if (files && files.length > 0) {
+      const filePaths = files.map(f => `${user.id}/${f.name}`)
+      await supabase.storage.from('uploads').remove(filePaths)
+    }
 
-    // medicine_presets 삭제
-    await supabase.from('medicine_presets').delete().eq('user_id', user.id)
+    // auth.users 삭제 (service role 필요) → CASCADE로 모든 테이블 데이터 자동 삭제
+    const serviceClient = createServiceClient()
+    const { error: deleteError } = await serviceClient.auth.admin.deleteUser(user.id)
 
-    // user_settings 삭제
-    await supabase.from('user_settings').delete().eq('user_id', user.id)
-
-    // hospitals 삭제
-    await supabase.from('hospitals').delete().eq('user_id', user.id)
+    if (deleteError) {
+      console.error('Failed to delete auth user:', deleteError)
+      return NextResponse.json(
+        { error: '계정 삭제에 실패했습니다. 다시 시도해주세요.' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'All user data deleted successfully'
+      message: 'Account and all user data deleted successfully'
     })
 
   } catch (error) {
