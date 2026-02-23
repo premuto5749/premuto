@@ -8,6 +8,28 @@ import { waitUntil } from '@vercel/functions'
 export const dynamic = 'force-dynamic'
 
 const BUCKET_NAME = 'daily-log-photos'
+
+// photo_urls JSONB 컬럼에 안전한 값으로 변환
+// 배열이 아닌 값이 들어올 경우 빈 배열로 처리
+function sanitizePhotoUrls(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+  }
+  if (typeof value === 'string' && value.length > 0) {
+    // JSON 문자열로 들어온 경우 파싱 시도
+    try {
+      const parsed = JSON.parse(value)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0)
+      }
+    } catch {
+      // 파싱 실패 시 단일 URL로 처리
+      return [value]
+    }
+  }
+  return []
+}
+
 const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 7 // 7일
 
 // 파일 경로를 Signed URL로 변환 (하위 호환: 이미 URL이면 그대로 반환)
@@ -286,7 +308,7 @@ export async function POST(request: NextRequest) {
       leftover_amount: category === 'meal' ? (leftover_amount || 0) : null,
       unit,
       memo,
-      photo_urls: photo_urls || [],
+      photo_urls: sanitizePhotoUrls(photo_urls),
       medicine_name: category === 'medicine' ? medicine_name : null,
       snack_name: category === 'snack' ? snack_name : null,
       calories: category === 'snack' ? (calories ?? null) : null,
@@ -316,7 +338,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (error) {
-      console.error('Daily log insert error:', error)
+      console.error('Daily log insert error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        photo_urls_raw: photo_urls,
+        photo_urls_type: typeof photo_urls,
+        photo_urls_isArray: Array.isArray(photo_urls),
+        photo_urls_sanitized: insertData.photo_urls,
+      })
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
@@ -472,6 +503,11 @@ export async function PATCH(request: NextRequest) {
       })
     }
 
+    // photo_urls가 포함된 경우 JSONB 안전성 보장
+    if ('photo_urls' in updates) {
+      updates.photo_urls = sanitizePhotoUrls(updates.photo_urls)
+    }
+
     // 첫 번째 시도: leftover_amount 포함
     let { data, error } = await supabase
       .from('daily_logs')
@@ -497,7 +533,14 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (error) {
-      console.error('Daily log update error:', error)
+      console.error('Daily log update error:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        updates_photo_urls: updates.photo_urls,
+        updates_photo_urls_type: typeof updates.photo_urls,
+      })
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
