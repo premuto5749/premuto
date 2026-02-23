@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
-import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff, Crown, User, Flame, CalendarDays, FileText, TestTube2, Scale } from 'lucide-react'
+import { Loader2, Plus, Trash2, Edit2, Save, Download, Sun, Moon, Monitor, PawPrint, Palette, Database, AlertTriangle, Camera, Star, StarOff, RefreshCw, CheckCircle, AlertCircle, Info, ArrowRight, KeyRound, Eye, EyeOff, Crown, User, Flame, CalendarDays, FileText, TestTube2, Scale, Pencil, Check, X } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { UserSettings, Pet, PetInput } from '@/types'
@@ -1120,14 +1120,25 @@ function AccountInfoSection() {
     streak: number
     lastRecordDate: string | null
   } | null>(null)
+  const [nickname, setNickname] = useState<string>('')
+  const [editingNickname, setEditingNickname] = useState(false)
+  const [nicknameInput, setNicknameInput] = useState('')
+  const [savingNickname, setSavingNickname] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     const loadAccountInfo = async () => {
       try {
-        const statsRes = await fetch('/api/account-stats')
+        const [statsRes, profileRes] = await Promise.all([
+          fetch('/api/account-stats'),
+          fetch('/api/user-profile'),
+        ])
         const statsJson = await statsRes.json()
         if (statsJson.success) setStats(statsJson.data)
+        const profileJson = await profileRes.json()
+        if (profileJson.success && profileJson.data?.nickname) {
+          setNickname(profileJson.data.nickname)
+        }
       } catch (error) {
         console.error('Failed to load account info:', error)
       } finally {
@@ -1136,6 +1147,34 @@ function AccountInfoSection() {
     }
     loadAccountInfo()
   }, [])
+
+  const handleSaveNickname = async () => {
+    const trimmed = nicknameInput.trim()
+    if (!trimmed || trimmed === nickname) {
+      setEditingNickname(false)
+      return
+    }
+    setSavingNickname(true)
+    try {
+      const res = await fetch('/api/user-profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname: trimmed }),
+      })
+      const json = await res.json()
+      if (json.success) {
+        setNickname(trimmed)
+        setEditingNickname(false)
+        toast({ title: '닉네임이 변경되었습니다' })
+      } else {
+        toast({ title: '닉네임 변경 실패', description: json.error, variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: '닉네임 변경 실패', variant: 'destructive' })
+    } finally {
+      setSavingNickname(false)
+    }
+  }
 
   const handleUpgrade = () => {
     toast({
@@ -1189,6 +1228,40 @@ function AccountInfoSection() {
       <CardContent className="space-y-4">
         {/* 기본 정보 */}
         <div className="p-4 bg-muted rounded-lg space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">닉네임</span>
+            {editingNickname ? (
+              <div className="flex items-center gap-1.5">
+                <Input
+                  value={nicknameInput}
+                  onChange={(e) => setNicknameInput(e.target.value)}
+                  className="h-7 w-36 text-sm"
+                  maxLength={20}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveNickname()
+                    if (e.key === 'Escape') setEditingNickname(false)
+                  }}
+                />
+                <button onClick={handleSaveNickname} disabled={savingNickname} className="text-green-600 hover:text-green-700">
+                  {savingNickname ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                </button>
+                <button onClick={() => setEditingNickname(false)} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <span className="font-medium flex items-center gap-1.5">
+                {nickname || '-'}
+                <button
+                  onClick={() => { setNicknameInput(nickname); setEditingNickname(true) }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">이메일</span>
             <span className="font-medium">{authUser?.email || '-'}</span>
