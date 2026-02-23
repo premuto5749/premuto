@@ -70,6 +70,8 @@ function DashboardContent() {
   const [sortType, setSortType] = useState<SortType>('by_exam_type')
   const [organFilter, setOrganFilter] = useState<string | null>(null)
   const [panelFilter, setPanelFilter] = useState<string | null>(null)
+  const [dateFrom, setDateFrom] = useState<string | null>(null)
+  const [dateTo, setDateTo] = useState<string | null>(null)
 
   // 내보내기 상태
   const [exporting, setExporting] = useState(false)
@@ -136,15 +138,26 @@ function DashboardContent() {
 
   // 필터링된 records
   const filteredRecords = useMemo(() => {
-    if (selectedItems.size === 0) return records
+    // 1) 기간 필터
+    let filtered = records
+    if (dateFrom || dateTo) {
+      filtered = filtered.filter(record => {
+        if (dateFrom && record.test_date < dateFrom) return false
+        if (dateTo && record.test_date > dateTo) return false
+        return true
+      })
+    }
 
-    return records.map(record => ({
+    // 2) 항목 필터
+    if (selectedItems.size === 0) return filtered
+
+    return filtered.map(record => ({
       ...record,
       test_results: record.test_results.filter(result =>
         selectedItems.has(result.standard_items_master.name)
       )
     })).filter(record => record.test_results.length > 0)
-  }, [records, selectedItems])
+  }, [records, selectedItems, dateFrom, dateTo])
 
   const handleItemClick = (itemName: string) => {
     setSelectedItem(itemName)
@@ -338,6 +351,11 @@ function DashboardContent() {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm text-muted-foreground">
               총 {records.length}개의 검사 기록
+              {(dateFrom || dateTo) && (
+                <span className="ml-2 text-primary">
+                  (기간 필터: {filteredRecords.length}개)
+                </span>
+              )}
               {isFiltering && (
                 <span className="ml-2 text-primary">
                   ({selectedItems.size}개 항목 필터링 중)
@@ -371,6 +389,10 @@ function DashboardContent() {
               onOrganFilterChange={setOrganFilter}
               panelFilter={panelFilter}
               onPanelFilterChange={setPanelFilter}
+              dateFrom={dateFrom}
+              onDateFromChange={setDateFrom}
+              dateTo={dateTo}
+              onDateToChange={setDateTo}
             />
             {isFiltering ? (
               <Button variant="outline" size="sm" onClick={handleClearFilter}>
@@ -394,7 +416,7 @@ function DashboardContent() {
           />
 
           <TrendChart
-            records={records}
+            records={filteredRecords}
             itemName={selectedItem}
             open={isChartOpen}
             onOpenChange={handleChartClose}
