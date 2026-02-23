@@ -75,9 +75,9 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const [weightInput, setWeightInput] = useState('')
   const [isWeightSubmitting, setIsWeightSubmitting] = useState(false)
 
-  // 카드 배치 설정에서 순서 가져오기 (walk 제외, weight는 별도 페이지)
+  // 카드 배치 설정에서 순서 가져오기 (weight는 별도 페이지)
   const { dailyCategories } = useCardLayout()
-  const orderedCategories = dailyCategories.filter(c => c !== 'walk' && c !== 'weight')
+  const orderedCategories = dailyCategories.filter(c => c !== 'weight')
 
   // 카테고리 페이지 스와이프 상태
   const PAGE_SIZE = 6

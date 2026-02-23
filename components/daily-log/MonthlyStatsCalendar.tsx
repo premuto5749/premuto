@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { LOG_CATEGORY_CONFIG } from '@/types'
-import type { DailyStats } from '@/types'
+import type { DailyStats, LogCategory } from '@/types'
 import { formatNumber } from '@/lib/utils'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -14,6 +14,7 @@ const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 const CATEGORY_DOT_COLORS: Record<string, string> = {
   meal: 'bg-orange-400',
   water: 'bg-blue-400',
+  snack: 'bg-pink-400',
   medicine: 'bg-purple-400',
   poop: 'bg-amber-600',
   pee: 'bg-yellow-400',
@@ -22,7 +23,7 @@ const CATEGORY_DOT_COLORS: Record<string, string> = {
   walk: 'bg-green-400',
 }
 
-const CATEGORY_ORDER = ['meal', 'water', 'medicine', 'poop', 'pee', 'breathing', 'walk'] as const
+const DEFAULT_CATEGORY_ORDER: LogCategory[] = ['meal', 'water', 'snack', 'medicine', 'poop', 'pee', 'breathing', 'walk']
 
 interface MonthlyStatsCalendarProps {
   year: number
@@ -34,6 +35,7 @@ interface MonthlyStatsCalendarProps {
   onPrevMonth: () => void
   onNextMonth: () => void
   onGoToThisMonth: () => void
+  visibleCategories?: LogCategory[] // 카드배치 설정 반영 (weight 제외)
 }
 
 // 한국 시간(KST) 기준 오늘 날짜
@@ -47,6 +49,8 @@ function formatSummaryValue(stats: DailyStats, category: string): string {
       return stats.meal_count > 0 ? `${formatNumber(stats.total_meal_amount)}g` : '-'
     case 'water':
       return stats.water_count > 0 ? `${formatNumber(stats.total_water_amount)}ml` : '-'
+    case 'snack':
+      return stats.snack_count > 0 ? `${stats.snack_count}회` : '-'
     case 'medicine':
       return stats.medicine_count > 0 ? `${stats.medicine_count}회` : '-'
     case 'poop':
@@ -72,8 +76,10 @@ export function MonthlyStatsCalendar({
   onPrevMonth,
   onNextMonth,
   onGoToThisMonth,
+  visibleCategories,
 }: MonthlyStatsCalendarProps) {
   const [summaryPage, setSummaryPage] = useState(0) // 0: 기본 카테고리, 1: 체중
+  const effectiveCategories = visibleCategories ?? DEFAULT_CATEGORY_ORDER
   const summaryTouchStartX = useRef<number>(0)
   const today = getKSTToday()
   const todayDate = new Date(today)
@@ -111,6 +117,7 @@ export function MonthlyStatsCalendar({
     if (stats) {
       if (stats.meal_count > 0) cats.push('meal')
       if (stats.water_count > 0) cats.push('water')
+      if (stats.snack_count > 0) cats.push('snack')
       if (stats.medicine_count > 0) cats.push('medicine')
       if (stats.poop_count > 0) cats.push('poop')
       if (stats.pee_count > 0) cats.push('pee')
@@ -195,7 +202,7 @@ export function MonthlyStatsCalendar({
               {/* 카테고리 도트 */}
               {categories.length > 0 && (
                 <div className="flex gap-[2px] mt-0.5 flex-wrap justify-center max-w-full">
-                  {[...CATEGORY_ORDER, 'weight' as const].filter(c => categories.includes(c)).map((cat) => (
+                  {[...effectiveCategories, 'weight' as const].filter(c => categories.includes(c)).map((cat) => (
                     <span
                       key={cat}
                       className={cn(
@@ -234,9 +241,9 @@ export function MonthlyStatsCalendar({
                   {/* 페이지 1: 기본 카테고리 */}
                   <div className="min-w-full">
                     <div className="grid grid-cols-3 gap-2">
-                      {CATEGORY_ORDER.map((cat) => (
+                      {effectiveCategories.map((cat) => (
                         <div key={cat} className="flex items-center gap-1.5 text-sm">
-                          <span>{LOG_CATEGORY_CONFIG[cat].icon}</span>
+                          <span>{LOG_CATEGORY_CONFIG[cat]?.icon}</span>
                           <span className="text-muted-foreground">
                             {selectedStats ? formatSummaryValue(selectedStats, cat) : '-'}
                           </span>

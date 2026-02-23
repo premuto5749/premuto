@@ -164,6 +164,7 @@ export default function DailyLogCalendarPage() {
               onPrevMonth={handlePrevMonth}
               onNextMonth={handleNextMonth}
               onGoToThisMonth={handleGoToThisMonth}
+              visibleCategories={monthlyCategories}
             />
 
             {/* 데이터 내보내기 */}
