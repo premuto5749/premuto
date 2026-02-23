@@ -277,6 +277,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // photo_urls가 JSONB 컬럼에 맞는 배열인지 확인 (문자열이 전달되면 배열로 감싸기)
+    const safePhotoUrls: string[] = Array.isArray(photo_urls)
+      ? photo_urls
+      : (typeof photo_urls === 'string' ? [photo_urls] : [])
+
     const insertData: Record<string, unknown> = {
       user_id: user.id,
       pet_id: pet_id || null,
@@ -286,7 +291,7 @@ export async function POST(request: NextRequest) {
       leftover_amount: category === 'meal' ? (leftover_amount || 0) : null,
       unit,
       memo,
-      photo_urls: photo_urls || [],
+      photo_urls: safePhotoUrls,
       medicine_name: category === 'medicine' ? medicine_name : null,
       snack_name: category === 'snack' ? snack_name : null,
       calories: category === 'snack' ? (calories ?? null) : null,
@@ -442,6 +447,13 @@ export async function PATCH(request: NextRequest) {
         { error: 'ID is required' },
         { status: 400 }
       )
+    }
+
+    // photo_urls가 JSONB 컬럼에 맞는 배열인지 확인
+    if ('photo_urls' in updates) {
+      updates.photo_urls = Array.isArray(updates.photo_urls)
+        ? updates.photo_urls
+        : (typeof updates.photo_urls === 'string' ? [updates.photo_urls] : [])
     }
 
     // 복원 요청
