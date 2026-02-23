@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { ChevronUp, ChevronDown, RotateCcw } from 'lucide-react'
+import { ChevronUp, ChevronDown, RotateCcw, Save } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -16,17 +16,22 @@ export function CardLayoutSection() {
 
   // 로컬 편집 상태 — layout이 null이면 ALL_CATEGORIES 기본값 사용
   const [items, setItems] = useState<CardLayoutItem[]>(() => buildItems(layout))
+  const [isDirty, setIsDirty] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   // layout 로드 후 동기화
   useEffect(() => {
     setItems(buildItems(layout))
+    setIsDirty(false)
   }, [layout])
 
   function buildItems(saved: CardLayoutItem[] | null): CardLayoutItem[] {
     if (saved && saved.length > 0) {
-      // 기존 저장값 기준 + 새 카테고리 보충
-      const existing = new Set(saved.map(i => i.category))
-      const result = [...saved]
+      // 기존 저장값 기준, ALL_CATEGORIES에 있는 것만 유지 + 새 카테고리 보충
+      const allSet = new Set<string>(ALL_CATEGORIES)
+      const filtered = saved.filter(i => allSet.has(i.category))
+      const existing = new Set(filtered.map(i => i.category))
+      const result = [...filtered]
       for (const cat of ALL_CATEGORIES) {
         if (!existing.has(cat)) {
           result.push({ category: cat, visible: true })
@@ -37,24 +42,20 @@ export function CardLayoutSection() {
     return ALL_CATEGORIES.map(cat => ({ category: cat, visible: true }))
   }
 
-  const persist = useCallback(async (newItems: CardLayoutItem[]) => {
-    setItems(newItems)
-    invalidateCardLayoutCache()
-    await saveLayout(newItems)
-  }, [saveLayout])
-
   const handleMoveUp = (index: number) => {
     if (index === 0) return
     const next = [...items]
     ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
-    persist(next)
+    setItems(next)
+    setIsDirty(true)
   }
 
   const handleMoveDown = (index: number) => {
     if (index === items.length - 1) return
     const next = [...items]
     ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
-    persist(next)
+    setItems(next)
+    setIsDirty(true)
   }
 
   const handleToggleVisible = (index: number) => {
@@ -73,14 +74,27 @@ export function CardLayoutSection() {
     }
     const next = [...items]
     next[index] = { ...item, visible: !item.visible }
-    persist(next)
+    setItems(next)
+    setIsDirty(true)
   }
 
+  const handleSave = useCallback(async () => {
+    setIsSaving(true)
+    try {
+      invalidateCardLayoutCache()
+      await saveLayout(items)
+      setIsDirty(false)
+      toast({ title: '저장 완료', description: '카드 배치가 저장되었습니다.' })
+    } catch {
+      toast({ title: '저장 실패', description: '다시 시도해주세요.', variant: 'destructive' })
+    } finally {
+      setIsSaving(false)
+    }
+  }, [items, saveLayout, toast])
+
   const handleReset = () => {
-    invalidateCardLayoutCache()
-    saveLayout(null)
     setItems(ALL_CATEGORIES.map(cat => ({ category: cat, visible: true })))
-    toast({ title: '초기화 완료', description: '기본 순서로 되돌렸습니다.' })
+    setIsDirty(true)
   }
 
   if (isLoading) {
@@ -170,6 +184,16 @@ export function CardLayoutSection() {
             })}
           </div>
         </div>
+
+        {/* 저장 버튼 */}
+        <Button
+          className="w-full"
+          onClick={handleSave}
+          disabled={!isDirty || isSaving}
+        >
+          <Save className="w-4 h-4 mr-1" />
+          {isSaving ? '저장 중...' : '저장'}
+        </Button>
       </CardContent>
     </Card>
   )
