@@ -30,23 +30,37 @@ export async function GET(request: NextRequest) {
         const kakaoIdentity = user.identities?.find(i => i.provider === 'kakao')
         if (kakaoIdentity?.identity_data) {
           const identityData = kakaoIdentity.identity_data as Record<string, string>
-          const updateData: Record<string, string> = {}
+          try {
+            // 기존 프로필 조회 (terms_accepted_at 존재 여부 확인)
+            const { data: profile } = await supabase
+              .from('user_profiles')
+              .select('terms_accepted_at, profile_image')
+              .eq('user_id', user.id)
+              .single()
 
-          if (identityData.phone_number) updateData.phone = identityData.phone_number
-          if (identityData.name) updateData.nickname = identityData.name
-          if (identityData.avatar_url || identityData.picture) {
-            updateData.profile_image = identityData.avatar_url || identityData.picture
-          }
+            const updateData: Record<string, string> = {}
 
-          if (Object.keys(updateData).length > 0) {
-            try {
+            if (identityData.phone_number) updateData.phone = identityData.phone_number
+            if (identityData.name) updateData.nickname = identityData.name
+            // 사용자가 직접 업로드한 이미지(Storage path)가 없을 때만 카카오 이미지 사용
+            if (!profile?.profile_image || profile.profile_image.startsWith('http')) {
+              if (identityData.avatar_url || identityData.picture) {
+                updateData.profile_image = identityData.avatar_url || identityData.picture
+              }
+            }
+            // 약관 동의 시점이 없으면 현재 시각으로 기록
+            if (!profile?.terms_accepted_at) {
+              updateData.terms_accepted_at = new Date().toISOString()
+            }
+
+            if (Object.keys(updateData).length > 0) {
               await supabase
                 .from('user_profiles')
                 .update(updateData)
                 .eq('user_id', user.id)
-            } catch (e) {
-              console.error('Failed to save kakao profile:', e)
             }
+          } catch (e) {
+            console.error('Failed to save kakao profile:', e)
           }
         }
       }

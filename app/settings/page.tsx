@@ -1132,6 +1132,7 @@ function AccountInfoSection() {
   } | null>(null)
   const [nickname, setNickname] = useState<string>('')
   const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [editingNickname, setEditingNickname] = useState(false)
   const [nicknameInput, setNicknameInput] = useState('')
   const [savingNickname, setSavingNickname] = useState(false)
@@ -1188,6 +1189,45 @@ function AccountInfoSection() {
     }
   }
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingImage(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/user-profile/image', { method: 'POST', body: formData })
+      const json = await res.json()
+      if (json.success) {
+        setProfileImage(json.data.profile_image)
+        toast({ title: '프로필 이미지가 변경되었습니다' })
+      } else {
+        toast({ title: '업로드 실패', description: json.error, variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: '업로드 실패', variant: 'destructive' })
+    } finally {
+      setUploadingImage(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleImageDelete = async () => {
+    setUploadingImage(true)
+    try {
+      const res = await fetch('/api/user-profile/image', { method: 'DELETE' })
+      const json = await res.json()
+      if (json.success) {
+        setProfileImage(null)
+        toast({ title: '프로필 이미지가 삭제되었습니다' })
+      }
+    } catch {
+      toast({ title: '삭제 실패', variant: 'destructive' })
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
   const handleUpgrade = () => {
     toast({
       title: '준비 중입니다',
@@ -1240,18 +1280,41 @@ function AccountInfoSection() {
       <CardContent className="space-y-4">
         {/* 프로필 이미지 + 기본 정보 */}
         <div className="p-4 bg-muted rounded-lg space-y-3">
-          {profileImage && (
-            <div className="flex justify-center mb-2">
-              <Image
-                src={profileImage}
-                alt="프로필"
-                width={64}
-                height={64}
-                className="w-16 h-16 rounded-full object-cover border-2 border-background"
-                unoptimized
-              />
+          <div className="flex justify-center mb-2">
+            <div className="relative group">
+              {profileImage ? (
+                <Image
+                  src={profileImage}
+                  alt="프로필"
+                  width={64}
+                  height={64}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-background"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-background border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                  <User className="w-6 h-6 text-muted-foreground/50" />
+                </div>
+              )}
+              <label className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                {uploadingImage ? (
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                ) : (
+                  <Camera className="w-5 h-5 text-white" />
+                )}
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
+              </label>
+              {profileImage && (
+                <button
+                  onClick={handleImageDelete}
+                  disabled={uploadingImage}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
-          )}
+          </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">닉네임</span>
             {editingNickname ? (
