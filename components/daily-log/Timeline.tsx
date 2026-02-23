@@ -302,7 +302,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
         if (uploadRes.ok) {
           const uploadResult = await uploadRes.json()
-          uploadedPhotoUrls = uploadResult.data?.urls || []
+          const urls = uploadResult.data?.urls
+          uploadedPhotoUrls = Array.isArray(urls) ? urls : []
         }
         setIsUploadingPhotos(false)
       }

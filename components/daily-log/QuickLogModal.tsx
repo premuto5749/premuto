@@ -266,7 +266,9 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         throw new Error(result.error || '사진 업로드 실패')
       }
 
-      return result.data.urls
+      // 업로드 응답이 배열인지 확인 (JSONB 파싱 오류 방지)
+      const urls = result.data?.urls
+      return Array.isArray(urls) ? urls : []
     } finally {
       setIsUploading(false)
     }

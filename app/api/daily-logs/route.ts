@@ -252,6 +252,27 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// photo_urls 값을 안전하게 string[] 로 정규화 (JSONB 파싱 오류 방지)
+function normalizePhotoUrls(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((u): u is string => typeof u === 'string' && u.length > 0)
+  }
+  if (typeof value === 'string' && value.length > 0) {
+    // JSON 문자열이면 파싱 시도
+    if (value.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed.filter((u): u is string => typeof u === 'string' && u.length > 0)
+        }
+      } catch { /* fall through */ }
+    }
+    // 단일 문자열이면 배열로 감싸기
+    return [value]
+  }
+  return []
+}
+
 // POST: 새 기록 추가
 export async function POST(request: NextRequest) {
   try {
@@ -277,6 +298,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const safePhotoUrls = normalizePhotoUrls(photo_urls)
+
     const insertData: Record<string, unknown> = {
       user_id: user.id,
       pet_id: pet_id || null,
@@ -286,7 +309,7 @@ export async function POST(request: NextRequest) {
       leftover_amount: category === 'meal' ? (leftover_amount || 0) : null,
       unit,
       memo,
-      photo_urls: photo_urls || [],
+      photo_urls: safePhotoUrls,
       medicine_name: category === 'medicine' ? medicine_name : null,
       snack_name: category === 'snack' ? snack_name : null,
       calories: category === 'snack' ? (calories ?? null) : null,
@@ -442,6 +465,11 @@ export async function PATCH(request: NextRequest) {
         { error: 'ID is required' },
         { status: 400 }
       )
+    }
+
+    // photo_urls가 포함된 경우 안전하게 정규화
+    if ('photo_urls' in updates) {
+      updates.photo_urls = normalizePhotoUrls(updates.photo_urls)
     }
 
     // 복원 요청
