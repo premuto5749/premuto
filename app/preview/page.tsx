@@ -653,6 +653,21 @@ function PreviewContent() {
               </Button>
             )}
           </div>
+
+          {/* AI 매핑 진행 중 상세 표시 */}
+          {isMappingInProgress && (
+            <div className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-5 h-5 animate-spin text-primary flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">검사항목 표준화 중...</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {allItems.length}개 항목 처리 · 가비지 필터링 → 정규/별칭 매칭 → AI 판단
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -987,6 +1002,21 @@ function PreviewContent() {
         </ul>
       </div>
       </div>
+
+      {/* 저장 처리 오버레이 */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="text-center space-y-4 p-8 max-w-sm">
+            <Loader2 className="w-12 h-12 animate-spin text-green-600 mx-auto" />
+            <div className="space-y-2">
+              <p className="text-lg font-semibold">검사 결과 저장 중...</p>
+              <p className="text-sm text-muted-foreground">
+                {dateGroups.length}개 날짜 그룹의 데이터를 저장하고 있습니다
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 병합 확인 다이얼로그 */}
       <Dialog open={mergeDialogOpen} onOpenChange={(open) => {

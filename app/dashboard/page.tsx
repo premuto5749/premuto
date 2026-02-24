@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -327,18 +327,22 @@ function DashboardContent() {
       )}
 
       {records.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>저장된 검사 결과가 없습니다</CardTitle>
-            <CardDescription>
-              첫 번째 검사지를 업로드하여 데이터를 추가해보세요
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <Button asChild size="lg">
-                <Link href="/upload">
-                  <Upload className="w-4 h-4 mr-2" />
+        <Card className="border-dashed border-2">
+          <CardContent className="pt-12 pb-12">
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <Upload className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">저장된 검사 결과가 없습니다</h3>
+                <p className="text-muted-foreground mt-1">
+                  혈액검사지를 촬영하거나 PDF를 업로드하면<br />
+                  AI가 자동으로 항목을 분석하고 정리합니다
+                </p>
+              </div>
+              <Button asChild size="lg" className="mt-2">
+                <Link href="/upload-quick">
+                  <Upload className="w-5 h-5 mr-2" />
                   첫 검사지 업로드하기
                 </Link>
               </Button>
@@ -372,7 +376,7 @@ function DashboardContent() {
                 내보내기
               </Button>
               <Button asChild>
-                <Link href="/upload">
+                <Link href="/upload-quick">
                   <Upload className="w-4 h-4 mr-2" />
                   새 검사지 업로드
                 </Link>
