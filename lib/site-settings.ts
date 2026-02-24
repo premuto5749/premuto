@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 
 export interface SiteSettings {
@@ -22,7 +23,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   language: 'ko'
 }
 
-export async function getSiteSettings(): Promise<SiteSettings> {
+// React cache()로 SSR 요청당 1회만 실행 (layout.tsx에서 3회 호출되는 중복 방지)
+export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   try {
     const supabase = await createClient()
     const { data, error } = await supabase
@@ -39,6 +41,6 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   } catch {
     return DEFAULT_SETTINGS
   }
-}
+})
 
 export { DEFAULT_SETTINGS }
