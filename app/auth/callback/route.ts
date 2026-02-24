@@ -34,6 +34,11 @@ export async function GET(request: NextRequest) {
           const serviceClient = createServiceClient()
           const { data: { user: fullUser } } = await serviceClient.auth.admin.getUserById(user.id)
           const kakaoIdentity = fullUser?.identities?.find(i => i.provider === 'kakao')
+
+          // 디버그: 카카오에서 실제로 내려오는 필드 확인
+          console.log('[Kakao OAuth] identity_data:', JSON.stringify(kakaoIdentity?.identity_data, null, 2))
+          console.log('[Kakao OAuth] user_metadata:', JSON.stringify(fullUser?.user_metadata, null, 2))
+
           if (kakaoIdentity?.identity_data) {
             const identityData = kakaoIdentity.identity_data as Record<string, string>
 
@@ -46,7 +51,10 @@ export async function GET(request: NextRequest) {
 
             const updateData: Record<string, string> = {}
 
-            if (identityData.phone_number) updateData.phone = identityData.phone_number
+            // 전화번호: identity_data 또는 user_metadata에서 탐색
+            const phone = identityData.phone_number
+              || (fullUser?.user_metadata as Record<string, string>)?.phone_number
+            if (phone) updateData.phone = phone
             // 닉네임이 아직 없을 때만 카카오 닉네임 사용 (사용자 수정 보호)
             if (!profile?.nickname && identityData.name) {
               updateData.nickname = identityData.name
