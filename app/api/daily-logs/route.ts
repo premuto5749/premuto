@@ -255,13 +255,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // photo_urls를 Signed URL로 변환
-    const processedData = await Promise.all(
-      (data || []).map(async (log) => ({
-        ...log,
-        photo_urls: await convertPathsToSignedUrls(log.photo_urls)
-      }))
-    )
+    // 모든 로그의 사진 경로를 한번에 수집 → 1회 배치 Signed URL 변환
+    const logs = data || []
+    const allPaths: { logIdx: number; photoIdx: number; path: string }[] = []
+    for (let li = 0; li < logs.length; li++) {
+      const urls = logs[li].photo_urls
+      if (!urls || urls.length === 0) continue
+      for (let pi = 0; pi < urls.length; pi++) {
+        if (!urls[pi].startsWith('http')) {
+          allPaths.push({ logIdx: li, photoIdx: pi, path: urls[pi] })
+        }
+      }
+    }
+
+    // 경로→signedUrl 매핑 테이블 (1회 배치 호출)
+    const signedUrlMap = new Map<string, string>()
+    if (allPaths.length > 0) {
+      const serviceClient = createServiceClient()
+      const { data: signedUrls } = await serviceClient.storage
+        .from(BUCKET_NAME)
+        .createSignedUrls(allPaths.map(p => p.path), SIGNED_URL_EXPIRY)
+
+      if (signedUrls) {
+        for (let i = 0; i < allPaths.length; i++) {
+          const signed = signedUrls[i]
+          if (signed?.signedUrl) {
+            signedUrlMap.set(allPaths[i].path, signed.signedUrl)
+          }
+        }
+      }
+    }
+
+    const processedData = logs.map(log => ({
+      ...log,
+      photo_urls: (log.photo_urls || []).map((url: string) =>
+        url.startsWith('http') ? url : (signedUrlMap.get(url) || url)
+      ),
+    }))
 
     const response: Record<string, unknown> = {
       success: true,
