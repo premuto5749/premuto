@@ -10,9 +10,10 @@ interface TagSelectorProps {
   selected: string | null
   onSelect: (value: string | null) => void
   referenceTitle?: string
+  referenceImage?: string
 }
 
-export function TagSelector({ title, options, selected, onSelect, referenceTitle }: TagSelectorProps) {
+export function TagSelector({ title, options, selected, onSelect, referenceTitle, referenceImage }: TagSelectorProps) {
   const [showReference, setShowReference] = useState(false)
 
   return (
@@ -70,6 +71,7 @@ export function TagSelector({ title, options, selected, onSelect, referenceTitle
             icon: o.icon,
             score: o.score,
           }))}
+          headerImage={referenceImage}
         />
       )}
     </div>
