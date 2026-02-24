@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import {
   Sheet,
   SheetContent,
@@ -21,17 +22,30 @@ interface TagReferenceSheetProps {
   onOpenChange: (open: boolean) => void
   title: string
   items: ReferenceItem[]
+  headerImage?: string
 }
 
-export function TagReferenceSheet({ open, onOpenChange, title, items }: TagReferenceSheetProps) {
+export function TagReferenceSheet({ open, onOpenChange, title, items, headerImage }: TagReferenceSheetProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
+      <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl">
         <SheetHeader className="pb-3">
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription className="sr-only">{title} 참고 정보</SheetDescription>
         </SheetHeader>
-        <div className="overflow-y-auto max-h-[calc(70vh-80px)] -mx-1 px-1 space-y-2 pb-4">
+        <div className="overflow-y-auto max-h-[calc(85vh-80px)] -mx-1 px-1 space-y-2 pb-4">
+          {headerImage && (
+            <div className="rounded-lg overflow-hidden border border-muted mb-3">
+              <Image
+                src={headerImage}
+                alt={title}
+                width={600}
+                height={800}
+                className="w-full h-auto"
+                priority
+              />
+            </div>
+          )}
           {items.map((item, idx) => (
             <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
               {/* 색상 또는 아이콘 */}

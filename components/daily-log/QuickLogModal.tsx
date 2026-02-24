@@ -803,6 +803,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                     return next
                   })}
                   referenceTitle="대변 경도 기준표"
+                  referenceImage="/reference/poop-consistency-chart.jpg"
                 />
               </div>
             )}

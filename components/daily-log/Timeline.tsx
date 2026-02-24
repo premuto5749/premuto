@@ -720,6 +720,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                           return next
                         })}
                         referenceTitle="대변 경도 기준표"
+                        referenceImage="/reference/poop-consistency-chart.jpg"
                       />
                     </div>
                   )}
