@@ -130,7 +130,20 @@ export async function POST(request: NextRequest) {
       }
 
       // 파일 경로만 저장 (Signed URL은 GET /api/daily-logs에서 생성)
-      uploadedPaths.push(uploadData.path)
+      // uploadData.path가 문자열인지 검증 (JSONB 호환성 보장)
+      const storedPath = uploadData?.path
+      if (typeof storedPath !== 'string' || storedPath.length === 0) {
+        console.error('Upload returned invalid path:', { uploadData, filePath })
+        // 이미 업로드된 파일들 삭제 시도
+        if (uploadedPaths.length > 0) {
+          await supabase.storage.from(BUCKET_NAME).remove(uploadedPaths)
+        }
+        return NextResponse.json(
+          { error: `업로드 후 파일 경로를 받지 못했습니다 (${file.name})` },
+          { status: 500 }
+        )
+      }
+      uploadedPaths.push(storedPath)
     }
 
     // 사용량 기록
