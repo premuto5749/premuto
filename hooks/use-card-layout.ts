@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback } from 'react'
 import type { CardLayoutItem, LogCategory } from '@/types'
 
 // 각 소비자별 기본 카테고리 순서
-const DAILY_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'breathing', 'medicine', 'walk']
-const MONTHLY_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine', 'breathing', 'walk', 'weight']
-const IMAGE_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine', 'breathing']
+const DAILY_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'breathing', 'medicine', 'walk', 'vomit', 'note']
+const MONTHLY_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine', 'breathing', 'walk', 'vomit', 'note', 'weight']
+const IMAGE_DEFAULT: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'medicine', 'breathing', 'vomit']
 
 // 요약 카드 대상 카테고리 (설정 UI용 — weight는 요약 카드가 아닌 반려동물 프로필에서 관리)
-export const ALL_CATEGORIES: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'breathing', 'medicine', 'walk']
+export const ALL_CATEGORIES: LogCategory[] = ['meal', 'water', 'snack', 'poop', 'pee', 'breathing', 'medicine', 'walk', 'vomit', 'note']
 
 /**
  * savedLayout 기준으로 applicableCategories를 필터/정렬하여 visible 카테고리만 반환

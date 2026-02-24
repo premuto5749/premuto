@@ -79,6 +79,13 @@ function buildStatItems(stats: DailyStats): StatItem[] {
       value: stats.avg_breathing_rate ? `${Math.round(stats.avg_breathing_rate)}회/분` : '-',
       count: stats.breathing_count,
     },
+    {
+      category: 'vomit',
+      icon: LOG_CATEGORY_CONFIG.vomit.icon,
+      label: '구토',
+      value: stats.vomit_count > 0 ? `${stats.vomit_count}회` : '-',
+      count: stats.vomit_count,
+    },
   ]
 }
 

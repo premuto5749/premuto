@@ -24,6 +24,8 @@ const CATEGORY_COLORS: Record<LogCategory, string> = {
   breathing: '#14b8a6', // teal
   weight: '#10b981',    // emerald
   walk: '#22c55e',      // green
+  vomit: '#f43f5e',     // rose
+  note: '#6b7280',      // gray
 }
 
 function getCategoryValue(stats: DailyStats, category: LogCategory): number | null {
@@ -46,6 +48,10 @@ function getCategoryValue(stats: DailyStats, category: LogCategory): number | nu
       return null // 체중은 weightMap에서 별도 처리
     case 'walk':
       return stats.walk_count > 0 ? stats.total_walk_duration : null
+    case 'vomit':
+      return stats.vomit_count > 0 ? stats.vomit_count : null
+    case 'note':
+      return stats.note_count > 0 ? stats.note_count : null
   }
 }
 
@@ -60,6 +66,8 @@ function getCategoryUnit(category: LogCategory): string {
     case 'breathing': return '회/분'
     case 'weight': return 'kg'
     case 'walk': return '분'
+    case 'vomit': return '회'
+    case 'note': return '건'
   }
 }
 

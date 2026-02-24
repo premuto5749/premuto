@@ -11,6 +11,8 @@ import type { DailyLog } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
 import { formatNumber } from '@/lib/utils'
+import { TagSelector } from './TagSelector'
+import { POOP_COLOR_OPTIONS, POOP_CONSISTENCY_OPTIONS, VOMIT_COLOR_OPTIONS } from '@/lib/tag-options'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,6 +134,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const editGalleryInputRef = useRef<HTMLInputElement>(null)
   const [editWalkEndDate, setEditWalkEndDate] = useState<string>('')
   const [editWalkEndTime, setEditWalkEndTime] = useState<string>('')
+  const [editTags, setEditTags] = useState<Record<string, string>>({})
   const [editMedicineInputMode, setEditMedicineInputMode] = useState<'preset' | 'manual'>('manual')
   const [editSnackInputMode, setEditSnackInputMode] = useState<'preset' | 'manual'>('manual')
   // Lightbox carousel state
@@ -177,8 +180,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const formatValue = (log: DailyLog, walkPhase?: 'start' | 'end') => {
     const config = LOG_CATEGORY_CONFIG[log.category]
 
-    if (log.category === 'poop' || log.category === 'pee') {
-      return '' // 배변/배뇨는 양 표시 안함
+    if (log.category === 'poop' || log.category === 'pee' || log.category === 'vomit' || log.category === 'note') {
+      return '' // 배변/배뇨/구토/기타는 양 표시 안함
     }
 
     if (log.category === 'weight' && log.amount !== null && log.amount !== undefined) {
@@ -229,6 +232,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setEditTime(extractTimeFromISO(log.logged_at))
     setEditWalkEndDate(log.walk_end_at ? extractDateFromISO(log.walk_end_at) : '')
     setEditWalkEndTime(log.walk_end_at ? extractTimeFromISO(log.walk_end_at) : '')
+    setEditTags((log.tags as Record<string, string>) || {})
     setEditPhotos(log.photo_urls || [])
     setNewPhotoFiles([])
     setNewPhotoPreviews([])
@@ -245,6 +249,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setEditTime(extractTimeFromISO(selectedLog.logged_at))
     setEditWalkEndDate(selectedLog.walk_end_at ? extractDateFromISO(selectedLog.walk_end_at) : '')
     setEditWalkEndTime(selectedLog.walk_end_at ? extractTimeFromISO(selectedLog.walk_end_at) : '')
+    setEditTags((selectedLog.tags as Record<string, string>) || {})
     setEditPhotos(selectedLog.photo_urls || [])
     setNewPhotoFiles([])
     setNewPhotoPreviews([])
@@ -269,6 +274,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       setEditTime(extractTimeFromISO(selectedLog.logged_at))
       setEditWalkEndDate(selectedLog.walk_end_at ? extractDateFromISO(selectedLog.walk_end_at) : '')
       setEditWalkEndTime(selectedLog.walk_end_at ? extractTimeFromISO(selectedLog.walk_end_at) : '')
+      setEditTags((selectedLog.tags as Record<string, string>) || {})
       setEditPhotos(selectedLog.photo_urls || [])
       setNewPhotoFiles([])
       setNewPhotoPreviews([])
@@ -314,6 +320,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
         memo: editMemo || null,
         logged_at: newLoggedAt,
         photo_urls: [...editPhotos, ...uploadedPhotoUrls],
+        tags: Object.keys(editTags).length > 0 ? editTags : null,
       }
 
       // 산책인 경우 종료 시간 및 소요 시간 업데이트
@@ -328,8 +335,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
         }
       }
 
-      // 배변/배뇨/산책이 아닌 경우에만 양 업데이트 (산책은 위에서 자동 계산)
-      if (selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'walk') {
+      // 배변/배뇨/구토/기타/산책이 아닌 경우에만 양 업데이트 (산책은 위에서 자동 계산)
+      if (selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'vomit' && selectedLog.category !== 'note' && selectedLog.category !== 'walk') {
         updateData.amount = editAmount ? parseFloat(editAmount) : null
       }
 
@@ -487,6 +494,29 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                             {log.medicine_name}
                           </span>
                         )}
+                        {/* 태그 배지 (배변/구토) */}
+                        {log.tags && (log.category === 'poop' || log.category === 'vomit') && (() => {
+                          const colorOptions = log.category === 'poop' ? POOP_COLOR_OPTIONS : VOMIT_COLOR_OPTIONS
+                          const colorTag = log.tags?.color as string | undefined
+                          const consistencyTag = log.tags?.consistency as string | undefined
+                          const colorOpt = colorTag ? colorOptions.find(o => o.value === colorTag) : null
+                          const consistencyOpt = consistencyTag ? POOP_CONSISTENCY_OPTIONS.find(o => o.value === consistencyTag) : null
+                          return (
+                            <>
+                              {colorOpt && (
+                                <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-muted">
+                                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: colorOpt.color }} />
+                                  {colorOpt.label}
+                                </span>
+                              )}
+                              {consistencyOpt && (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-muted">
+                                  {consistencyOpt.icon} {consistencyOpt.label}
+                                </span>
+                              )}
+                            </>
+                          )
+                        })()}
                         {/* 사진 아이콘 표시 */}
                         {log.photo_urls && log.photo_urls.length > 0 && (
                           <span className="text-xs text-muted-foreground flex items-center gap-0.5">
@@ -666,8 +696,51 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                     </div>
                   )}
 
-                  {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/간식 제외) */}
-                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'medicine' && selectedLog.category !== 'snack' && selectedLog.category !== 'walk' && (
+                  {/* 배변 태그 편집 */}
+                  {selectedLog.category === 'poop' && (
+                    <div className="space-y-3">
+                      <TagSelector
+                        title="색상"
+                        options={POOP_COLOR_OPTIONS}
+                        selected={(editTags.color as string) || null}
+                        onSelect={(v) => setEditTags(prev => {
+                          const next = { ...prev }
+                          if (v) next.color = v; else delete next.color
+                          return next
+                        })}
+                        referenceTitle="대변 색상 기준표"
+                      />
+                      <TagSelector
+                        title="경도"
+                        options={POOP_CONSISTENCY_OPTIONS}
+                        selected={(editTags.consistency as string) || null}
+                        onSelect={(v) => setEditTags(prev => {
+                          const next = { ...prev }
+                          if (v) next.consistency = v; else delete next.consistency
+                          return next
+                        })}
+                        referenceTitle="대변 경도 기준표"
+                      />
+                    </div>
+                  )}
+
+                  {/* 구토 태그 편집 */}
+                  {selectedLog.category === 'vomit' && (
+                    <TagSelector
+                      title="색상"
+                      options={VOMIT_COLOR_OPTIONS}
+                      selected={(editTags.color as string) || null}
+                      onSelect={(v) => setEditTags(prev => {
+                        const next = { ...prev }
+                        if (v) next.color = v; else delete next.color
+                        return next
+                      })}
+                      referenceTitle="구토 색상 기준표"
+                    />
+                  )}
+
+                  {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/간식/구토/기타 제외) */}
+                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'medicine' && selectedLog.category !== 'snack' && selectedLog.category !== 'walk' && selectedLog.category !== 'vomit' && selectedLog.category !== 'note' && (
                     <div className="space-y-2">
                       <Label htmlFor="edit-amount">
                         {selectedLog.category === 'breathing' ? '호흡수' : '양'} ({LOG_CATEGORY_CONFIG[selectedLog.category].unit})
@@ -885,8 +958,39 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                     </div>
                   )}
 
-                  {/* 양 (음수, 호흡수 - 배변/배뇨/식사/산책 제외) */}
-                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'walk' && selectedLog.amount !== null && (
+                  {/* 태그 표시 (배변/구토 - 보기 모드) */}
+                  {selectedLog.tags && (selectedLog.category === 'poop' || selectedLog.category === 'vomit') && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">태그</p>
+                      <div className="flex flex-wrap gap-2">
+                        {(() => {
+                          const colorOptions = selectedLog.category === 'poop' ? POOP_COLOR_OPTIONS : VOMIT_COLOR_OPTIONS
+                          const colorTag = selectedLog.tags?.color as string | undefined
+                          const consistencyTag = selectedLog.tags?.consistency as string | undefined
+                          const colorOpt = colorTag ? colorOptions.find(o => o.value === colorTag) : null
+                          const consistencyOpt = consistencyTag ? POOP_CONSISTENCY_OPTIONS.find(o => o.value === consistencyTag) : null
+                          return (
+                            <>
+                              {colorOpt && (
+                                <span className="inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-md bg-muted">
+                                  <span className="w-3 h-3 rounded-full border border-black/10" style={{ backgroundColor: colorOpt.color }} />
+                                  {colorOpt.label}
+                                </span>
+                              )}
+                              {consistencyOpt && (
+                                <span className="text-sm px-2 py-1 rounded-md bg-muted">
+                                  {consistencyOpt.icon} {consistencyOpt.label}
+                                </span>
+                              )}
+                            </>
+                          )
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 양 (음수, 호흡수 - 배변/배뇨/식사/산책/구토/기타 제외) */}
+                  {selectedLog.category !== 'poop' && selectedLog.category !== 'pee' && selectedLog.category !== 'meal' && selectedLog.category !== 'walk' && selectedLog.category !== 'vomit' && selectedLog.category !== 'note' && selectedLog.amount !== null && (
                     <div>
                       <p className="text-sm text-muted-foreground">
                         {selectedLog.category === 'breathing' ? '호흡수' : '양'}

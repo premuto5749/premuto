@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
 
     const body: DailyLogInput = await request.json()
 
-    const { category, pet_id, logged_at, amount, leftover_amount, unit, memo, photo_urls, medicine_name, snack_name, calories, input_source, walk_end_at, walk_id } = body
+    const { category, pet_id, logged_at, amount, leftover_amount, unit, memo, photo_urls, medicine_name, snack_name, calories, input_source, walk_end_at, walk_id, tags } = body
 
     if (!category) {
       return NextResponse.json(
@@ -360,6 +360,7 @@ export async function POST(request: NextRequest) {
       input_source: input_source || 'manual',
       walk_end_at: category === 'walk' ? (walk_end_at ?? null) : null,
       walk_id: walk_id || null,
+      tags: tags || null,
     }
 
     // 첫 번째 시도: leftover_amount 포함

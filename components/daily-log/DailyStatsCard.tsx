@@ -131,6 +131,22 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
         count: stats.walk_count,
         color: LOG_CATEGORY_CONFIG.walk.color,
       },
+      {
+        category: 'vomit',
+        icon: LOG_CATEGORY_CONFIG.vomit.icon,
+        label: '구토',
+        value: stats.vomit_count > 0 ? `${stats.vomit_count}회` : '-',
+        count: stats.vomit_count,
+        color: LOG_CATEGORY_CONFIG.vomit.color,
+      },
+      {
+        category: 'note',
+        icon: LOG_CATEGORY_CONFIG.note.icon,
+        label: '기타',
+        value: stats.note_count > 0 ? `${stats.note_count}건` : '-',
+        count: stats.note_count,
+        color: LOG_CATEGORY_CONFIG.note.color,
+      },
     ]
 
     return new Map(items.map(i => [i.category, i]))
