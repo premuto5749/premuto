@@ -14,6 +14,8 @@ import { LOG_CATEGORY_CONFIG } from '@/types'
 import { compressImage } from '@/lib/image-compressor'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useCardLayout } from '@/hooks/use-card-layout'
+import { TagSelector } from './TagSelector'
+import { POOP_COLOR_OPTIONS, POOP_CONSISTENCY_OPTIONS, VOMIT_COLOR_OPTIONS } from '@/lib/tag-options'
 
 const MAX_PHOTOS = 5
 
@@ -63,6 +65,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   const [snackUnit, setSnackUnit] = useState('개')
   const [logTime, setLogTime] = useState(getCurrentTime())
   const [logDate, setLogDate] = useState(getCurrentDate())
+  const [tags, setTags] = useState<Record<string, string>>({})
   const [photos, setPhotos] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -152,6 +155,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     setSnackSelections({})
     setSnackName('')
     setSnackUnit('개')
+    setTags({})
     setLogTime(getCurrentTime())
     setLogDate(defaultDate || getCurrentDate())
     // 사진 미리보기 URL 정리
@@ -366,7 +370,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         category: selectedCategory,
         pet_id: petId || null,
         logged_at: getLoggedAtISO(),
-        amount: amount ? parseFloat(amount) : (selectedCategory === 'poop' || selectedCategory === 'pee' ? 1 : null),
+        amount: amount ? parseFloat(amount) : (['poop', 'pee', 'vomit'].includes(selectedCategory) ? 1 : null),
         leftover_amount: selectedCategory === 'meal' ? (leftoverAmount ? parseFloat(leftoverAmount) : 0) : null,
         unit: selectedCategory === 'snack' ? snackUnit : config.unit,
         memo: memo || null,
@@ -376,6 +380,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         calories: snackCalories,
         input_source: (selectedCategory === 'medicine' && medicineInputMode === 'preset') ? 'preset' : 'manual',
         walk_id: activeWalk?.id || null,
+        tags: Object.keys(tags).length > 0 ? tags : null,
       }
 
       const response = await fetch('/api/daily-logs', {
@@ -470,6 +475,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
       return
     }
     // 모든 카테고리에서 입력 화면으로 이동 (배변/배뇨도 시간 선택 가능하도록)
+    setTags({})
     setSelectedCategory(category)
   }
 
@@ -773,8 +779,51 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
               </div>
             )}
 
-            {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/체중/간식 제외) */}
-            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && selectedCategory !== 'weight' && selectedCategory !== 'snack' && (
+            {/* 배변 태그 (색상 + 경도) */}
+            {selectedCategory === 'poop' && (
+              <div className="space-y-3">
+                <TagSelector
+                  title="색상"
+                  options={POOP_COLOR_OPTIONS}
+                  selected={(tags.color as string) || null}
+                  onSelect={(v) => setTags(prev => {
+                    const next = { ...prev }
+                    if (v) next.color = v; else delete next.color
+                    return next
+                  })}
+                  referenceTitle="대변 색상 기준표"
+                />
+                <TagSelector
+                  title="경도"
+                  options={POOP_CONSISTENCY_OPTIONS}
+                  selected={(tags.consistency as string) || null}
+                  onSelect={(v) => setTags(prev => {
+                    const next = { ...prev }
+                    if (v) next.consistency = v; else delete next.consistency
+                    return next
+                  })}
+                  referenceTitle="대변 경도 기준표"
+                />
+              </div>
+            )}
+
+            {/* 구토 태그 (색상) */}
+            {selectedCategory === 'vomit' && (
+              <TagSelector
+                title="색상"
+                options={VOMIT_COLOR_OPTIONS}
+                selected={(tags.color as string) || null}
+                onSelect={(v) => setTags(prev => {
+                  const next = { ...prev }
+                  if (v) next.color = v; else delete next.color
+                  return next
+                })}
+                referenceTitle="구토 색상 기준표"
+              />
+            )}
+
+            {/* 양 입력 (음수, 호흡수 - 배변/배뇨/식사/약/체중/간식/구토/기타 제외) */}
+            {selectedCategory !== 'poop' && selectedCategory !== 'pee' && selectedCategory !== 'meal' && selectedCategory !== 'medicine' && selectedCategory !== 'weight' && selectedCategory !== 'snack' && selectedCategory !== 'vomit' && selectedCategory !== 'note' && (
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
                   {LOG_CATEGORY_CONFIG[selectedCategory].placeholder || '양'}

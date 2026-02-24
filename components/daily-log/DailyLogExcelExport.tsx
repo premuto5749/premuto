@@ -120,6 +120,16 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
     overviewRows.push(['최대', maxBreathing != null ? `${maxBreathing}회/분` : '-'])
     overviewRows.push(['최소', minBreathing != null ? `${minBreathing}회/분` : '-'])
     overviewRows.push(['측정 횟수', `${totalBreathingCount}회`])
+    overviewRows.push([])
+
+    const totalVomitCount = monthEntries.reduce((sum, [, s]) => sum + (s.vomit_count || 0), 0)
+    overviewRows.push(['[ 구토 ]'])
+    overviewRows.push(['총 횟수', `${totalVomitCount}회`])
+    overviewRows.push([])
+
+    const totalNoteCount = monthEntries.reduce((sum, [, s]) => sum + (s.note_count || 0), 0)
+    overviewRows.push(['[ 기타 ]'])
+    overviewRows.push(['총 건수', `${totalNoteCount}건`])
 
     const overviewSheet = XLSX.utils.aoa_to_sheet(overviewRows)
     overviewSheet['!cols'] = [{ wch: 16 }, { wch: 20 }]
@@ -209,13 +219,14 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
     }
 
     if (logsByCategory['poop']) {
-      const rows: (string | number | null)[][] = [['날짜', '시간', '메모']]
+      const rows: (string | number | null)[][] = [['날짜', '시간', '색상', '경도', '메모']]
       for (const log of logsByCategory['poop']) {
         const { dateStr, timeStr } = formatDateTime(log.logged_at)
-        rows.push([dateStr, timeStr, log.memo || null])
+        const logTags = log.tags as Record<string, string> | null
+        rows.push([dateStr, timeStr, logTags?.color || null, logTags?.consistency || null, log.memo || null])
       }
       const sheet = XLSX.utils.aoa_to_sheet(rows)
-      sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 25 }]
+      sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 25 }]
       XLSX.utils.book_append_sheet(workbook, sheet, '배변')
     }
 
@@ -239,6 +250,29 @@ export function DailyLogExcelExport({ year, month, statsMap, petName, petId }: D
       const sheet = XLSX.utils.aoa_to_sheet(rows)
       sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 25 }]
       XLSX.utils.book_append_sheet(workbook, sheet, '호흡수')
+    }
+
+    if (logsByCategory['vomit']) {
+      const rows: (string | number | null)[][] = [['날짜', '시간', '색상', '메모']]
+      for (const log of logsByCategory['vomit']) {
+        const { dateStr, timeStr } = formatDateTime(log.logged_at)
+        const logTags = log.tags as Record<string, string> | null
+        rows.push([dateStr, timeStr, logTags?.color || null, log.memo || null])
+      }
+      const sheet = XLSX.utils.aoa_to_sheet(rows)
+      sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 25 }]
+      XLSX.utils.book_append_sheet(workbook, sheet, '구토')
+    }
+
+    if (logsByCategory['note']) {
+      const rows: (string | number | null)[][] = [['날짜', '시간', '메모']]
+      for (const log of logsByCategory['note']) {
+        const { dateStr, timeStr } = formatDateTime(log.logged_at)
+        rows.push([dateStr, timeStr, log.memo || null])
+      }
+      const sheet = XLSX.utils.aoa_to_sheet(rows)
+      sheet['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 25 }]
+      XLSX.utils.book_append_sheet(workbook, sheet, '기타')
     }
 
     return workbook

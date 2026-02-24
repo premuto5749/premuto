@@ -424,6 +424,12 @@ export default function DailyLogPage() {
       if (stats.walk_count > 0) {
         lines.push(`🐕 산책: ${stats.walk_count}회 (총 ${formatNumber(stats.total_walk_duration)}분)`)
       }
+      if (stats.vomit_count > 0) {
+        lines.push(`🤮 구토: ${stats.vomit_count}회`)
+      }
+      if (stats.note_count > 0) {
+        lines.push(`📝 기타: ${stats.note_count}건`)
+      }
       if (currentWeight) {
         lines.push(`⚖️ 체중: ${currentWeight}kg`)
       }
@@ -454,9 +460,16 @@ export default function DailyLogPage() {
           content += ` ${formatNumber(log.amount)}분`
         }
       }
-      // 양 표시 (배변/배뇨/산책 제외)
-      else if (log.amount !== null && log.category !== 'poop' && log.category !== 'pee') {
+      // 양 표시 (배변/배뇨/구토/기타/산책 제외)
+      else if (log.amount !== null && !['poop', 'pee', 'vomit', 'note'].includes(log.category)) {
         content += ` ${formatNumber(log.amount)}${log.unit || config.unit}`
+      }
+
+      // 태그 표시 (배변/구토)
+      if (log.tags) {
+        const tags = log.tags as Record<string, string>
+        if (tags.color) content += ` [${tags.color}]`
+        if (tags.consistency) content += ` [${tags.consistency}]`
       }
 
       // 약 이름

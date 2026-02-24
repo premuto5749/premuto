@@ -17,13 +17,15 @@ const CATEGORY_DOT_COLORS: Record<string, string> = {
   snack: 'bg-pink-400',
   medicine: 'bg-purple-400',
   poop: 'bg-amber-600',
+  vomit: 'bg-rose-400',
+  note: 'bg-gray-400',
   pee: 'bg-yellow-400',
   breathing: 'bg-teal-400',
   weight: 'bg-emerald-500',
   walk: 'bg-green-400',
 }
 
-const DEFAULT_CATEGORY_ORDER: LogCategory[] = ['meal', 'water', 'snack', 'medicine', 'poop', 'pee', 'breathing', 'walk']
+const DEFAULT_CATEGORY_ORDER: LogCategory[] = ['meal', 'water', 'snack', 'medicine', 'poop', 'pee', 'breathing', 'walk', 'vomit', 'note']
 
 interface MonthlyStatsCalendarProps {
   year: number
@@ -123,6 +125,8 @@ export function MonthlyStatsCalendar({
       if (stats.pee_count > 0) cats.push('pee')
       if (stats.breathing_count > 0) cats.push('breathing')
       if (stats.walk_count > 0) cats.push('walk')
+      if (stats.vomit_count > 0) cats.push('vomit')
+      if (stats.note_count > 0) cats.push('note')
     }
     if (weightMap[dateKey]) cats.push('weight')
     return cats
