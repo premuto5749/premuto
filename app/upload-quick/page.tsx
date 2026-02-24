@@ -37,6 +37,7 @@ export default function UploadQuickPage() {
   const { tier: tierData, tierLoading, refreshTier } = useAuth()
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [processingStep, setProcessingStep] = useState<'compress' | 'ocr' | 'done'>('compress')
   const [error, setError] = useState<string | null>(null)
   const [rateLimitError, setRateLimitError] = useState(false)
   const [tierLimitError, setTierLimitError] = useState(false)
@@ -65,6 +66,7 @@ export default function UploadQuickPage() {
     if (selectedFiles.length === 0) return
 
     setIsProcessing(true)
+    setProcessingStep('compress')
     setError(null)
 
     try {
@@ -106,6 +108,8 @@ export default function UploadQuickPage() {
         )
       }
 
+      setProcessingStep('ocr')
+
       const response = await fetch('/api/ocr-batch', {
         method: 'POST',
         body: formData,
@@ -142,6 +146,8 @@ export default function UploadQuickPage() {
       if (!result.success) {
         throw new Error('OCR 결과를 가져오는데 실패했습니다')
       }
+
+      setProcessingStep('done')
 
       // 배치 OCR 결과를 세션 스토리지에 저장
       sessionStorage.setItem('ocrBatchResult', JSON.stringify(result.data))
@@ -266,13 +272,6 @@ export default function UploadQuickPage() {
           OCR 분석 결과의 정확성 확인은 사용자 본인의 책임이며, 의학적 판단은 반드시 수의사와 상의하세요.
         </p>
 
-        {isProcessing && (
-          <div className="p-4 bg-muted rounded-lg">
-            <p className="text-sm text-center text-muted-foreground">
-              이미지를 분석하고 있습니다. 파일 수에 따라 10-60초 정도 소요됩니다...
-            </p>
-          </div>
-        )}
 
         {isLimitReached && (
           <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
@@ -292,6 +291,42 @@ export default function UploadQuickPage() {
         </ul>
       </div>
       </div>
+
+      {/* OCR 처리 오버레이 */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="text-center space-y-6 p-8 max-w-sm">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+            <div className="space-y-2">
+              <p className="text-lg font-semibold">
+                {processingStep === 'compress' && '이미지 압축 중...'}
+                {processingStep === 'ocr' && 'AI가 검사지를 읽고 있습니다...'}
+                {processingStep === 'done' && '결과 정리 중...'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {selectedFiles.length}개 파일 처리 중 · 파일 수에 따라 10~60초 소요
+              </p>
+            </div>
+            <div className="flex justify-center gap-2">
+              {['compress', 'ocr', 'done'].map((step, i) => (
+                <div
+                  key={step}
+                  className={`h-1.5 w-10 rounded-full transition-colors ${
+                    i <= ['compress', 'ocr', 'done'].indexOf(processingStep)
+                      ? 'bg-primary'
+                      : 'bg-muted-foreground/20'
+                  }`}
+                />
+              ))}
+            </div>
+            <div className="text-xs text-muted-foreground/70">
+              {processingStep === 'compress' && '1/3 · 업로드 준비'}
+              {processingStep === 'ocr' && '2/3 · AI 분석 (가장 오래 걸립니다)'}
+              {processingStep === 'done' && '3/3 · 거의 완료!'}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Rate Limit 에러 모달 */}
       <Dialog open={rateLimitError} onOpenChange={setRateLimitError}>
