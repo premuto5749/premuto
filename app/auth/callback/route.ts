@@ -35,10 +35,6 @@ export async function GET(request: NextRequest) {
           const { data: { user: fullUser } } = await serviceClient.auth.admin.getUserById(user.id)
           const kakaoIdentity = fullUser?.identities?.find(i => i.provider === 'kakao')
 
-          // 디버그: 카카오에서 실제로 내려오는 필드 확인
-          console.log('[Kakao OAuth] identity_data:', JSON.stringify(kakaoIdentity?.identity_data, null, 2))
-          console.log('[Kakao OAuth] user_metadata:', JSON.stringify(fullUser?.user_metadata, null, 2))
-
           if (kakaoIdentity?.identity_data) {
             const identityData = kakaoIdentity.identity_data as Record<string, string>
 
@@ -51,10 +47,23 @@ export async function GET(request: NextRequest) {
 
             const updateData: Record<string, string> = {}
 
-            // 전화번호: identity_data 또는 user_metadata에서 탐색
-            const phone = identityData.phone_number
-              || (fullUser?.user_metadata as Record<string, string>)?.phone_number
-            if (phone) updateData.phone = phone
+            // 전화번호: provider_token으로 카카오 API 직접 호출
+            const providerToken = data.session?.provider_token
+            if (providerToken) {
+              try {
+                const kakaoRes = await fetch('https://kapi.kakao.com/v2/user/me', {
+                  headers: { Authorization: `Bearer ${providerToken}` },
+                })
+                if (kakaoRes.ok) {
+                  const kakaoUser = await kakaoRes.json()
+                  console.log('[Kakao API] kakao_account:', JSON.stringify(kakaoUser.kakao_account, null, 2))
+                  const phoneNumber = kakaoUser.kakao_account?.phone_number
+                  if (phoneNumber) updateData.phone = phoneNumber
+                }
+              } catch (e) {
+                console.error('[Kakao API] Failed to fetch phone:', e)
+              }
+            }
             // 닉네임이 아직 없을 때만 카카오 닉네임 사용 (사용자 수정 보호)
             if (!profile?.nickname && identityData.name) {
               updateData.nickname = identityData.name
