@@ -59,12 +59,13 @@ export function LostAnimalPopup() {
 
   const isExcluded = EXCLUDED_PATHS.some(p => pathname?.startsWith(p))
 
-  // AuthContext의 user 상태 활용 (중복 세션 체크 및 500ms 딜레이 제거)
+  // AuthContext의 user 상태 활용 (중복 Supabase 세션 체크 제거)
+  // AnnouncementPopup과 동시 표시 방지를 위해 딜레이 유지
   useEffect(() => {
     if (isExcluded || authLoading || !user) return
     if (isDismissedToday()) return
 
-    const fetchFlyers = async () => {
+    const timer = setTimeout(async () => {
       try {
         const res = await fetch('/api/lost-animals')
         const data = await res.json()
@@ -81,9 +82,9 @@ export function LostAnimalPopup() {
       } catch (err) {
         console.error('Failed to fetch lost animal flyers:', err)
       }
-    }
+    }, 500)
 
-    fetchFlyers()
+    return () => clearTimeout(timer)
   }, [isExcluded, authLoading, user])
 
   const handleDismissToday = () => {
