@@ -129,6 +129,7 @@ export default function LoginPage() {
       const { error: socialError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
+          scopes: 'phone_number',
           redirectTo: `${window.location.origin}/auth/callback`
         }
       })

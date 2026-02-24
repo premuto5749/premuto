@@ -1481,6 +1481,7 @@ function KakaoLinkSection() {
       const { data, error } = await supabase.auth.linkIdentity({
         provider: 'kakao',
         options: {
+          scopes: 'phone_number',
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/settings?tab=account')}`
         }
       })
