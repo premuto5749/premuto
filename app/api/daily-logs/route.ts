@@ -277,6 +277,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // photo_urls를 안전한 JSONB 배열로 변환
+    // (업로드 API 응답이 예상과 다를 경우 대비)
+    const safePhotoUrls: string[] = Array.isArray(photo_urls)
+      ? photo_urls.filter((url): url is string => typeof url === 'string' && url.length > 0)
+      : []
+
     const insertData: Record<string, unknown> = {
       user_id: user.id,
       pet_id: pet_id || null,
@@ -286,7 +292,7 @@ export async function POST(request: NextRequest) {
       leftover_amount: category === 'meal' ? (leftover_amount || 0) : null,
       unit,
       memo,
-      photo_urls: photo_urls || [],
+      photo_urls: safePhotoUrls,
       medicine_name: category === 'medicine' ? medicine_name : null,
       snack_name: category === 'snack' ? snack_name : null,
       calories: category === 'snack' ? (calories ?? null) : null,
@@ -316,7 +322,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (error) {
-      console.error('Daily log insert error:', error)
+      console.error('Daily log insert error:', error, {
+        category,
+        photo_urls_type: typeof safePhotoUrls,
+        photo_urls_length: safePhotoUrls?.length,
+        photo_urls_raw_type: typeof photo_urls,
+        photo_urls_is_array: Array.isArray(photo_urls),
+      })
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
@@ -442,6 +454,13 @@ export async function PATCH(request: NextRequest) {
         { error: 'ID is required' },
         { status: 400 }
       )
+    }
+
+    // photo_urls가 포함된 경우 안전한 JSONB 배열로 변환
+    if ('photo_urls' in updates) {
+      updates.photo_urls = Array.isArray(updates.photo_urls)
+        ? updates.photo_urls.filter((url: unknown): url is string => typeof url === 'string' && (url as string).length > 0)
+        : []
     }
 
     // 복원 요청
