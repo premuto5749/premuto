@@ -13,37 +13,41 @@ const SIGNED_URL_EXPIRY = 60 * 60 * 24 * 7 // 7일
 // 파일 경로를 Signed URL로 변환 (하위 호환: 이미 URL이면 그대로 반환)
 // Service Role 클라이언트 사용: Storage RLS를 우회하여 안정적으로 Signed URL 생성
 // (API 레벨에서 이미 사용자 인증 검증 완료)
+// 배치 API (createSignedUrls)로 1회 호출에 모든 URL 생성
 async function convertPathsToSignedUrls(
   photoUrls: string[] | null
 ): Promise<string[]> {
   if (!photoUrls || photoUrls.length === 0) return []
 
+  // 이미 URL인 것과 경로인 것을 분리
+  const pathsToSign: { index: number; path: string }[] = []
+  const results: string[] = [...photoUrls]
+
+  for (let i = 0; i < photoUrls.length; i++) {
+    if (photoUrls[i].startsWith('http')) continue
+    pathsToSign.push({ index: i, path: photoUrls[i] })
+  }
+
+  if (pathsToSign.length === 0) return results
+
+  // 배치 API로 1회 호출에 모든 Signed URL 생성
   const serviceClient = createServiceClient()
-  const results: string[] = []
-  for (const pathOrUrl of photoUrls) {
-    // 이미 URL이면 그대로 사용 (하위 호환)
-    if (pathOrUrl.startsWith('http')) {
-      results.push(pathOrUrl)
-      continue
-    }
+  const { data: signedUrls, error } = await serviceClient.storage
+    .from(BUCKET_NAME)
+    .createSignedUrls(pathsToSign.map(p => p.path), SIGNED_URL_EXPIRY)
 
-    // 파일 경로면 Signed URL 생성
-    const { data: signedUrl, error } = await serviceClient.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(pathOrUrl, SIGNED_URL_EXPIRY)
+  if (error || !signedUrls) {
+    console.error('Batch Signed URL generation error:', { error: error?.message, bucket: BUCKET_NAME })
+    return results
+  }
 
-    if (error || !signedUrl) {
-      console.error('Signed URL generation error:', {
-        path: pathOrUrl,
-        error: error?.message,
-        bucket: BUCKET_NAME
-      })
-      // 실패 시 경로 그대로 반환 (디버깅용)
-      results.push(pathOrUrl)
-    } else {
-      results.push(signedUrl.signedUrl)
+  for (let i = 0; i < pathsToSign.length; i++) {
+    const signed = signedUrls[i]
+    if (signed?.signedUrl) {
+      results[pathsToSign[i].index] = signed.signedUrl
     }
   }
+
   return results
 }
 
@@ -102,6 +106,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end')         // 종료일
     const category = searchParams.get('category')   // 카테고리 필터
     const stats = searchParams.get('stats')         // 통계 조회 여부
+    const includeStats = searchParams.get('include_stats') // 기록 + 통계 함께 반환
     const petId = searchParams.get('pet_id')        // 반려동물 필터
     const showDeleted = searchParams.get('deleted') === 'true' // 삭제된 기록 조회
     const latestWeight = searchParams.get('latest_weight') // 최근 체중 조회
@@ -223,25 +228,81 @@ export async function GET(request: NextRequest) {
       query = query.eq('pet_id', petId)
     }
 
-    const { data, error } = await query.order('logged_at', { ascending: false })
+    // include_stats=true 시 기록 + 통계를 병렬 조회 (API 호출 1회 절약)
+    const statsPromise = includeStats === 'true' ? (() => {
+      let sq = supabase.from('daily_stats').select('*')
+        .eq('user_id', user.id)
+      if (date) {
+        sq = sq.eq('log_date', date)
+      } else if (startDate && endDate) {
+        sq = sq.gte('log_date', startDate).lte('log_date', endDate)
+      }
+      if (petId) {
+        sq = sq.eq('pet_id', petId)
+      }
+      return sq.order('log_date', { ascending: false })
+    })() : null
+
+    const [logsResult, statsResult] = await Promise.all([
+      query.order('logged_at', { ascending: false }),
+      statsPromise,
+    ])
+
+    const { data, error } = logsResult
 
     if (error) {
       console.error('Daily logs query error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // photo_urls를 Signed URL로 변환
-    const processedData = await Promise.all(
-      (data || []).map(async (log) => ({
-        ...log,
-        photo_urls: await convertPathsToSignedUrls(log.photo_urls)
-      }))
-    )
+    // 모든 로그의 사진 경로를 한번에 수집 → 1회 배치 Signed URL 변환
+    const logs = data || []
+    const allPaths: { logIdx: number; photoIdx: number; path: string }[] = []
+    for (let li = 0; li < logs.length; li++) {
+      const urls = logs[li].photo_urls
+      if (!urls || urls.length === 0) continue
+      for (let pi = 0; pi < urls.length; pi++) {
+        if (!urls[pi].startsWith('http')) {
+          allPaths.push({ logIdx: li, photoIdx: pi, path: urls[pi] })
+        }
+      }
+    }
 
-    return NextResponse.json({
+    // 경로→signedUrl 매핑 테이블 (1회 배치 호출)
+    const signedUrlMap = new Map<string, string>()
+    if (allPaths.length > 0) {
+      const serviceClient = createServiceClient()
+      const { data: signedUrls } = await serviceClient.storage
+        .from(BUCKET_NAME)
+        .createSignedUrls(allPaths.map(p => p.path), SIGNED_URL_EXPIRY)
+
+      if (signedUrls) {
+        for (let i = 0; i < allPaths.length; i++) {
+          const signed = signedUrls[i]
+          if (signed?.signedUrl) {
+            signedUrlMap.set(allPaths[i].path, signed.signedUrl)
+          }
+        }
+      }
+    }
+
+    const processedData = logs.map(log => ({
+      ...log,
+      photo_urls: (log.photo_urls || []).map((url: string) =>
+        url.startsWith('http') ? url : (signedUrlMap.get(url) || url)
+      ),
+    }))
+
+    const response: Record<string, unknown> = {
       success: true,
-      data: processedData as DailyLog[]
-    })
+      data: processedData as DailyLog[],
+    }
+
+    if (statsResult) {
+      response.stats = (statsResult.data as DailyStats[]) || []
+    }
+
+    return NextResponse.json(response)
 
   } catch (error) {
     console.error('Daily logs API error:', error)

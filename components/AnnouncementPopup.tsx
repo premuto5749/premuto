@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   Dialog,
   DialogContent,
@@ -62,6 +62,7 @@ function shouldShow(announcement: PopupAnnouncement, dismissState: DismissState)
 
 export function AnnouncementPopup() {
   const pathname = usePathname()
+  const { user, isLoading: authLoading } = useAuth()
   const [announcements, setAnnouncements] = useState<PopupAnnouncement[]>([])
   const [dismissState, setDismissState] = useState<DismissState>({})
   const [currentAnnouncement, setCurrentAnnouncement] = useState<PopupAnnouncement | null>(null)
@@ -75,17 +76,12 @@ export function AnnouncementPopup() {
     return list.find(a => shouldShow(a, state)) || null
   }, [])
 
-  // 공지 목록 fetch
+  // 공지 목록 fetch - AuthContext의 user 상태 활용 (중복 세션 체크 제거)
   useEffect(() => {
-    if (isExcluded) return
+    if (isExcluded || authLoading || !user) return
 
     const fetchAnnouncements = async () => {
       try {
-        // 로그인 사용자에게만 공지사항 표시
-        const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return
-
         const res = await fetch('/api/popup-settings')
         const data = await res.json()
         if (data.success && data.data.length > 0) {
@@ -105,7 +101,7 @@ export function AnnouncementPopup() {
     }
 
     fetchAnnouncements()
-  }, [isExcluded, findNextAnnouncement])
+  }, [isExcluded, authLoading, user, findNextAnnouncement])
 
   const handleDismiss = (days: number) => {
     if (!currentAnnouncement) return

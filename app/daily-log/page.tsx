@@ -105,10 +105,10 @@ export default function DailyLogPage() {
       // pet_id 파라미터 추가
       const petParam = currentPet ? `&pet_id=${currentPet.id}` : ''
 
-      // 기록 + 통계 + 체중 + 급여계획 + 진행중산책 병렬 조회
-      const [logsRes, statsRes, weightRes, planRes, walkRes] = await Promise.all([
-        fetch(`/api/daily-logs?date=${selectedDate}${petParam}`),
-        fetch(`/api/daily-logs?date=${selectedDate}&stats=true${petParam}`),
+      // 기록+통계 + 체중 + 급여계획 + 진행중산책 병렬 조회
+      // include_stats=true로 기록과 통계를 1회 API 호출로 함께 가져옴
+      const [logsRes, weightRes, planRes, walkRes] = await Promise.all([
+        fetch(`/api/daily-logs?date=${selectedDate}&include_stats=true${petParam}`),
         currentPet ? fetch(`/api/daily-logs?latest_weight=true&pet_id=${currentPet.id}&date=${selectedDate}`) : Promise.resolve(null),
         currentPet ? fetch(`/api/feeding-plans?pet_id=${currentPet.id}&date=${selectedDate}`) : Promise.resolve(null),
         currentPet ? fetch(`/api/daily-logs?active_walk=true&pet_id=${currentPet.id}`) : Promise.resolve(null),
@@ -117,14 +117,9 @@ export default function DailyLogPage() {
       if (logsRes.ok) {
         const logsData = await logsRes.json()
         setLogs(logsData.data || [])
+        setStats(logsData.stats?.[0] || null)
       } else {
         setLogs([])
-      }
-
-      if (statsRes.ok) {
-        const statsData = await statsRes.json()
-        setStats(statsData.data?.[0] || null)
-      } else {
         setStats(null)
       }
 

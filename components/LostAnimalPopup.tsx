@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   Dialog,
   DialogContent,
@@ -53,24 +53,20 @@ function dismissUntilEndOfDay() {
 export function LostAnimalPopup() {
   const pathname = usePathname()
   const router = useRouter()
+  const { user, isLoading: authLoading } = useAuth()
   const [flyer, setFlyer] = useState<Flyer | null>(null)
   const [open, setOpen] = useState(false)
 
   const isExcluded = EXCLUDED_PATHS.some(p => pathname?.startsWith(p))
 
+  // AuthContext의 user 상태 활용 (중복 Supabase 세션 체크 제거)
+  // AnnouncementPopup과 동시 표시 방지를 위해 딜레이 유지
   useEffect(() => {
-    if (isExcluded) return
+    if (isExcluded || authLoading || !user) return
+    if (isDismissedToday()) return
 
-    // 500ms delay to let AnnouncementPopup render first
     const timer = setTimeout(async () => {
       try {
-        if (isDismissedToday()) return
-
-        // 로그인 사용자에게만 표시
-        const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return
-
         const res = await fetch('/api/lost-animals')
         const data = await res.json()
         if (!data.success) return
@@ -89,7 +85,7 @@ export function LostAnimalPopup() {
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [isExcluded])
+  }, [isExcluded, authLoading, user])
 
   const handleDismissToday = () => {
     dismissUntilEndOfDay()

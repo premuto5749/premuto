@@ -166,18 +166,21 @@ export async function getUserTier(userId: string): Promise<TierName> {
   return (data?.tier as TierName) || 'free'
 }
 
+/** 오늘 시작 시각 (KST 기준) */
+function getTodayStartKST(): Date {
+  const now = new Date()
+  const kstOffset = 9 * 60 * 60 * 1000
+  const kstNow = new Date(now.getTime() + kstOffset)
+  return new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate()) - kstOffset)
+}
+
 /** 오늘 사용량 조회 */
 export async function getTodayUsage(
   userId: string,
   action: string
 ): Promise<number> {
   const supabase = await createClient()
-
-  // 오늘 시작 (KST 기준 = UTC+9)
-  const now = new Date()
-  const kstOffset = 9 * 60 * 60 * 1000
-  const kstNow = new Date(now.getTime() + kstOffset)
-  const todayStart = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate()) - kstOffset)
+  const todayStart = getTodayStartKST()
 
   const { count, error } = await supabase
     .from('usage_logs')
@@ -191,6 +194,34 @@ export async function getTodayUsage(
     return 0
   }
   return count || 0
+}
+
+/** 오늘 사용량 일괄 조회 (여러 action을 1회 쿼리로 집계) */
+export async function getTodayUsageBatch(
+  userId: string,
+  actions: string[]
+): Promise<Record<string, number>> {
+  const supabase = await createClient()
+  const todayStart = getTodayStartKST()
+  const result: Record<string, number> = {}
+  for (const a of actions) result[a] = 0
+
+  const { data, error } = await supabase
+    .from('usage_logs')
+    .select('action')
+    .eq('user_id', userId)
+    .in('action', actions)
+    .gte('created_at', todayStart.toISOString())
+
+  if (error) {
+    console.error(`[Tier] getTodayUsageBatch error:`, error.message, error.code)
+    return result
+  }
+
+  for (const row of data || []) {
+    result[row.action] = (result[row.action] || 0) + 1
+  }
+  return result
 }
 
 /** 사용량 기록 */

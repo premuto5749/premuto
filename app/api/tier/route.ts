@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTier, getTierConfig, getTodayUsage } from '@/lib/tier'
+import { getUserTier, getTierConfig, getTodayUsageBatch } from '@/lib/tier'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,13 +13,16 @@ export async function GET() {
       return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
-    const [tier, tierConfigMap, ocrUsed, photoUsed, descGenUsed] = await Promise.all([
+    // 3개 분리 쿼리를 1개 배치 쿼리로 통합
+    const [tier, tierConfigMap, usageBatch] = await Promise.all([
       getUserTier(user.id),
       getTierConfig(),
-      getTodayUsage(user.id, 'ocr_analysis'),
-      getTodayUsage(user.id, 'daily_log_photo'),
-      getTodayUsage(user.id, 'description_generation'),
+      getTodayUsageBatch(user.id, ['ocr_analysis', 'daily_log_photo', 'description_generation']),
     ])
+
+    const ocrUsed = usageBatch['ocr_analysis']
+    const photoUsed = usageBatch['daily_log_photo']
+    const descGenUsed = usageBatch['description_generation']
 
     const config = tierConfigMap[tier] || tierConfigMap.free
 
