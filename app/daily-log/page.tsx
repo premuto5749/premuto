@@ -699,6 +699,10 @@ export default function DailyLogPage() {
           setIsModalOpen(false)
           setIsBreathingTimerOpen(true)
         }}
+        onWalkSelect={() => {
+          setIsModalOpen(false)
+          handleWalkFABClick()
+        }}
         currentWeight={currentWeight}
         onWeightLogged={refreshPets}
         activeWalk={activeWalk}

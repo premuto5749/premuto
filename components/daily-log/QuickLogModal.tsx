@@ -26,6 +26,7 @@ interface QuickLogModalProps {
   defaultDate?: string // YYYY-MM-DD 형식, 선택된 날짜가 있으면 해당 날짜로 초기화
   petId?: string // 반려동물 ID
   onBreathingSelect?: () => void // 호흡수 선택 시 타이머 모달 열기
+  onWalkSelect?: () => void // 산책 선택 시 FAB 산책 플로우 트리거
   currentWeight?: number | null // 현재 체중 (체중 기록 페이지에서 pre-fill)
   onWeightLogged?: () => void // 체중 기록 후 콜백
   activeWalk?: DailyLog | null // 현재 진행 중인 산책
@@ -46,7 +47,7 @@ const getCurrentDate = () => {
   return `${year}-${month}-${day}`
 }
 
-export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId, onBreathingSelect, currentWeight, onWeightLogged, activeWalk }: QuickLogModalProps) {
+export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petId, onBreathingSelect, onWalkSelect, currentWeight, onWeightLogged, activeWalk }: QuickLogModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
   const [amount, setAmount] = useState('')
   const [leftoverAmount, setLeftoverAmount] = useState('')  // 남긴 양 (식사용)
@@ -472,6 +473,11 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
     // 호흡수 선택 시 타이머 모달 열기
     if (category === 'breathing' && onBreathingSelect) {
       onBreathingSelect()
+      return
+    }
+    // 산책 선택 시 FAB 산책 플로우 트리거 (모달 닫고 시작/종료 플로우)
+    if (category === 'walk' && onWalkSelect) {
+      onWalkSelect()
       return
     }
     // 모든 카테고리에서 입력 화면으로 이동 (배변/배뇨도 시간 선택 가능하도록)
