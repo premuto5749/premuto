@@ -565,7 +565,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
         }}
       >
         <DialogContent
-          className="sm:max-w-md"
+          className="sm:max-w-md max-h-[85vh] flex flex-col"
           onPointerDownOutside={(e) => { if (isEditing) e.preventDefault() }}
           onFocusOutside={(e) => { if (isEditing) e.preventDefault() }}
           onEscapeKeyDown={(e) => { if (isEditing) e.preventDefault() }}
@@ -582,7 +582,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
               {isEditing ? (
                 /* 수정 모드 */
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 py-4 overflow-y-auto min-h-0">
                   {/* 산책 시간 편집 (시작/종료 분리) */}
                   {selectedLog.category === 'walk' ? (
                     <div className="space-y-3">
@@ -897,7 +897,7 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                 </div>
               ) : (
                 /* 보기 모드 */
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 py-4 overflow-y-auto min-h-0">
                   {/* 시간 */}
                   <div>
                     <p className="text-sm text-muted-foreground">기록 시간</p>
@@ -1062,13 +1062,13 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                 </div>
               )}
 
-              <DialogFooter className="flex-col sm:flex-row gap-2">
+              <DialogFooter className="flex-row gap-2 flex-shrink-0">
                 {isEditing ? (
                   <>
-                    <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                    <Button variant="outline" className="flex-1" onClick={handleCancelEdit} disabled={isSaving}>
                       취소
                     </Button>
-                    <Button onClick={handleSaveEdit} disabled={isSaving || isUploadingPhotos}>
+                    <Button className="flex-1" onClick={handleSaveEdit} disabled={isSaving || isUploadingPhotos}>
                       {isSaving || isUploadingPhotos ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
