@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import type { OcrResult, StandardItem, AiMappingSuggestion } from '@/types'
 import {
   matchItemV3,
@@ -38,7 +39,7 @@ interface RequestBody {
   ocr_results: OcrResult[]
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
     const body: RequestBody = await request.json()
     const { batch_id, ocr_results } = body
@@ -52,13 +53,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`🤖 AI Mapping started for batch ${batch_id} with ${ocr_results.length} items`)
 
-    const supabase = await createClient()
-
-    // 현재 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
     const userId = user.id
 
     // 1. DB에서 모든 표준 항목 가져오기
@@ -308,7 +302,7 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // AI 판단 결과 타입 (mapping_logic.md 기반)
 interface AiDecisionMatch {

@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { encryptToken, createRootFolder } from '@/lib/google-drive'
 import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { supabase, user }) => {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const state = searchParams.get('state')
@@ -33,13 +33,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 사용자 인증 확인
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.redirect(`${settingsUrl}&drive_error=unknown`)
-    }
-
     // authorization code → tokens
     const redirectUri = `${origin}/api/google-drive/callback`
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -118,4 +111,4 @@ export async function GET(request: NextRequest) {
     console.error('[GoogleDrive] Callback error:', err)
     return NextResponse.redirect(`${settingsUrl}&drive_error=unknown`)
   }
-}
+})

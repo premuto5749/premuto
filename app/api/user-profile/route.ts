@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,14 +7,8 @@ export const dynamic = 'force-dynamic'
  * GET /api/user-profile
  * 현재 사용자의 프로필 조회 (nickname, phone)
  */
-export async function GET() {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
-
     const { data, error } = await supabase
       .from('user_profiles')
       .select('nickname, phone, profile_image')
@@ -40,20 +34,14 @@ export async function GET() {
     console.error('user-profile GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})
 
 /**
  * PATCH /api/user-profile
  * 닉네임 수정
  */
-export async function PATCH(request: NextRequest) {
+export const PATCH = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
-
     const body = await request.json()
     const { nickname } = body
 
@@ -80,4 +68,4 @@ export async function PATCH(request: NextRequest) {
     console.error('user-profile PATCH error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})

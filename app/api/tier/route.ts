@@ -1,18 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { getUserTier, getTierConfig, getTodayUsageBatch } from '@/lib/tier'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export const GET = withAuth(async (request, { user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
-
     // 3개 분리 쿼리를 1개 배치 쿼리로 통합
     const [tier, tierConfigMap, usageBatch] = await Promise.all([
       getUserTier(user.id),
@@ -58,4 +51,4 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+})

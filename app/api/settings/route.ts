@@ -1,20 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import { UserSettingsInput } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
 // 사용자 설정 조회
-export async function GET() {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { data: settings, error } = await supabase
       .from('user_settings')
       .select('*')
@@ -51,18 +44,11 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+})
 
 // 사용자 설정 생성/수정 (upsert)
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body: UserSettingsInput = await request.json()
 
     // upsert로 처리
@@ -97,18 +83,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // 계정 삭제 (auth.users 삭제 → CASCADE로 모든 관련 데이터 자동 삭제)
-export async function DELETE() {
+export const DELETE = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     // Storage에서 사용자 파일 삭제
     const { data: files } = await supabase.storage
       .from('uploads')
@@ -142,4 +121,4 @@ export async function DELETE() {
       { status: 500 }
     )
   }
-}
+})

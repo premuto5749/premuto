@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/with-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,20 +7,8 @@ export const dynamic = 'force-dynamic'
  * POST /api/user/reset-master-data
  * 사용자의 마스터 데이터 오버라이드를 초기화 (마스터 기본값으로 리셋)
  */
-export async function POST() {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
     // reset_user_master_data 함수 호출
     const { error } = await supabase
       .rpc('reset_user_master_data', { p_user_id: user.id })
@@ -48,26 +36,14 @@ export async function POST() {
       { status: 500 }
     )
   }
-}
+})
 
 /**
  * GET /api/user/reset-master-data
  * 사용자의 커스텀/오버라이드 데이터 통계 조회
  */
-export async function GET() {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
     // 사용자별 데이터 통계 조회
     const [
       { count: customItemsCount },
@@ -108,4 +84,4 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+})

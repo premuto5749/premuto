@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { DailyLog, DailyLogInput, DailyStats } from '@/types'
 import { triggerDailyLogDriveBackup } from '@/lib/google-drive-upload'
@@ -87,19 +87,9 @@ async function autoAssignWalkId(supabase: any, userId: string, logId: string, lo
 }
 
 // GET: 기록 조회 (날짜 범위 또는 특정 날짜)
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
     const { searchParams } = new URL(request.url)
-
-    // 인증된 사용자 확인 (뷰 조회 시 RLS가 제대로 적용되지 않을 수 있음)
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: '로그인이 필요합니다' },
-        { status: 401 }
-      )
-    }
 
     const date = searchParams.get('date')           // 특정 날짜 (YYYY-MM-DD)
     const startDate = searchParams.get('start')     // 시작일
@@ -311,22 +301,11 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // POST: 새 기록 추가
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    // 인증된 사용자 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: '로그인이 필요합니다' },
-        { status: 401 }
-      )
-    }
-
     const body: DailyLogInput = await request.json()
 
     const { category, pet_id, logged_at, amount, leftover_amount, unit, memo, photo_urls, medicine_name, snack_name, calories, input_source, walk_end_at, walk_id, tags } = body
@@ -426,22 +405,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // DELETE: 기록 삭제
-export async function DELETE(request: NextRequest) {
+export const DELETE = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    // 인증된 사용자 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: '로그인이 필요합니다' },
-        { status: 401 }
-      )
-    }
-
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     const permanent = searchParams.get('permanent') === 'true'
@@ -492,22 +460,11 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // PATCH: 기록 수정
-export async function PATCH(request: NextRequest) {
+export const PATCH = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    // 인증된 사용자 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: '로그인이 필요합니다' },
-        { status: 401 }
-      )
-    }
-
     const body = await request.json()
     const { id, restore, ...updates } = body
 
@@ -699,4 +656,4 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

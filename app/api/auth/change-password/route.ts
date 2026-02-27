@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/with-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,12 +7,9 @@ export const dynamic = 'force-dynamic'
  * POST /api/auth/change-password
  * 비밀번호 변경
  */
-export async function POST(request: Request) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user || !user.email) {
+    if (!user.email) {
       return NextResponse.json(
         { success: false, error: '인증이 필요합니다' },
         { status: 401 }
@@ -68,4 +65,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
+})

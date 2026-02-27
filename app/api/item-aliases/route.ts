@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,14 +7,10 @@ export const dynamic = 'force-dynamic'
  * GET /api/item-aliases
  * 모든 항목 별칭 조회 (사용자 오버라이드 병합)
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const masterOnly = searchParams.get('master') === 'true'
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
 
     // master=true 파라미터가 있으면 마스터 테이블만 반환
     if (masterOnly) {
@@ -37,48 +33,27 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // 사용자가 있으면 오버라이드 병합 데이터 반환
-    if (user) {
-      const { data: mergedAliases, error } = await supabase
-        .rpc('get_user_item_aliases', { p_user_id: user.id })
+    // 사용자 오버라이드 병합 데이터 반환
+    const { data: mergedAliases, error } = await supabase
+      .rpc('get_user_item_aliases', { p_user_id: user.id })
 
-      if (error) {
-        console.error('Failed to fetch merged item aliases:', error)
-        // 함수 호출 실패 시 마스터 테이블로 폴백
-        const { data: fallbackData } = await supabase
-          .from('item_aliases_master')
-          .select('id, alias, canonical_name, source_hint, standard_item_id')
-          .order('alias')
-
-        return NextResponse.json({
-          success: true,
-          data: fallbackData || []
-        })
-      }
+    if (error) {
+      console.error('Failed to fetch merged item aliases:', error)
+      // 함수 호출 실패 시 마스터 테이블로 폴백
+      const { data: fallbackData } = await supabase
+        .from('item_aliases_master')
+        .select('id, alias, canonical_name, source_hint, standard_item_id')
+        .order('alias')
 
       return NextResponse.json({
         success: true,
-        data: mergedAliases || []
+        data: fallbackData || []
       })
-    }
-
-    // 비로그인 시 마스터 테이블 반환
-    const { data, error } = await supabase
-      .from('item_aliases_master')
-      .select('id, alias, canonical_name, source_hint, standard_item_id')
-      .order('alias')
-
-    if (error) {
-      console.error('Failed to fetch item aliases:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch item aliases' },
-        { status: 500 }
-      )
     }
 
     return NextResponse.json({
       success: true,
-      data: data || []
+      data: mergedAliases || []
     })
 
   } catch (error) {
@@ -91,15 +66,14 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 /**
  * POST /api/item-aliases
  * 새 별칭 등록 (사용자 커스텀 별칭)
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
     const body = await request.json()
 
     const { alias, canonical_name, source_hint, standard_item_id } = body
@@ -108,16 +82,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'alias and canonical_name are required' },
         { status: 400 }
-      )
-    }
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
       )
     }
 
@@ -178,15 +142,14 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 /**
  * DELETE /api/item-aliases
  * 별칭 삭제 (사용자 커스텀 별칭만 삭제 가능)
  */
-export async function DELETE(request: NextRequest) {
+export const DELETE = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -194,16 +157,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         { error: 'id is required' },
         { status: 400 }
-      )
-    }
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
       )
     }
 
@@ -236,4 +189,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
