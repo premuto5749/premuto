@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { calculateRER } from '@/lib/calorie'
 import type { FeedingPlanFood } from '@/types'
 
@@ -25,14 +25,8 @@ function getActivityFactorFromParams(isNeutered: boolean, activityLevel: string)
  * ?pet_id=UUID&date=YYYY-MM-DD → carry-forward (plan_date <= date, 최신 1건)
  * ?pet_id=UUID&history=true → 전체 기록 (plan_date DESC)
  */
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const petId = searchParams.get('pet_id')
     const date = searchParams.get('date')
@@ -90,20 +84,14 @@ export async function GET(request: NextRequest) {
     console.error('Feeding Plans GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})
 
 /**
  * POST /api/feeding-plans
  * UPSERT (pet_id + plan_date unique)
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await request.json()
     const { pet_id, plan_date, weight_kg, is_neutered, activity_level, foods, feeding_frequency } = body
 
@@ -165,19 +153,13 @@ export async function POST(request: NextRequest) {
     console.error('Feeding Plans POST error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})
 
 /**
  * DELETE /api/feeding-plans?id=UUID
  */
-export async function DELETE(request: NextRequest) {
+export const DELETE = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -207,4 +189,4 @@ export async function DELETE(request: NextRequest) {
     console.error('Feeding Plans DELETE error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})

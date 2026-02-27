@@ -1,24 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { getUserTier, getTierConfig, logUsage } from '@/lib/tier'
 
 export const dynamic = 'force-dynamic'
 
 const BUCKET_NAME = 'daily-log-photos'
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    // 인증된 사용자 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: '로그인이 필요합니다' },
-        { status: 401 }
-      )
-    }
-
     // Tier별 제한 조회
     const [tier, tierConfigMap] = await Promise.all([
       getUserTier(user.id),
@@ -163,4 +152,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

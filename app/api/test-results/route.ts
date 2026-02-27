@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { resolveStandardItems } from '@/lib/api/item-resolver'
 import type { StagingItem } from '@/types'
 
@@ -13,7 +13,7 @@ interface SaveTestResultRequest {
   items: StagingItem[]
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
     const body: SaveTestResultRequest = await request.json()
     const { test_date, hospital_name, machine_type, pet_id, items } = body
@@ -40,14 +40,6 @@ export async function POST(request: NextRequest) {
         { error: `${unmappedItems.length}개 항목이 표준 항목으로 매핑되지 않았습니다` },
         { status: 400 }
       )
-    }
-
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
     // pet_id가 없으면 기본 펫 조회
@@ -136,22 +128,15 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // GET: 모든 검사 기록 조회 (대시보드용) 또는 단일 레코드 조회
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const recordId = searchParams.get('recordId')
     const petId = searchParams.get('petId')
     const showDeleted = searchParams.get('deleted') === 'true'
-
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
 
     // 단일 레코드 조회 (수정 페이지용)
     if (recordId) {
@@ -296,10 +281,10 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // PATCH: 검사 기록 수정 (날짜, 병원명, 펫) 또는 복원
-export async function PATCH(request: NextRequest) {
+export const PATCH = withAuth(async (request, { supabase, user }) => {
   try {
     const body = await request.json()
     const { id, test_date, hospital_name, pet_id, restore } = body
@@ -309,14 +294,6 @@ export async function PATCH(request: NextRequest) {
         { error: '수정할 검사 기록 ID가 필요합니다' },
         { status: 400 }
       )
-    }
-
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
     // 복원 요청
@@ -381,10 +358,10 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // DELETE: 검사 기록 삭제
-export async function DELETE(request: NextRequest) {
+export const DELETE = withAuth(async (request, { supabase, user }) => {
   try {
     const { searchParams } = new URL(request.url)
     const recordId = searchParams.get('id')
@@ -395,14 +372,6 @@ export async function DELETE(request: NextRequest) {
         { error: '삭제할 검사 기록 ID가 필요합니다' },
         { status: 400 }
       )
-    }
-
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
     if (permanent) {
@@ -459,4 +428,4 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

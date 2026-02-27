@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,14 +7,8 @@ export const dynamic = 'force-dynamic'
  * POST /api/user-profile/image
  * 프로필 이미지 업로드
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
-
     const formData = await request.formData()
     const file = formData.get('file') as File | null
 
@@ -76,20 +70,14 @@ export async function POST(request: NextRequest) {
     console.error('Profile image upload error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})
 
 /**
  * DELETE /api/user-profile/image
  * 프로필 이미지 삭제
  */
-export async function DELETE() {
+export const DELETE = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
-
     // 기존 프로필 이미지 삭제
     const { data: existingFiles } = await supabase.storage
       .from('uploads')
@@ -114,4 +102,4 @@ export async function DELETE() {
     console.error('Profile image delete error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})

@@ -1,16 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const masterOnly = searchParams.get('master') === 'true'
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
 
     // master=true 파라미터가 있으면 마스터 테이블만 반환 (관리자용)
     if (masterOnly) {
@@ -87,11 +83,10 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
     const body = await request.json()
 
     const {
@@ -103,16 +98,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Name is required' },
         { status: 400 }
-      )
-    }
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
       )
     }
 
@@ -190,4 +175,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

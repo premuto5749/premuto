@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/with-auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
-
     const userId = user.id
 
     // 병렬 조회
@@ -80,4 +73,4 @@ export async function GET() {
     console.error('Account stats API error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})

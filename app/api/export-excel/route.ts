@@ -5,8 +5,8 @@
  * 검사 결과를 Excel 파일로 다운로드
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { resolveStandardItems } from '@/lib/api/item-resolver'
 import {
   createExcelWorkbook,
@@ -27,18 +27,10 @@ interface ExportRequest {
   options?: Partial<ExportOptions>
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
     const body: ExportRequest = await request.json()
     const { record_ids, date_from, date_to, categories, options } = body
-
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ success: false, error: '로그인이 필요합니다' }, { status: 401 })
-    }
 
     // 월간 내보내기 제한 체크
     const usageCheck = await checkMonthlyUsageLimit(user.id, 'detailed_export')
@@ -197,18 +189,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // GET 엔드포인트 - 내보내기 사용량 체크
-export async function GET() {
+export const GET = withAuth(async (request, { user }) => {
   try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 })
-    }
-
     const usageCheck = await checkMonthlyUsageLimit(user.id, 'detailed_export')
 
     return NextResponse.json({
@@ -221,4 +206,4 @@ export async function GET() {
     console.error('Export usage check error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})

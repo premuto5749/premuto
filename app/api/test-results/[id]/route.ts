@@ -1,22 +1,12 @@
-import { createClient } from '@/lib/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
+import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
 // PATCH: 개별 검사 결과 항목 수정
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PATCH = withAuth<{ id: string }>(async (request, { supabase, params }) => {
   try {
     const { id } = await params
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
 
     const body = await request.json()
     const { value, unit, ref_min, ref_max, ref_text, status } = body
@@ -78,22 +68,12 @@ export async function PATCH(
       { status: 500 }
     )
   }
-}
+})
 
 // DELETE: 개별 검사 결과 항목 삭제
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const DELETE = withAuth<{ id: string }>(async (request, { supabase, params }) => {
   try {
     const { id } = await params
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
 
     const { error } = await supabase
       .from('test_results')
@@ -123,7 +103,7 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
+})
 
 function calculateStatus(
   value: number | string | null,

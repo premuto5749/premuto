@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { checkUsageLimit, logUsage } from '@/lib/tier'
 
 export const dynamic = 'force-dynamic'
@@ -33,18 +33,8 @@ interface GeneratedDescription {
  * POST /api/generate-descriptions
  * AI를 사용하여 검사항목 설명을 일괄 생성
  */
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized', message: '인증이 필요합니다' },
-        { status: 401 }
-      )
-    }
-
     const body = await request.json()
     const { item_ids } = body as { item_ids: string[] }
 
@@ -271,4 +261,4 @@ ${itemsList}
       { status: 500 }
     )
   }
-}
+})

@@ -1,11 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/with-auth'
+import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
-
-interface RouteParams {
-  params: Promise<{ id: string }>
-}
 
 /**
  * PATCH /api/standard-items/[id]
@@ -13,20 +9,10 @@ interface RouteParams {
  * - 마스터 항목 수정 시: user_standard_items에 오버라이드 생성
  * - 커스텀 항목 수정 시: user_standard_items에서 직접 업데이트
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+export const PATCH = withAuth<{ id: string }>(async (request, { supabase, user, params }) => {
   try {
     const { id } = await params
-    const supabase = await createClient()
     const body = await request.json()
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
 
     const {
       name, display_name_ko, default_unit, exam_type, organ_tags, category,
@@ -171,19 +157,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     )
   }
-}
+})
 
 /**
  * GET /api/standard-items/[id]
  * 특정 표준 항목 조회 (사용자 오버라이드 병합)
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export const GET = withAuth<{ id: string }>(async (request, { supabase, user, params }) => {
   try {
     const { id } = await params
-    const supabase = await createClient()
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
 
     // 먼저 마스터 항목 조회
     const { data: masterItem } = await supabase
@@ -194,35 +176,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     if (masterItem) {
       // 사용자 오버라이드가 있으면 병합
-      if (user) {
-        const { data: override } = await supabase
-          .from('user_standard_items')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('master_item_id', id)
-          .single()
+      const { data: override } = await supabase
+        .from('user_standard_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('master_item_id', id)
+        .single()
 
-        if (override) {
-          // 오버라이드 필드 병합
-          const mergedData = {
-            ...masterItem,
-            name: override.name ?? masterItem.name,
-            display_name_ko: override.display_name_ko ?? masterItem.display_name_ko,
-            default_unit: override.default_unit ?? masterItem.default_unit,
-            exam_type: override.exam_type ?? masterItem.exam_type,
-            category: override.category ?? masterItem.category,
-            organ_tags: override.organ_tags ?? masterItem.organ_tags,
-            description_common: override.description_common ?? masterItem.description_common,
-            description_high: override.description_high ?? masterItem.description_high,
-            description_low: override.description_low ?? masterItem.description_low,
-            is_modified: true
-          }
-
-          return NextResponse.json({
-            success: true,
-            data: mergedData
-          })
+      if (override) {
+        // 오버라이드 필드 병합
+        const mergedData = {
+          ...masterItem,
+          name: override.name ?? masterItem.name,
+          display_name_ko: override.display_name_ko ?? masterItem.display_name_ko,
+          default_unit: override.default_unit ?? masterItem.default_unit,
+          exam_type: override.exam_type ?? masterItem.exam_type,
+          category: override.category ?? masterItem.category,
+          organ_tags: override.organ_tags ?? masterItem.organ_tags,
+          description_common: override.description_common ?? masterItem.description_common,
+          description_high: override.description_high ?? masterItem.description_high,
+          description_low: override.description_low ?? masterItem.description_low,
+          is_modified: true
         }
+
+        return NextResponse.json({
+          success: true,
+          data: mergedData
+        })
       }
 
       return NextResponse.json({
@@ -232,20 +212,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // 마스터에 없으면 사용자 커스텀 항목 조회
-    if (user) {
-      const { data: customItem, error } = await supabase
-        .from('user_standard_items')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .single()
+    const { data: customItem, error } = await supabase
+      .from('user_standard_items')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
 
-      if (!error && customItem) {
-        return NextResponse.json({
-          success: true,
-          data: { ...customItem, is_custom: true }
-        })
-      }
+    if (!error && customItem) {
+      return NextResponse.json({
+        success: true,
+        data: { ...customItem, is_custom: true }
+      })
     }
 
     return NextResponse.json(
@@ -263,25 +241,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     )
   }
-}
+})
 
 /**
  * DELETE /api/standard-items/[id]
  * 표준 항목 삭제 (사용자 오버라이드/커스텀만 삭제 가능)
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export const DELETE = withAuth<{ id: string }>(async (request, { supabase, user, params }) => {
   try {
     const { id } = await params
-    const supabase = await createClient()
-
-    // 현재 사용자 확인
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
 
     // 마스터 항목인지 확인
     const { data: masterItem } = await supabase
@@ -354,4 +322,4 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     )
   }
-}
+})

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { validateStandardItemIds, resolveStandardItems } from '@/lib/api/item-resolver'
 import type { BatchSaveRequest } from '@/types'
 import { parseValue } from '@/lib/ocr/value-parser'
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 // 최대 실행 시간 설정 (30초)
 export const maxDuration = 30
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
     const body: BatchSaveRequest & { pet_id?: string } = await request.json()
     const {
@@ -34,24 +34,6 @@ export async function POST(request: NextRequest) {
 
     console.log(`💾 Batch save started for ${results.length} items (batch: ${batch_id})`)
     console.log(`📋 Request data: test_date=${test_date}, hospital=${hospital_name}, pet_id=${pet_id}`)
-
-    // 결과 데이터 검증
-    const invalidResults = results.filter(r => !r.standard_item_id)
-    if (invalidResults.length > 0) {
-      console.error(`❌ Invalid results without standard_item_id:`, invalidResults)
-      return NextResponse.json(
-        { error: `${invalidResults.length}개의 항목에 standard_item_id가 없습니다` },
-        { status: 400 }
-      )
-    }
-
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
 
     // pet_id가 없으면 기본 펫 조회
     let finalPetId = pet_id
@@ -243,10 +225,10 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // GET 메서드: 특정 배치의 저장된 결과 조회 (선택사항)
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
     const searchParams = request.nextUrl.searchParams
     const batchId = searchParams.get('batch_id')
@@ -256,14 +238,6 @@ export async function GET(request: NextRequest) {
         { error: 'batch_id query parameter is required' },
         { status: 400 }
       )
-    }
-
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
     }
 
     // 해당 배치로 저장된 test_record 조회 (본인 것만)
@@ -335,4 +309,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

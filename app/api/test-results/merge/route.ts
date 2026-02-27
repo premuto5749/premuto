@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { resolveStandardItems } from '@/lib/api/item-resolver'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { moveDriveFilesToFolder } from '@/lib/google-drive-upload'
 
 export const dynamic = 'force-dynamic'
@@ -16,16 +16,8 @@ interface MergeRequest {
   }[]
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
-
     const body: MergeRequest = await request.json()
     const { sourceRecordId, targetRecordId, targetDate, targetHospital, conflictResolutions } = body
 
@@ -133,18 +125,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
 
 // 병합 전 충돌 확인 API
-export async function GET(request: NextRequest) {
+export const GET = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const sourceId = searchParams.get('sourceId')
     const targetId = searchParams.get('targetId')
@@ -244,4 +229,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

@@ -1,24 +1,14 @@
-import { createClient } from '@/lib/supabase/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { resolveStandardItems } from '@/lib/api/item-resolver'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
 // POST: 검사 기록에 새 항목 추가
 // [id]는 test_records.id (record_id)
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const POST = withAuth<{ id: string }>(async (request, { supabase, user, params }) => {
   try {
     const { id: recordId } = await params
-    const supabase = await createClient()
-
-    // 사용자 인증 확인
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: '인증이 필요합니다' }, { status: 401 })
-    }
 
     // 레코드 존재 확인
     const { data: record, error: recordError } = await supabase
@@ -106,4 +96,4 @@ export async function POST(
       { status: 500 }
     )
   }
-}
+})

@@ -1,21 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { withAuth } from '@/lib/auth/with-auth'
 import { checkUsageLimit, logUsage } from '@/lib/tier'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export const GET = withAuth(async (request, { user }) => {
   try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: '로그인이 필요합니다' },
-        { status: 401 }
-      )
-    }
-
     const usageCheck = await checkUsageLimit(user.id, 'daily_log_excel_export')
 
     return NextResponse.json({
@@ -31,20 +21,10 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request, { supabase, user }) => {
   try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: '로그인이 필요합니다' },
-        { status: 401 }
-      )
-    }
-
     const body = await request.json()
     const { year, month, pet_id } = body as {
       year: number
@@ -127,4 +107,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
