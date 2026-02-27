@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
+import DOMPurify from 'dompurify'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   Dialog,
@@ -149,7 +150,7 @@ export function AnnouncementPopup() {
         </DialogHeader>
         <div
           className="max-w-none py-2 max-h-[60vh] overflow-y-auto text-sm leading-relaxed [&_p]:mb-2 [&_p:last-child]:mb-0 [&_h2]:text-base [&_h2]:font-semibold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2 [&_li]:mb-0.5 [&_strong]:font-semibold [&_a]:text-primary [&_a]:underline"
-          dangerouslySetInnerHTML={{ __html: currentAnnouncement.content }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentAnnouncement.content) }}
         />
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button
