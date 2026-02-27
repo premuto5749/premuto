@@ -60,22 +60,22 @@ export async function GET() {
       profileMap.set(p.user_id, { tier: p.tier, nickname: p.nickname, phone: p.phone, profile_image: p.profile_image, terms_accepted_at: p.terms_accepted_at, created_at: p.created_at, updated_at: p.updated_at })
     }
 
-    // 4. 누적 OCR 사용량 + 마지막 활동 시간 (usage_logs 전체)
-    const { data: allUsage } = await supabase
-      .from('usage_logs')
-      .select('user_id, action, created_at')
+    // 4. SQL 집계로 사용 통계 조회 (RPC 1회 호출로 usage_logs + test_records + daily_logs 집계)
+    const { data: statsData, error: statsError } = await supabase.rpc('get_admin_user_stats')
+    if (statsError) {
+      console.error('Failed to fetch user stats:', statsError)
+    }
 
-    const totalOcrMap = new Map<string, number>()
-    const usageLastActivityMap = new Map<string, string>()
-    for (const u of allUsage || []) {
-      if (u.action === 'ocr_analysis') {
-        totalOcrMap.set(u.user_id, (totalOcrMap.get(u.user_id) || 0) + 1)
-      }
-      // usage_logs의 최근 활동도 last_active에 반영
-      const existing = usageLastActivityMap.get(u.user_id)
-      if (!existing || u.created_at > existing) {
-        usageLastActivityMap.set(u.user_id, u.created_at)
-      }
+    const statsMap = new Map<string, { total_ocr: number; test_records_count: number; daily_logs_count: number; last_usage_at: string | null; last_test_at: string | null; last_daily_at: string | null }>()
+    for (const s of statsData || []) {
+      statsMap.set(s.user_id, {
+        total_ocr: Number(s.total_ocr) || 0,
+        test_records_count: Number(s.test_records_count) || 0,
+        daily_logs_count: Number(s.daily_logs_count) || 0,
+        last_usage_at: s.last_usage_at,
+        last_test_at: s.last_test_at,
+        last_daily_at: s.last_daily_at,
+      })
     }
 
     // 5. user_roles에서 관리자 역할 정보
@@ -90,34 +90,6 @@ export async function GET() {
       const existing = roleMap.get(r.user_id)
       if (!existing || r.role === 'super_admin') {
         roleMap.set(r.user_id, r.role)
-      }
-    }
-
-    // 6. 검사기록 수 + 최근 활동일 / 일일기록 수 + 최근 활동일
-    const { data: testRecords } = await supabase
-      .from('test_records')
-      .select('user_id, created_at')
-
-    const testCountMap = new Map<string, number>()
-    const lastActivityMap = new Map<string, string>()
-    for (const r of testRecords || []) {
-      testCountMap.set(r.user_id, (testCountMap.get(r.user_id) || 0) + 1)
-      const existing = lastActivityMap.get(r.user_id)
-      if (!existing || r.created_at > existing) {
-        lastActivityMap.set(r.user_id, r.created_at)
-      }
-    }
-
-    const { data: dailyLogs } = await supabase
-      .from('daily_logs')
-      .select('user_id, created_at')
-
-    const dailyCountMap = new Map<string, number>()
-    for (const r of dailyLogs || []) {
-      dailyCountMap.set(r.user_id, (dailyCountMap.get(r.user_id) || 0) + 1)
-      const existing = lastActivityMap.get(r.user_id)
-      if (!existing || r.created_at > existing) {
-        lastActivityMap.set(r.user_id, r.created_at)
       }
     }
 
@@ -136,9 +108,11 @@ export async function GET() {
       }
 
       // 마지막 활동: 데이터 기록 / usage_logs / 마지막 로그인 중 최신
+      const stats = statsMap.get(userId)
       const candidates = [
-        lastActivityMap.get(userId),
-        usageLastActivityMap.get(userId),
+        stats?.last_test_at,
+        stats?.last_daily_at,
+        stats?.last_usage_at,
         authUser?.last_sign_in_at,
       ].filter((v): v is string => !!v)
       const lastActive = candidates.length > 0
@@ -153,9 +127,9 @@ export async function GET() {
         tier: profile?.tier || 'free',
         role,
         pets: userPetsMap.get(userId) || [],
-        total_ocr: totalOcrMap.get(userId) || 0,
-        test_records: testCountMap.get(userId) || 0,
-        daily_logs: dailyCountMap.get(userId) || 0,
+        total_ocr: stats?.total_ocr || 0,
+        test_records: stats?.test_records_count || 0,
+        daily_logs: stats?.daily_logs_count || 0,
         joined_at: authUser?.created_at || profile?.created_at || null,
         last_active: lastActive,
         terms_accepted_at: profile?.terms_accepted_at || null,
