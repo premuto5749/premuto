@@ -25,19 +25,19 @@ export default function ResetPasswordPage() {
     const checkSession = async () => {
       try {
         const supabase = createClient()
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        const { data: { user }, error: sessionError } = await supabase.auth.getUser()
 
         if (sessionError) {
           throw sessionError
         }
 
-        if (!session) {
-          // 세션이 없으면 로그인 페이지로
+        if (!user) {
+          // 인증된 사용자가 없으면 로그인 페이지로
           router.push('/login')
           return
         }
 
-        // 세션이 있으면 비밀번호 변경 폼 표시
+        // 인증 확인 완료, 비밀번호 변경 폼 표시
         setIsVerifying(false)
       } catch (err) {
         console.error('Session check error:', err)

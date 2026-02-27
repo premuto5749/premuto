@@ -1,7 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
-
-// 7일을 초 단위로 (7 * 24 * 60 * 60)
-const COOKIE_MAX_AGE = 604800
+import { COOKIE_MAX_AGE } from '@/lib/constants'
 
 export function createClient() {
   return createBrowserClient(
