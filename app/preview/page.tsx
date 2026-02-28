@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { usePet } from '@/contexts/PetContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -80,6 +81,7 @@ interface DateGroup {
 
 function PreviewContent() {
   const router = useRouter()
+  const { currentPet } = usePet()
   const [batchData, setBatchData] = useState<OcrBatchResponse['data'] | null>(null)
   const [allItems, setAllItems] = useState<EditableItem[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -509,7 +511,8 @@ function PreviewContent() {
             hospital_name: group.hospital,
             ocr_batch_id: batchData.batch_id,
             uploaded_files: uploadedFiles,
-            results: allResults
+            results: allResults,
+            pet_id: currentPet?.id
           })
         })
 

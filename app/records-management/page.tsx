@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
+import { usePet } from '@/contexts/PetContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -76,6 +77,7 @@ interface ConflictData {
 }
 
 function RecordsManagementContent() {
+  const { currentPet } = usePet()
   const [records, setRecords] = useState<TestRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -96,12 +98,13 @@ function RecordsManagementContent() {
   useEffect(() => {
     fetchRecords()
     fetchHospitals()
-  }, [])
+  }, [currentPet?.id])
 
   const fetchRecords = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/test-results')
+      const petParam = currentPet ? `?petId=${currentPet.id}` : ''
+      const response = await fetch(`/api/test-results${petParam}`)
       const result = await response.json()
 
       if (result.success && result.data) {

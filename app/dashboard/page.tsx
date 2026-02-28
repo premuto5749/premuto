@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { usePet } from '@/contexts/PetContext'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { AppHeader } from '@/components/layout/AppHeader'
@@ -54,6 +55,7 @@ interface ItemInfo {
 function DashboardContent() {
   const searchParams = useSearchParams()
   const saved = searchParams.get('saved')
+  const { currentPet } = usePet()
 
   const [records, setRecords] = useState<TestRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -82,11 +84,12 @@ function DashboardContent() {
 
   useEffect(() => {
     fetchTestRecords()
-  }, [])
+  }, [currentPet?.id])
 
   const fetchTestRecords = async () => {
     try {
-      const response = await fetch('/api/test-results')
+      const petParam = currentPet ? `?petId=${currentPet.id}` : ''
+      const response = await fetch(`/api/test-results${petParam}`)
       const result = await response.json()
 
       if (!response.ok) {
