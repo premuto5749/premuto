@@ -234,7 +234,7 @@ export const GET = withAuth(async (request, { supabase, user }) => {
     })() : null
 
     const [logsResult, statsResult] = await Promise.all([
-      query.order('logged_at', { ascending: false }),
+      query.order('logged_at', { ascending: false }).order('created_at', { ascending: false }),
       statsPromise,
     ])
 

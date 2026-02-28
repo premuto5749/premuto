@@ -278,11 +278,13 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
   }
 
   // 날짜와 시간을 ISO 문자열로 변환 (한국 시간 KST, UTC+9 명시)
-  const getLoggedAtISO = () => {
+  const getLoggedAtISO = (offsetMs = 0) => {
     // KST 타임존을 명시적으로 포함하여 시간대 변환 문제 방지
-    // 현재 초를 포함하여 같은 분 내 기록도 생성 순서 유지
-    const seconds = String(new Date().getSeconds()).padStart(2, '0')
-    return `${logDate}T${logTime}:${seconds}+09:00`
+    // 밀리초 정밀도로 같은 초 내 여러 기록도 고유 타임스탬프 보장
+    const now = new Date(Date.now() + offsetMs)
+    const seconds = String(now.getSeconds()).padStart(2, '0')
+    const millis = String(now.getMilliseconds()).padStart(3, '0')
+    return `${logDate}T${logTime}:${seconds}.${millis}+09:00`
   }
 
   const handleSubmit = async () => {
@@ -321,6 +323,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         const entries = Object.entries(snackSelections)
 
         let isFirst = true
+        let offsetMs = 0
         for (const [presetId, count] of entries) {
           const preset = snackPresets.find(p => p.id === presetId)
           if (!preset) continue
@@ -333,7 +336,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
           const logData: DailyLogInput = {
             category: 'snack',
             pet_id: petId || null,
-            logged_at: getLoggedAtISO(),
+            logged_at: getLoggedAtISO(offsetMs),
             amount: presetAmount,
             unit: preset.unit || '개',
             memo: memo || null,
@@ -361,6 +364,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
           }
           console.log('Daily log saved successfully:', result.data.id)
           isFirst = false
+          offsetMs += 1
         }
       } else {
       // 간식 직접 입력 또는 다른 카테고리
@@ -436,7 +440,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
       const logData: DailyLogInput = {
         category: 'weight',
         pet_id: petId,
-        logged_at: `${logDate}T${logTime}:00+09:00`,
+        logged_at: getLoggedAtISO(),
         amount: parseFloat(weightInput),
         unit: 'kg',
       }
