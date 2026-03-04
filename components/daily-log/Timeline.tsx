@@ -123,6 +123,8 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
   const [editLeftoverAmount, setEditLeftoverAmount] = useState<string>('')  // 남긴 양 (식사용)
   const [editMemo, setEditMemo] = useState<string>('')
   const [editMedicineName, setEditMedicineName] = useState<string>('')
+  const [editMedicineDosage, setEditMedicineDosage] = useState<string>('')
+  const [editMedicineDosageUnit, setEditMedicineDosageUnit] = useState<string>('정')
   const [editSnackName, setEditSnackName] = useState<string>('')
   const [editDate, setEditDate] = useState<string>('')
   const [editTime, setEditTime] = useState<string>('')
@@ -219,6 +221,16 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setDeleteId(null)
   }
 
+  // "약이름 복용량단위" 형식에서 이름, 복용량, 단위를 분리
+  const parseMedicineName = (fullName: string) => {
+    // "타이레놀 500mg" → name="타이레놀", dosage="500", unit="mg"
+    const match = fullName.match(/^(.+?)\s+(\d+(?:\.\d+)?)(정|mg|ml|포|캡슐)$/)
+    if (match) {
+      return { name: match[1], dosage: match[2], unit: match[3] }
+    }
+    return { name: fullName, dosage: '', unit: '정' }
+  }
+
   const handleOpenDetail = (log: DailyLog) => {
     setSelectedLog(log)
     setIsEditing(false)
@@ -226,7 +238,18 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setEditAmount(log.amount?.toString() || '')
     setEditLeftoverAmount(log.leftover_amount?.toString() || '')
     setEditMemo(log.memo || '')
-    setEditMedicineName(log.medicine_name || '')
+    // 약 이름 초기화
+    const isPresetMedicine = log.input_source === 'preset'
+    if (log.category === 'medicine' && !isPresetMedicine && log.medicine_name) {
+      const parsed = parseMedicineName(log.medicine_name)
+      setEditMedicineName(parsed.name)
+      setEditMedicineDosage(parsed.dosage)
+      setEditMedicineDosageUnit(parsed.unit)
+    } else {
+      setEditMedicineName(log.medicine_name || '')
+      setEditMedicineDosage('')
+      setEditMedicineDosageUnit('정')
+    }
     setEditSnackName(log.snack_name || '')
     setEditDate(extractDateFromISO(log.logged_at))
     setEditTime(extractTimeFromISO(log.logged_at))
@@ -243,7 +266,18 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
     setEditAmount(selectedLog.amount?.toString() || '')
     setEditLeftoverAmount(selectedLog.leftover_amount?.toString() || '')
     setEditMemo(selectedLog.memo || '')
-    setEditMedicineName(selectedLog.medicine_name || '')
+    // 약 이름 파싱: 수동 입력인 경우 이름/복용량/단위 분리
+    const isPresetMedicine = selectedLog.input_source === 'preset'
+    if (selectedLog.category === 'medicine' && !isPresetMedicine && selectedLog.medicine_name) {
+      const parsed = parseMedicineName(selectedLog.medicine_name)
+      setEditMedicineName(parsed.name)
+      setEditMedicineDosage(parsed.dosage)
+      setEditMedicineDosageUnit(parsed.unit)
+    } else {
+      setEditMedicineName(selectedLog.medicine_name || '')
+      setEditMedicineDosage('')
+      setEditMedicineDosageUnit('정')
+    }
     setEditSnackName(selectedLog.snack_name || '')
     setEditDate(extractDateFromISO(selectedLog.logged_at))
     setEditTime(extractTimeFromISO(selectedLog.logged_at))
@@ -268,7 +302,18 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
       setEditAmount(selectedLog.amount?.toString() || '')
       setEditLeftoverAmount(selectedLog.leftover_amount?.toString() || '')
       setEditMemo(selectedLog.memo || '')
-      setEditMedicineName(selectedLog.medicine_name || '')
+      // 약 이름 복원
+      const isPresetMedicine = selectedLog.input_source === 'preset'
+      if (selectedLog.category === 'medicine' && !isPresetMedicine && selectedLog.medicine_name) {
+        const parsed = parseMedicineName(selectedLog.medicine_name)
+        setEditMedicineName(parsed.name)
+        setEditMedicineDosage(parsed.dosage)
+        setEditMedicineDosageUnit(parsed.unit)
+      } else {
+        setEditMedicineName(selectedLog.medicine_name || '')
+        setEditMedicineDosage('')
+        setEditMedicineDosageUnit('정')
+      }
       setEditSnackName(selectedLog.snack_name || '')
       setEditDate(extractDateFromISO(selectedLog.logged_at))
       setEditTime(extractTimeFromISO(selectedLog.logged_at))
@@ -347,7 +392,15 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
 
       // 약인 경우 약 이름 업데이트
       if (selectedLog.category === 'medicine') {
-        updateData.medicine_name = editMedicineName || null
+        if (editMedicineInputMode === 'preset') {
+          updateData.medicine_name = editMedicineName || null
+        } else {
+          // 수동 입력: "약이름 복용량단위" 형식으로 결합
+          const fullName = editMedicineDosage
+            ? `${editMedicineName} ${editMedicineDosage}${editMedicineDosageUnit}`
+            : editMedicineName
+          updateData.medicine_name = fullName || null
+        }
       }
 
       // 간식인 경우 간식 이름 업데이트
@@ -767,15 +820,40 @@ export function Timeline({ logs, onDelete, onUpdate }: TimelineProps) {
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-medicine">약 이름</Label>
-                          <Input
-                            id="edit-medicine"
-                            value={editMedicineName}
-                            onChange={(e) => setEditMedicineName(e.target.value)}
-                            placeholder="약 이름 입력"
-                          />
-                        </div>
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="edit-medicine">약 이름</Label>
+                            <Input
+                              id="edit-medicine"
+                              value={editMedicineName}
+                              onChange={(e) => setEditMedicineName(e.target.value)}
+                              placeholder="예: 타이레놀, 소화제"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>복용량 (선택)</Label>
+                            <div className="flex gap-2">
+                              <Input
+                                type="number"
+                                placeholder="복용량"
+                                value={editMedicineDosage}
+                                onChange={(e) => setEditMedicineDosage(e.target.value)}
+                                className="flex-1"
+                              />
+                              <select
+                                value={editMedicineDosageUnit}
+                                onChange={(e) => setEditMedicineDosageUnit(e.target.value)}
+                                className="px-3 py-2 border rounded-md bg-background text-sm"
+                              >
+                                <option value="정">정</option>
+                                <option value="mg">mg</option>
+                                <option value="ml">ml</option>
+                                <option value="포">포</option>
+                                <option value="캡슐">캡슐</option>
+                              </select>
+                            </div>
+                          </div>
+                        </>
                       )}
                     </div>
                   )}
