@@ -103,7 +103,7 @@ export default function ManagePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-muted">
-        <AppHeader title="사료/간식 관리" />
+        <AppHeader title="사료/간식/약 관리" />
         <div className="container max-w-4xl mx-auto py-10">
           <div className="flex items-center justify-center min-h-[400px]">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -115,7 +115,7 @@ export default function ManagePage() {
 
   return (
     <div className="min-h-screen bg-muted">
-      <AppHeader title="사료/간식 관리" />
+      <AppHeader title="사료/간식/약 관리" />
       <div className="container max-w-4xl mx-auto py-6 px-4">
         <Tabs defaultValue="food" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
