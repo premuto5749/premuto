@@ -5,7 +5,26 @@ import { AppHeader } from '@/components/layout/AppHeader'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
-import type { MedicinePreset, SnackPreset, PetFood, NutrientUnit, PetFoodInput } from '@/types'
+import type { MedicinePreset, SnackPreset, PetFood, PetFoodNutrient, NutrientUnit, PetFoodInput } from '@/types'
+
+/** Supabase join 응답의 pet_food_nutrients → nutrients 변환 */
+function mapPetFoods(raw: Record<string, unknown>[]): PetFood[] {
+  return raw.map(f => {
+    const pfn = f.pet_food_nutrients as Array<Record<string, unknown>> | undefined
+    const nutrients: PetFoodNutrient[] | undefined = pfn?.map(n => ({
+      id: n.id as string,
+      pet_food_id: n.pet_food_id as string,
+      nutrient_name: n.nutrient_name as string,
+      value: n.value as number,
+      unit_id: n.unit_id as string | null,
+      unit_symbol: (n.nutrient_units as { symbol: string } | null)?.symbol ?? undefined,
+      sort_order: n.sort_order as number,
+      created_at: n.created_at as string,
+    }))
+    const { pet_food_nutrients: _, ...rest } = f
+    return { ...rest, nutrients } as PetFood
+  })
+}
 import { SnackPresetSection } from '@/components/manage/SnackPresetSection'
 import { MedicinePresetSection } from '@/components/manage/MedicinePresetSection'
 import { PetFoodSection } from '@/components/manage/PetFoodSection'
@@ -39,7 +58,7 @@ export default function ManagePage() {
 
       if (medicineData.success) setMedicinePresets(medicineData.data)
       if (snackData.success) setSnackPresets(snackData.data)
-      if (foodData.success) setPetFoods(foodData.data)
+      if (foodData.success) setPetFoods(mapPetFoods(foodData.data))
       if (unitData.success) setNutrientUnits(unitData.data)
     } catch (error) {
       console.error('Failed to load manage data:', error)
@@ -65,7 +84,7 @@ export default function ManagePage() {
         // Refresh the full list (with nutrients)
         const refreshRes = await fetch('/api/pet-foods?include_nutrients=true')
         const refreshData = await refreshRes.json()
-        if (refreshData.success) setPetFoods(refreshData.data)
+        if (refreshData.success) setPetFoods(mapPetFoods(refreshData.data))
         setFoodFormOpen(false)
         setEditingFood(null)
       }

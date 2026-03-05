@@ -84,8 +84,9 @@ export const POST = withAuth(async (request, { supabase, user }) => {
         name: body.name,
         brand: body.brand || null,
         food_category: body.food_category || '건사료',
-        calories_per_kg: body.calories_per_kg ?? null,
-        serving_size_g: body.serving_size_g ?? null,
+        target_animal: body.target_animal || '공통',
+        calorie_density: body.calorie_density ?? 0,
+        ingredients_text: body.ingredients_text || null,
         is_active: body.is_active ?? true,
         memo: body.memo || null,
       })
@@ -125,16 +126,16 @@ export const POST = withAuth(async (request, { supabase, user }) => {
 
       const nutrientRows = body.nutrients.map((n: {
         nutrient_name: string
-        amount: number
+        value: number
         unit_symbol?: string
         unit_id?: string
-        per_basis?: string
-      }) => ({
+        sort_order?: number
+      }, i: number) => ({
         pet_food_id: food.id,
         nutrient_name: n.nutrient_name,
-        amount: n.amount,
+        value: n.value,
         unit_id: n.unit_id || (n.unit_symbol ? symbolToId[n.unit_symbol] : null) || null,
-        per_basis: n.per_basis || 'per_100g',
+        sort_order: n.sort_order ?? i,
       }))
 
       const { data: insertedNutrients, error: nutrientError } = await supabase
@@ -241,16 +242,16 @@ export const PATCH = withAuth(async (request, { supabase, user }) => {
 
         const nutrientRows = nutrients.map((n: {
           nutrient_name: string
-          amount: number
+          value: number
           unit_symbol?: string
           unit_id?: string
-          per_basis?: string
-        }) => ({
+          sort_order?: number
+        }, i: number) => ({
           pet_food_id: id,
           nutrient_name: n.nutrient_name,
-          amount: n.amount,
+          value: n.value,
           unit_id: n.unit_id || (n.unit_symbol ? symbolToId[n.unit_symbol] : null) || null,
-          per_basis: n.per_basis || 'per_100g',
+          sort_order: n.sort_order ?? i,
         }))
 
         const { data: insertedNutrients, error: nutrientError } = await supabase
