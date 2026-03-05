@@ -879,7 +879,7 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
                           ) : (
                             <div className="text-center py-4 text-muted-foreground text-sm">
                               등록된 프리셋이 없습니다.<br />
-                              <Link href="/manage" className="text-primary underline underline-offset-2">간식/약 관리</Link>에서 약 프리셋을 추가하세요.
+                              <Link href="/manage" className="text-primary underline underline-offset-2">사료/간식/약 관리</Link>에서 약 프리셋을 추가하세요.
                             </div>
                           )}
                         </div>
