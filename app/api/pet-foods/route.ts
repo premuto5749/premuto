@@ -87,6 +87,7 @@ export const POST = withAuth(async (request, { supabase, user }) => {
         target_animal: body.target_animal || '공통',
         calorie_density: body.calorie_density ?? 0,
         ingredients_text: body.ingredients_text || null,
+        photo_urls: body.photo_urls || null,
         is_active: body.is_active ?? true,
         memo: body.memo || null,
       })

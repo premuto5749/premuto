@@ -95,16 +95,16 @@ export function PetFoodForm({ food, nutrientUnits, onSave, onCancel, saving }: P
     setOcrError(null)
 
     try {
-      // Convert files to base64
-      const images = await Promise.all(
+      // Convert files to base64 (API expects { files: [{ data, type, name }] })
+      const files = await Promise.all(
         ocrFiles.map(file =>
-          new Promise<{ base64: string; media_type: string }>((resolve, reject) => {
+          new Promise<{ data: string; type: string; name: string }>((resolve, reject) => {
             const reader = new FileReader()
             reader.onload = () => {
               const dataUrl = reader.result as string
-              const base64 = dataUrl.split(',')[1]
-              const media_type = file.type || 'image/jpeg'
-              resolve({ base64, media_type })
+              const data = dataUrl.split(',')[1]
+              const type = file.type || 'image/jpeg'
+              resolve({ data, type, name: file.name })
             }
             reader.onerror = reject
             reader.readAsDataURL(file)
@@ -115,7 +115,7 @@ export function PetFoodForm({ food, nutrientUnits, onSave, onCancel, saving }: P
       const res = await fetch('/api/pet-foods/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images }),
+        body: JSON.stringify({ files }),
       })
 
       const data = await res.json()
