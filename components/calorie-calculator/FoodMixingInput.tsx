@@ -262,7 +262,7 @@ export function FoodMixingInput({ foods, onChange, petFoods, foodsLoading, petTy
                           )}
                           <span>{pf.name}</span>
                           <span className="text-xs text-muted-foreground">
-                            {pf.calorie_density} kcal/g · {pf.food_type}
+                            {pf.calorie_density} kcal/g · {pf.food_category || pf.food_type}
                             {pf.target_animal !== '공통' && ` · ${pf.target_animal}`}
                           </span>
                         </div>
