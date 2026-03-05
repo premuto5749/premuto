@@ -405,6 +405,7 @@ export interface GoogleDriveSyncLog {
 // ============================================
 
 export type FoodType = '건사료' | '습식' | '기타'
+export type FoodCategory = '건사료' | '습식' | '생식' | '간식' | '보충제/영양제'
 export type TargetAnimal = '강아지' | '고양이' | '공통'
 
 export interface PetFood {
@@ -413,19 +414,67 @@ export interface PetFood {
   brand: string | null
   calorie_density: number
   food_type: FoodType
+  food_category: FoodCategory
   target_animal: TargetAnimal
+  user_id: string | null
+  pet_id: string | null
+  ingredients_text: string | null
+  photo_urls: string[] | null
+  is_active: boolean
   memo: string | null
   created_at: string
   updated_at: string
+  nutrients?: PetFoodNutrient[]
 }
 
 export interface PetFoodInput {
   name: string
   brand?: string | null
-  calorie_density: number
+  calorie_density?: number | null
   food_type?: FoodType
+  food_category?: FoodCategory
   target_animal?: TargetAnimal
+  pet_id?: string | null
+  ingredients_text?: string | null
+  photo_urls?: string[] | null
+  is_active?: boolean
   memo?: string | null
+  nutrients?: PetFoodNutrientInput[]
+}
+
+export interface PetFoodNutrient {
+  id: string
+  pet_food_id: string
+  nutrient_name: string
+  value: number
+  unit_id: string | null
+  unit_symbol?: string
+  sort_order: number
+  created_at: string
+}
+
+export interface NutrientUnit {
+  id: string
+  symbol: string
+  label: string
+  sort_order: number
+}
+
+export interface PetFoodNutrientInput {
+  nutrient_name: string
+  value: number
+  unit_symbol: string
+  sort_order?: number
+}
+
+export interface PetFoodOcrResult {
+  brand: string | null
+  name: string | null
+  food_category: FoodCategory | null
+  target_animal: TargetAnimal | null
+  ingredients_text: string | null
+  calorie_density: number | null
+  nutrients: PetFoodNutrientInput[]
 }
 
 // ============================================
