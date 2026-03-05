@@ -21,7 +21,8 @@ function mapPetFoods(raw: Record<string, unknown>[]): PetFood[] {
       sort_order: n.sort_order as number,
       created_at: n.created_at as string,
     }))
-    const { pet_food_nutrients: _, ...rest } = f
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { pet_food_nutrients: _removed, ...rest } = f
     return { ...rest, nutrients } as PetFood
   })
 }
