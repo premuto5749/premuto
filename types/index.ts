@@ -431,6 +431,7 @@ export interface PetFoodInput {
   name: string
   brand?: string | null
   calorie_density?: number | null
+  food_type?: FoodType
   food_category?: FoodCategory
   target_animal?: TargetAnimal
   pet_id?: string | null

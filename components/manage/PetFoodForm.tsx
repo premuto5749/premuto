@@ -241,6 +241,7 @@ export function PetFoodForm({ food, nutrientUnits, onSave, onCancel, saving }: P
                 <div className="flex flex-wrap gap-2">
                   {ocrPreviews.map((url, i) => (
                     <div key={i} className="relative w-20 h-20">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={url}
                         alt={`선택된 사진 ${i + 1}`}
