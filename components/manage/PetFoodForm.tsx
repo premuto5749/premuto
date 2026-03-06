@@ -214,7 +214,7 @@ export function PetFoodForm({ food, nutrientUnits, onSave, onCancel, saving }: P
           <CollapsibleContent className="mt-2">
             <div className="border rounded-lg p-4 space-y-3 bg-muted/10">
               <p className="text-xs text-muted-foreground">
-                앞면(브랜드/제품명)과 뒷면(성분표)을 각각 찍으면 더 정확합니다
+                성분표를 촬영하면 자동으로 입력됩니다. 제품명도 사진에 나와있으면 자동으로 인식돼요
               </p>
 
               {/* File input */}
