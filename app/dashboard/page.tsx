@@ -54,6 +54,7 @@ interface ItemInfo {
 function DashboardContent() {
   const searchParams = useSearchParams()
   const saved = searchParams.get('saved')
+  const savedCount = parseInt(searchParams.get('count') || '0', 10)
 
   const [records, setRecords] = useState<TestRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -305,7 +306,7 @@ function DashboardContent() {
 
       <div className="container mx-auto py-10 px-4">
 
-      {saved && (
+      {saved && savedCount > 0 && (
         <Card className="mb-6 border-green-500 bg-green-50 dark:bg-green-950/20">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
