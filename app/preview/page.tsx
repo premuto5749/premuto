@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense, useMemo } from 'react'
+import { useState, useEffect, Suspense, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -91,6 +91,7 @@ function PreviewContent() {
   const [rateLimitError, setRateLimitError] = useState(false)
   const [isMapped, setIsMapped] = useState(false)
   const [isMappingInProgress, setIsMappingInProgress] = useState(false)
+  const autoMappingCalled = useRef(false)
   const [mappingStats, setMappingStats] = useState<{
     exactMatch: number
     aliasMatch: number
@@ -161,6 +162,16 @@ function PreviewContent() {
     }
     fetchHospitals()
   }, [])
+
+  // OCR 로드 완료 시 AI 매핑 자동 실행
+  useEffect(() => {
+    if (batchData !== null && allItems.length > 0 && !autoMappingCalled.current && !isMapped) {
+      autoMappingCalled.current = true
+      handleAiMapping()
+    }
+    // handleAiMapping은 의도적으로 의존성 배열에서 제외 (최초 1회만 실행)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchData, allItems.length])
 
   // 날짜별로 그룹화
   const dateGroups = useMemo(() => {
@@ -529,6 +540,17 @@ function PreviewContent() {
       const unmappedCount = allItems.filter(item => !item.isGarbage && !item.mapping).length
       if (unmappedCount > 0) {
         console.log(`⚠️ ${unmappedCount} unmapped items were skipped`)
+      }
+
+      // 저장된 항목이 없으면 명확한 에러 표시 (무성 성공 리다이렉트 방지)
+      if (successCount === 0) {
+        const totalNonGarbage = allItems.filter(item => !item.isGarbage).length
+        if (totalNonGarbage === 0) {
+          alert('저장할 유효한 항목이 없습니다. (모두 가비지로 분류되었습니다)')
+        } else {
+          alert(`매핑된 항목이 없어 저장하지 못했습니다.\n전체 ${totalNonGarbage}개 항목 중 매핑된 항목이 0개입니다.\nAI 분류 결과를 확인하거나 다시 시도해주세요.`)
+        }
+        return
       }
 
       // 세션 스토리지 정리
