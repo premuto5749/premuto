@@ -2,7 +2,6 @@
 
 import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { SimpleTooltip } from '@/components/ui/simple-tooltip'
 import { AlertCircle } from 'lucide-react'
 import { convertUnit, getStandardUnit } from '@/lib/ocr/unit-converter'
 import { unitsAreEquivalent } from '@/lib/ocr/unit-normalizer'
@@ -32,9 +31,17 @@ interface TestRecord {
 
 type SortType = 'by_exam_type' | 'by_organ' | 'by_clinical_priority' | 'by_panel'
 
+interface CellClickInfo {
+  itemName: string
+  recordId: string
+  recordDate: string
+  hospital: string | null
+}
+
 interface PivotTableProps {
   records: TestRecord[]
   onItemClick?: (itemName: string) => void
+  onCellClick?: (info: CellClickInfo) => void
   sortType?: SortType
   organFilter?: string | null
   panelFilter?: string | null
@@ -46,11 +53,6 @@ function formatValue(value: number): string {
     return value.toLocaleString('ko-KR')
   }
   return value.toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-}
-
-// 0값 여부 확인 (측정된 0 vs 데이터 없음 구분)
-function isZeroValue(value: number): boolean {
-  return value === 0
 }
 
 // 패널별 아이템 매핑
@@ -91,7 +93,9 @@ const ORGAN_ITEMS: Record<string, string[]> = {
   '안과': ['눈물량(OD)', '눈물량(OS)', '안압(OD)', '안압(OS)'],
 }
 
-export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', organFilter, panelFilter }: PivotTableProps) {
+export type { CellClickInfo }
+
+export function PivotTable({ records, onItemClick, onCellClick, sortType = 'by_exam_type', organFilter, panelFilter }: PivotTableProps) {
   // 날짜순으로 정렬 (오래된 날짜가 왼쪽, 최신이 오른쪽)
   const sortedRecords = useMemo(() => {
     return [...records].sort((a, b) =>
@@ -351,7 +355,7 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
       <CardHeader>
         <CardTitle>검사 결과 피벗 테이블</CardTitle>
         <CardDescription>
-          항목을 클릭하면 시계열 그래프를 볼 수 있습니다
+          좌측 항목명을 클릭하면 시계열 그래프가 나옵니다
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 sm:px-6">
@@ -398,7 +402,7 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
                           <div className="font-medium text-xs sm:text-sm truncate max-w-[90px] sm:max-w-none">{detail.name}</div>
                           <div className="text-[10px] sm:text-xs text-muted-foreground truncate max-w-[90px] sm:max-w-none">{detail.ko}</div>
                           {detail.refRangeDisplay && (
-                            <div className={`text-[10px] sm:text-xs mt-0.5 sm:mt-1 truncate max-w-[90px] sm:max-w-none ${detail.refRangeDisplay === '여러 참고치 적용됨' ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                            <div className={`mt-0.5 sm:mt-1 truncate max-w-[90px] sm:max-w-none ${detail.refRangeDisplay === '여러 참고치 적용됨' ? 'text-[8px] sm:text-[10px] text-orange-600' : 'text-[10px] sm:text-xs text-muted-foreground'}`}>
                               {detail.refRangeDisplay}
                             </div>
                           )}
@@ -414,52 +418,25 @@ export function PivotTable({ records, onItemClick, sortType = 'by_exam_type', or
                               className={`p-1 sm:p-3 text-center align-top ${result ? getStatusColor(result.status) : ''}`}
                             >
                               {result && converted ? (
-                                <SimpleTooltip
-                                  content={
-                                    <div className="text-left space-y-1 max-w-xs">
-                                      <div className="font-semibold border-b pb-1">
-                                        {detail.name} ({detail.ko})
-                                      </div>
-                                      <div>검사일: {new Date(record.test_date).toLocaleDateString('ko-KR')}</div>
-                                      <div>
-                                        결과값: {formatValue(converted.value)} {converted.unit}
-                                        {isZeroValue(result.value) && (
-                                          <span className="text-xs text-muted-foreground ml-1">(측정값)</span>
-                                        )}
-                                      </div>
-                                      {converted.isConverted && converted.originalValue !== null && (
-                                        <div className="text-amber-600">
-                                          원본: {formatValue(converted.originalValue)} {converted.originalUnit}
-                                        </div>
-                                      )}
-                                      <div>
-                                        참고치: {result.ref_text || `${result.ref_min ?? '?'}-${result.ref_max ?? '?'}`}
-                                      </div>
-                                      <div>상태: {getStatusIcon(result.status)} {result.status}</div>
-                                      {record.hospital_name && (
-                                        <div>병원: {record.hospital_name}</div>
-                                      )}
-                                      {refChange.changed && (
-                                        <div className="text-orange-600 border-t pt-1 mt-1">
-                                          ⚠️ 참고치 변경됨 (이전: {refChange.previousRef})
-                                        </div>
-                                      )}
-                                    </div>
-                                  }
-                                  side="top"
+                                <div
+                                  className="cursor-pointer active:bg-muted/80 rounded p-0.5 -m-0.5"
+                                  onClick={() => onCellClick?.({
+                                    itemName,
+                                    recordId: record.id,
+                                    recordDate: record.test_date,
+                                    hospital: record.hospital_name,
+                                  })}
                                 >
-                                  <div className="cursor-help">
-                                    <div className="font-medium flex items-center justify-center gap-1">
-                                      {getStatusIcon(result.status)} {formatValue(converted.value)}
-                                      {refChange.changed && (
-                                        <AlertCircle className="w-3 h-3 text-orange-600 inline" />
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {converted.unit}
-                                    </div>
+                                  <div className="font-medium flex items-center justify-center gap-1">
+                                    {getStatusIcon(result.status)} {formatValue(converted.value)}
+                                    {refChange.changed && (
+                                      <AlertCircle className="w-3 h-3 text-orange-600 inline" />
+                                    )}
                                   </div>
-                                </SimpleTooltip>
+                                  <div className="text-xs text-muted-foreground">
+                                    {converted.unit}
+                                  </div>
+                                </div>
                               ) : (
                                 <span className="text-muted-foreground/50 text-lg">-</span>
                               )}

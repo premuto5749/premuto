@@ -36,6 +36,8 @@ interface TrendChartProps {
   itemName: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  dateFrom?: string | null
+  dateTo?: string | null
 }
 
 // 참고치 구간을 나타내는 인터페이스
@@ -47,11 +49,21 @@ interface RefRangeSegment {
   dataCount: number
 }
 
-export function TrendChart({ records, itemName, open, onOpenChange }: TrendChartProps) {
+export function TrendChart({ records, itemName, open, onOpenChange, dateFrom, dateTo }: TrendChartProps) {
+  // 기간 필터 적용
+  const filteredRecords = useMemo(() => {
+    if (!dateFrom && !dateTo) return records
+    return records.filter(record => {
+      if (dateFrom && record.test_date < dateFrom) return false
+      if (dateTo && record.test_date > dateTo) return false
+      return true
+    })
+  }, [records, dateFrom, dateTo])
+
   const chartData = useMemo(() => {
     if (!itemName) return null
 
-    const dataPoints = records
+    const dataPoints = filteredRecords
       .map(record => {
         // 동일 항목의 중복 결과가 있을 경우 마지막 값을 선택 (PivotTable과 일관성 유지)
         const matchingResults = record.test_results.filter(
@@ -202,7 +214,7 @@ export function TrendChart({ records, itemName, open, onOpenChange }: TrendChart
       descriptionHigh: latestPoint?.descriptionHigh || null,
       descriptionLow: latestPoint?.descriptionLow || null,
     }
-  }, [records, itemName])
+  }, [filteredRecords, itemName])
 
   if (!chartData) {
     return (

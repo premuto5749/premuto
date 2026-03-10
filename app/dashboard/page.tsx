@@ -8,11 +8,13 @@ import { AppHeader } from '@/components/layout/AppHeader'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Upload, Loader2, CheckCircle2, Filter, X, Download } from 'lucide-react'
+import { Upload, Loader2, CheckCircle2, Filter, X, Download, LineChart, Pencil } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
-import { PivotTable } from '@/components/dashboard/PivotTable'
+import { useRouter } from 'next/navigation'
+import { PivotTable, type CellClickInfo } from '@/components/dashboard/PivotTable'
 import { TrendChart } from '@/components/dashboard/TrendChart'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { ViewOptions, type SortType } from '@/components/dashboard/ViewOptions'
 import { formatLocalDate } from '@/lib/utils'
 
@@ -59,8 +61,11 @@ function DashboardContent() {
   const [records, setRecords] = useState<TestRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
   const [selectedItem, setSelectedItem] = useState<string | null>(null)
   const [isChartOpen, setIsChartOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerCell, setDrawerCell] = useState<CellClickInfo | null>(null)
 
   // 특정항목 모아보기 상태
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
@@ -163,6 +168,26 @@ function DashboardContent() {
   const handleItemClick = (itemName: string) => {
     setSelectedItem(itemName)
     setIsChartOpen(true)
+  }
+
+  const handleCellClick = (info: CellClickInfo) => {
+    setDrawerCell(info)
+    setDrawerOpen(true)
+  }
+
+  const handleDrawerGraph = () => {
+    if (drawerCell) {
+      setSelectedItem(drawerCell.itemName)
+      setIsChartOpen(true)
+    }
+    setDrawerOpen(false)
+  }
+
+  const handleDrawerEdit = () => {
+    if (drawerCell) {
+      router.push(`/records-management/${drawerCell.recordId}/edit`)
+    }
+    setDrawerOpen(false)
   }
 
   const handleChartClose = (open: boolean) => {
@@ -415,6 +440,7 @@ function DashboardContent() {
           <PivotTable
             records={filteredRecords}
             onItemClick={handleItemClick}
+            onCellClick={handleCellClick}
             sortType={sortType}
             organFilter={organFilter}
             panelFilter={panelFilter}
@@ -425,7 +451,44 @@ function DashboardContent() {
             itemName={selectedItem}
             open={isChartOpen}
             onOpenChange={handleChartClose}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
           />
+
+          {/* 셀 클릭 하단 Drawer */}
+          <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+            <DrawerContent>
+              <DrawerHeader>
+                <DrawerTitle>
+                  {drawerCell?.itemName}
+                  {drawerCell?.recordDate && (
+                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                      {new Date(drawerCell.recordDate).toLocaleDateString('ko-KR')}
+                      {drawerCell.hospital && ` · ${drawerCell.hospital}`}
+                    </span>
+                  )}
+                </DrawerTitle>
+              </DrawerHeader>
+              <div className="px-4 pb-6 space-y-2">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start h-12 text-base"
+                  onClick={handleDrawerGraph}
+                >
+                  <LineChart className="w-5 h-5 mr-3" />
+                  그래프 보기
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start h-12 text-base"
+                  onClick={handleDrawerEdit}
+                >
+                  <Pencil className="w-5 h-5 mr-3" />
+                  기록 수정
+                </Button>
+              </div>
+            </DrawerContent>
+          </Drawer>
 
           {/* 내보내기 확인 다이얼로그 */}
           <AlertDialog open={showExportConfirm} onOpenChange={setShowExportConfirm}>
