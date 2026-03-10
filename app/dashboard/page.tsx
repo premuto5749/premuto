@@ -8,10 +8,11 @@ import { AppHeader } from '@/components/layout/AppHeader'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Upload, Loader2, CheckCircle2, Filter, X, Download, LineChart, Pencil } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Upload, Loader2, CheckCircle2, Filter, X, Download, LineChart, Save } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { PivotTable, type CellClickInfo } from '@/components/dashboard/PivotTable'
 import { TrendChart } from '@/components/dashboard/TrendChart'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -61,11 +62,14 @@ function DashboardContent() {
   const [records, setRecords] = useState<TestRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
   const [selectedItem, setSelectedItem] = useState<string | null>(null)
   const [isChartOpen, setIsChartOpen] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerCell, setDrawerCell] = useState<CellClickInfo | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [editRefMin, setEditRefMin] = useState('')
+  const [editRefMax, setEditRefMax] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
   // 특정항목 모아보기 상태
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
@@ -172,6 +176,9 @@ function DashboardContent() {
 
   const handleCellClick = (info: CellClickInfo) => {
     setDrawerCell(info)
+    setEditValue(String(info.value))
+    setEditRefMin(info.refMin !== null ? String(info.refMin) : '')
+    setEditRefMax(info.refMax !== null ? String(info.refMax) : '')
     setDrawerOpen(true)
   }
 
@@ -183,11 +190,46 @@ function DashboardContent() {
     setDrawerOpen(false)
   }
 
-  const handleDrawerEdit = () => {
-    if (drawerCell) {
-      router.push(`/records-management/${drawerCell.recordId}/edit`)
+  const handleDrawerSave = async () => {
+    if (!drawerCell) return
+    setEditSaving(true)
+    try {
+      const updates: Record<string, number | null> = {}
+      const newValue = parseFloat(editValue)
+      if (!isNaN(newValue) && newValue !== drawerCell.value) {
+        updates.value = newValue
+      }
+      const newRefMin = editRefMin === '' ? null : parseFloat(editRefMin)
+      if (newRefMin !== drawerCell.refMin) {
+        updates.ref_min = newRefMin
+      }
+      const newRefMax = editRefMax === '' ? null : parseFloat(editRefMax)
+      if (newRefMax !== drawerCell.refMax) {
+        updates.ref_max = newRefMax
+      }
+
+      if (Object.keys(updates).length === 0) {
+        setDrawerOpen(false)
+        return
+      }
+
+      const response = await fetch(`/api/test-results/${drawerCell.testResultId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
+
+      if (!response.ok) throw new Error('수정 실패')
+
+      toast({ title: '수정 완료', description: `${drawerCell.itemName} 값이 수정되었습니다.` })
+      setDrawerOpen(false)
+      fetchTestRecords() // 테이블 새로고침
+    } catch (error) {
+      console.error('Edit error:', error)
+      toast({ title: '수정 실패', description: '다시 시도해주세요.', variant: 'destructive' })
+    } finally {
+      setEditSaving(false)
     }
-    setDrawerOpen(false)
   }
 
   const handleChartClose = (open: boolean) => {
@@ -461,31 +503,78 @@ function DashboardContent() {
               <DrawerHeader>
                 <DrawerTitle>
                   {drawerCell?.itemName}
+                  <span className="text-sm font-normal text-muted-foreground ml-1">
+                    {drawerCell?.itemNameKo}
+                  </span>
                   {drawerCell?.recordDate && (
-                    <span className="text-sm font-normal text-muted-foreground ml-2">
+                    <div className="text-sm font-normal text-muted-foreground mt-1">
                       {new Date(drawerCell.recordDate).toLocaleDateString('ko-KR')}
                       {drawerCell.hospital && ` · ${drawerCell.hospital}`}
-                    </span>
+                    </div>
                   )}
                 </DrawerTitle>
               </DrawerHeader>
-              <div className="px-4 pb-6 space-y-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-12 text-base"
-                  onClick={handleDrawerGraph}
-                >
-                  <LineChart className="w-5 h-5 mr-3" />
-                  그래프 보기
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-12 text-base"
-                  onClick={handleDrawerEdit}
-                >
-                  <Pencil className="w-5 h-5 mr-3" />
-                  기록 수정
-                </Button>
+              <div className="px-4 pb-6 space-y-4">
+                {/* 수정 폼 */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor="edit-value" className="text-xs text-muted-foreground">결과값</Label>
+                    <Input
+                      id="edit-value"
+                      type="number"
+                      step="any"
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-ref-min" className="text-xs text-muted-foreground">참고 Min</Label>
+                    <Input
+                      id="edit-ref-min"
+                      type="number"
+                      step="any"
+                      value={editRefMin}
+                      onChange={(e) => setEditRefMin(e.target.value)}
+                      placeholder="-"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-ref-max" className="text-xs text-muted-foreground">참고 Max</Label>
+                    <Input
+                      id="edit-ref-max"
+                      type="number"
+                      step="any"
+                      value={editRefMax}
+                      onChange={(e) => setEditRefMax(e.target.value)}
+                      placeholder="-"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+                {drawerCell?.unit && (
+                  <div className="text-xs text-muted-foreground">단위: {drawerCell.unit}</div>
+                )}
+                {/* 액션 버튼 */}
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1"
+                    onClick={handleDrawerSave}
+                    disabled={editSaving}
+                  >
+                    {editSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    저장
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleDrawerGraph}
+                  >
+                    <LineChart className="w-4 h-4 mr-2" />
+                    그래프
+                  </Button>
+                </div>
               </div>
             </DrawerContent>
           </Drawer>

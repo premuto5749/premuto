@@ -33,9 +33,15 @@ type SortType = 'by_exam_type' | 'by_organ' | 'by_clinical_priority' | 'by_panel
 
 interface CellClickInfo {
   itemName: string
+  itemNameKo: string
   recordId: string
   recordDate: string
   hospital: string | null
+  testResultId: string
+  value: number
+  unit: string | null
+  refMin: number | null
+  refMax: number | null
 }
 
 interface PivotTableProps {
@@ -422,9 +428,15 @@ export function PivotTable({ records, onItemClick, onCellClick, sortType = 'by_e
                                   className="cursor-pointer active:bg-muted/80 rounded p-0.5 -m-0.5"
                                   onClick={() => onCellClick?.({
                                     itemName,
+                                    itemNameKo: detail.ko,
                                     recordId: record.id,
                                     recordDate: record.test_date,
                                     hospital: record.hospital_name,
+                                    testResultId: result.id,
+                                    value: result.value,
+                                    unit: result.unit,
+                                    refMin: result.ref_min,
+                                    refMax: result.ref_max,
                                   })}
                                 >
                                   <div className="font-medium flex items-center justify-center gap-1">
