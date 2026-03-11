@@ -185,6 +185,7 @@ interface FileResult {
     processingTime: number
   }
   error?: string
+  truncated?: boolean
 }
 
 // OCR 프롬프트 - 데이터 추출 최우선
@@ -302,6 +303,12 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
         },
       ],
     })
+
+    // 토큰 제한으로 응답이 잘렸는지 확인
+    const wasTruncated = message.stop_reason === 'max_tokens'
+    if (wasTruncated) {
+      console.warn(`⚠️ [${fileId}] Response truncated (max_tokens=${maxTokens}). Output may be incomplete.`)
+    }
 
     // 응답에서 텍스트 추출
     const textContent = message.content.find(block => block.type === 'text')
@@ -440,7 +447,12 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
         })
       })
 
-      console.log(`✅ Extracted ${results.length} date group(s) from ${file.name}`)
+      // 잘림 경고는 마지막 그룹에만 표시
+      if (wasTruncated && results.length > 0) {
+        results[results.length - 1].truncated = true
+      }
+
+      console.log(`✅ Extracted ${results.length} date group(s) from ${file.name}${wasTruncated ? ' (truncated)' : ''}`)
       return results
     }
 
@@ -468,7 +480,8 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
         machine_type: ocrResult.machine_type as string | undefined,
         pages: 1,
         processingTime
-      }
+      },
+      truncated: wasTruncated
     }]
   } catch (error) {
     console.error(`❌ OCR processing error for ${file.name}:`, error)
@@ -617,10 +630,20 @@ export async function POST(request: NextRequest) {
 
     // 메타데이터 일치성 검증
     const warnings: Array<{
-      type: 'date_mismatch' | 'duplicate_item' | 'parse_error'
+      type: 'date_mismatch' | 'duplicate_item' | 'parse_error' | 'truncated'
       message: string
       files: string[]
     }> = []
+
+    // 토큰 제한으로 잘린 파일 경고
+    const truncatedResults = results.filter(r => r.truncated)
+    if (truncatedResults.length > 0) {
+      warnings.push({
+        type: 'truncated',
+        message: 'AI 분석 한도로 일부 검사 결과가 누락되었을 수 있습니다. 더 짧은 PDF로 분할해서 업로드하거나 이미지 개수를 줄여주세요.',
+        files: truncatedResults.map(r => r.filename)
+      })
+    }
 
     // 실패한 파일들에 대한 경고 추가
     if (failedResults.length > 0) {
