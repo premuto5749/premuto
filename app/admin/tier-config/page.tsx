@@ -20,6 +20,8 @@ interface TierConfig {
   daily_description_gen_limit: number
   daily_excel_export_limit: number
   weekly_photo_export_limit: number
+  ocr_max_tokens: number
+  pdf_max_pages: number
 }
 
 type TierConfigMap = Record<string, TierConfig>
@@ -36,6 +38,8 @@ const FIELD_LABELS: Record<string, { label: string; description: string }> = {
   daily_description_gen_limit: { label: 'AI 설명 생성 횟수 (일일)', description: '표준항목 AI 설명 자동 생성. 일일 횟수 제한. -1 = 무제한, 0 = 잠금' },
   daily_excel_export_limit: { label: '일일기록 엑셀 내보내기 횟수 (일일)', description: '일일기록(식사/음수 등) Excel 내보내기. 일일 횟수 제한. -1 = 무제한' },
   weekly_photo_export_limit: { label: '일일기록 사진 내보내기 횟수 (주간)', description: '일일기록 사진 ZIP 내보내기. 주간 횟수 제한. -1 = 무제한' },
+  ocr_max_tokens: { label: 'OCR 최대 토큰 수', description: 'Claude API 응답 최대 토큰. Free=8000, Basic=16000, Premium=32000 권장' },
+  pdf_max_pages: { label: 'PDF 최대 페이지 수', description: 'PDF 업로드 시 최대 페이지 수 제한. -1 = 무제한' },
 }
 
 export default function TierConfigPage() {
@@ -92,6 +96,8 @@ export default function TierConfigPage() {
           else if (field === 'daily_description_gen_limit') t.daily_description_gen_limit = numValue
           else if (field === 'daily_excel_export_limit') t.daily_excel_export_limit = numValue
           else if (field === 'weekly_photo_export_limit') t.weekly_photo_export_limit = numValue
+          else if (field === 'ocr_max_tokens') t.ocr_max_tokens = numValue
+          else if (field === 'pdf_max_pages') t.pdf_max_pages = numValue
         }
       }
       return updated

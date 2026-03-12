@@ -59,7 +59,9 @@ export async function PUT(request: NextRequest) {
           typeof config.daily_log_max_photo_size_mb !== 'number' ||
           (config.daily_excel_export_limit !== undefined && typeof config.daily_excel_export_limit !== 'number') ||
           (config.weekly_photo_export_limit !== undefined && typeof config.weekly_photo_export_limit !== 'number') ||
-          (config.daily_description_gen_limit !== undefined && typeof config.daily_description_gen_limit !== 'number')) {
+          (config.daily_description_gen_limit !== undefined && typeof config.daily_description_gen_limit !== 'number') ||
+          (config.ocr_max_tokens !== undefined && typeof config.ocr_max_tokens !== 'number') ||
+          (config.pdf_max_pages !== undefined && typeof config.pdf_max_pages !== 'number')) {
         return NextResponse.json(
           { error: `'${tier}' tier에 필수 숫자 필드가 누락되었습니다` },
           { status: 400 }
