@@ -18,27 +18,17 @@ function getAnthropicClient() {
   })
 }
 
-// OCR 설정 조회 함수 (DB에서 max_tokens 가져오기)
-async function getOcrMaxTokens(): Promise<number> {
-  const DEFAULT_MAX_TOKENS = 8000
+// PDF 페이지 수 카운트 (바이너리에서 /Type /Page 패턴 검색)
+// 주의: ArrayBuffer를 외부에서 받아서 사용 (File 스트림 이중 소비 방지)
+function countPdfPagesFromBuffer(buffer: Buffer | ArrayBuffer): number {
   try {
-    const supabase = await createClient()
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'ocr_quick_upload')
-      .single()
-
-    if (error || !data) {
-      console.log('OCR settings not found, using default max_tokens:', DEFAULT_MAX_TOKENS)
-      return DEFAULT_MAX_TOKENS
-    }
-
-    const maxTokens = (data.value as { maxTokens?: number })?.maxTokens
-    return maxTokens || DEFAULT_MAX_TOKENS
-  } catch (err) {
-    console.warn('Failed to fetch OCR settings, using default:', err)
-    return DEFAULT_MAX_TOKENS
+    const bytes = new Uint8Array(buffer)
+    const text = new TextDecoder('latin1').decode(bytes)
+    // /Type /Page (not /Pages) 패턴으로 페이지 수 추정
+    const matches = text.match(/\/Type\s*\/Page(?!s)/g)
+    return matches ? matches.length : 1
+  } catch {
+    return -1 // 카운트 실패 시 -1 반환 → 체크 건너뜀
   }
 }
 
@@ -604,9 +594,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // DB에서 max_tokens 설정 조회
-    const maxTokens = await getOcrMaxTokens()
-    console.log(`🚀 Processing ${uniqueFiles.length} files with Claude API (parallel, max_tokens=${maxTokens})...`)
+    // Tier별 PDF 페이지 수 제한 (버퍼 캡처 후 체크 — File 이중 소비 방지)
+    const pdfMaxPages = usageCheck.tierConfig.pdf_max_pages ?? -1
+    if (pdfMaxPages > 0) {
+      for (const file of uniqueFiles) {
+        if (file.type === 'application/pdf') {
+          const cached = fileBuffers.get(file.name)
+          if (cached) {
+            const pageCount = countPdfPagesFromBuffer(cached.buffer)
+            if (pageCount > 0 && pageCount > pdfMaxPages) {
+              return NextResponse.json(
+                { error: `현재 등급에서는 PDF ${pdfMaxPages}페이지까지 분석 가능합니다. 더 짧게 분할하거나 등급을 업그레이드해 주세요. (${file.name}: ${pageCount}페이지)` },
+                { status: 400 }
+              )
+            }
+          }
+        }
+      }
+    }
+
+    // 티어별 max_tokens 적용
+    const maxTokens = usageCheck.tierConfig.ocr_max_tokens ?? 8000
+    console.log(`🚀 Processing ${uniqueFiles.length} files with Claude API (parallel, max_tokens=${maxTokens}, tier=${usageCheck.tier})...`)
 
     // 병렬 처리
     const nestedResults = await Promise.all(

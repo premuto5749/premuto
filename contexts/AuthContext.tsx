@@ -25,6 +25,8 @@ export interface TierData {
     daily_excel_export_limit: number
     weekly_photo_export_limit: number
     google_drive_enabled: boolean
+    ocr_max_tokens: number
+    pdf_max_pages: number
   }
   allTierConfigs?: Record<string, unknown>
   usage: {

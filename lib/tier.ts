@@ -13,6 +13,8 @@ export interface TierConfig {
   daily_excel_export_limit: number    // 일일 엑셀 내보내기 (-1=무제한)
   weekly_photo_export_limit: number   // 주간 사진 ZIP 내보내기 (-1=무제한)
   google_drive_enabled: boolean       // Google Drive 백업 활성화
+  ocr_max_tokens: number              // OCR API max_tokens (-1=무제한은 없음)
+  pdf_max_pages: number               // PDF 최대 페이지 수 (-1=무제한)
 }
 
 export type TierConfigMap = Record<TierName, TierConfig>
@@ -30,6 +32,8 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     daily_excel_export_limit: 1,
     weekly_photo_export_limit: 1,
     google_drive_enabled: false,
+    ocr_max_tokens: 8000,
+    pdf_max_pages: 3,
   },
   basic: {
     label: '기본',
@@ -42,6 +46,8 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     daily_excel_export_limit: -1,
     weekly_photo_export_limit: -1,
     google_drive_enabled: true,
+    ocr_max_tokens: 16000,
+    pdf_max_pages: 10,
   },
   premium: {
     label: '프리미엄',
@@ -54,6 +60,8 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     daily_excel_export_limit: -1,
     weekly_photo_export_limit: -1,
     google_drive_enabled: true,
+    ocr_max_tokens: 32000,
+    pdf_max_pages: -1,
   },
 }
 
