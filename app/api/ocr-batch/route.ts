@@ -594,22 +594,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Tier별 PDF 페이지 수 제한 (버퍼 캡처 후 체크 — File 이중 소비 방지)
+    // Tier별 PDF 페이지 수 제한 — 전체 PDF 합산 기준
     const pdfMaxPages = usageCheck.tierConfig.pdf_max_pages ?? -1
     if (pdfMaxPages > 0) {
+      let totalPdfPages = 0
       for (const file of uniqueFiles) {
         if (file.type === 'application/pdf') {
           const cached = fileBuffers.get(file.name)
           if (cached) {
             const pageCount = countPdfPagesFromBuffer(cached.buffer)
-            if (pageCount > 0 && pageCount > pdfMaxPages) {
-              return NextResponse.json(
-                { error: `현재 등급에서는 PDF ${pdfMaxPages}페이지까지 분석 가능합니다. 더 짧게 분할하거나 등급을 업그레이드해 주세요. (${file.name}: ${pageCount}페이지)` },
-                { status: 400 }
-              )
-            }
+            if (pageCount > 0) totalPdfPages += pageCount
           }
         }
+      }
+      if (totalPdfPages > pdfMaxPages) {
+        return NextResponse.json(
+          { error: `현재 등급에서는 PDF 총 ${pdfMaxPages}페이지까지 분석 가능합니다. (업로드된 PDF: 총 ${totalPdfPages}페이지) 더 짧게 분할하거나 등급을 업그레이드해 주세요.` },
+          { status: 400 }
+        )
       }
     }
 

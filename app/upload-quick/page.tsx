@@ -41,8 +41,11 @@ export default function UploadQuickPage() {
   const [error, setError] = useState<string | null>(null)
   const [rateLimitError, setRateLimitError] = useState(false)
   const [tierLimitError, setTierLimitError] = useState(false)
+  const [totalPdfPages, setTotalPdfPages] = useState(0)
 
   const maxFiles = tierData?.config.max_files_per_ocr ?? 5
+  const pdfMaxPages = tierData?.config.pdf_max_pages ?? -1
+  const isPdfOverLimit = pdfMaxPages > 0 && totalPdfPages > pdfMaxPages
 
   const handleFilesSelect = (files: File[]) => {
     if (files.length > maxFiles) {
@@ -172,23 +175,30 @@ export default function UploadQuickPage() {
 
       <div className="container max-w-4xl mx-auto py-10 px-4">
 
-      {/* 사용량 배지 */}
+      {/* 사용량 배지 + 티어 제한 안내 */}
       {!tierLoading && tierData && ocrUsage && (
-        <div className="mb-6 flex items-center justify-between p-3 bg-background border rounded-lg">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-medium rounded">
-              {tierData.config.label}
-            </span>
-            <span className="text-muted-foreground">오늘 AI 분석</span>
-          </div>
-          <div className="text-sm font-medium">
-            {ocrUsage.limit === -1 ? (
-              <span className="text-green-600">무제한</span>
-            ) : (
-              <span className={ocrUsage.remaining <= 0 ? 'text-destructive' : ''}>
-                {ocrUsage.remaining}/{ocrUsage.limit} 남음
+        <div className="mb-6 p-3 bg-background border rounded-lg space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-medium rounded">
+                {tierData.config.label}
               </span>
-            )}
+              <span className="text-muted-foreground">오늘 AI 분석</span>
+            </div>
+            <div className="text-sm font-medium">
+              {ocrUsage.limit === -1 ? (
+                <span className="text-green-600">무제한</span>
+              ) : (
+                <span className={ocrUsage.remaining <= 0 ? 'text-destructive' : ''}>
+                  {ocrUsage.remaining}/{ocrUsage.limit} 남음
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground border-t pt-2">
+            <span>파일 최대 {tierData.config.max_files_per_ocr}개</span>
+            <span className="text-muted-foreground/40">·</span>
+            <span>PDF {tierData.config.pdf_max_pages === -1 ? '무제한' : `총 ${tierData.config.pdf_max_pages}페이지`}</span>
           </div>
         </div>
       )}
@@ -226,6 +236,8 @@ export default function UploadQuickPage() {
             selectedFiles={selectedFiles}
             isProcessing={isProcessing}
             maxFiles={maxFiles}
+            pdfMaxPages={pdfMaxPages}
+            onPdfPagesChange={setTotalPdfPages}
           />
         </CardContent>
       </Card>
@@ -247,7 +259,7 @@ export default function UploadQuickPage() {
       <div className="space-y-3">
         <Button
           onClick={handleAnalyze}
-          disabled={selectedFiles.length === 0 || isProcessing || isLimitReached}
+          disabled={selectedFiles.length === 0 || isProcessing || isLimitReached || isPdfOverLimit}
           className="w-full"
           size="lg"
         >
@@ -258,6 +270,8 @@ export default function UploadQuickPage() {
             </>
           ) : isLimitReached ? (
             '오늘 분석 한도에 도달했습니다'
+          ) : isPdfOverLimit ? (
+            `PDF 페이지 초과 (${totalPdfPages}/${pdfMaxPages}페이지)`
           ) : (
             <>
               AI로 파일 읽기

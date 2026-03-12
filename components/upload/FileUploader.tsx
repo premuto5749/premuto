@@ -1,11 +1,23 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import Image from 'next/image'
-import { Upload, File, X, FileText } from 'lucide-react'
+import { Upload, File, X, FileText, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+
+// 클라이언트에서 PDF 페이지 수 추정 (/Type /Page 패턴)
+function countPdfPages(buffer: ArrayBuffer): number {
+  try {
+    const bytes = new Uint8Array(buffer)
+    const text = new TextDecoder('latin1').decode(bytes)
+    const matches = text.match(/\/Type\s*\/Page(?!s)/g)
+    return matches ? matches.length : 0
+  } catch {
+    return 0
+  }
+}
 
 interface FileWithPreview {
   file: File
@@ -19,7 +31,9 @@ interface FileUploaderProps {
   isProcessing?: boolean
   maxFiles?: number
   maxSizeMB?: number
+  pdfMaxPages?: number
   onError?: (message: string) => void
+  onPdfPagesChange?: (totalPages: number) => void
 }
 
 export function FileUploader({
@@ -29,10 +43,51 @@ export function FileUploader({
   isProcessing = false,
   maxFiles = 10,
   maxSizeMB = 10,
+  pdfMaxPages = -1,
   onError,
+  onPdfPagesChange,
 }: FileUploaderProps) {
   const [filesWithPreview, setFilesWithPreview] = useState<FileWithPreview[]>([])
   const [rejectionMessage, setRejectionMessage] = useState<string | null>(null)
+  const [pdfPageCounts, setPdfPageCounts] = useState<Map<string, number>>(new Map())
+
+  // PDF 페이지 수 카운트 (레이스 컨디션 방지: cancelled 플래그)
+  useEffect(() => {
+    let cancelled = false
+    const countPages = async () => {
+      const newCounts = new Map<string, number>()
+      for (const file of selectedFiles) {
+        if (cancelled) return
+        if (file.type === 'application/pdf') {
+          const key = `${file.name}-${file.size}`
+          const existing = pdfPageCounts.get(key)
+          if (existing !== undefined) {
+            newCounts.set(key, existing)
+          } else {
+            try {
+              const buffer = await file.arrayBuffer()
+              if (cancelled) return
+              const pages = countPdfPages(buffer)
+              newCounts.set(key, pages)
+            } catch {
+              newCounts.set(key, 0)
+            }
+          }
+        }
+      }
+      if (!cancelled) {
+        setPdfPageCounts(newCounts)
+        const total = Array.from(newCounts.values()).reduce((sum, p) => sum + p, 0)
+        onPdfPagesChange?.(total)
+      }
+    }
+    countPages()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFiles])
+
+  const totalPdfPages = Array.from(pdfPageCounts.values()).reduce((sum, p) => sum + p, 0)
+  const isPdfOverLimit = pdfMaxPages > 0 && totalPdfPages > pdfMaxPages
 
   const showError = useCallback((msg: string) => {
     setRejectionMessage(msg)
@@ -50,7 +105,7 @@ export function FileUploader({
       return
     }
 
-    // PDF는 변환 없이 그대로 전달 (서버에서 GPT-4o가 직접 처리)
+    // PDF는 변환 없이 그대로 전달 (서버에서 Claude가 직접 처리)
     const allFiles = [...selectedFiles, ...acceptedFiles]
     onFilesSelect(allFiles)
 
@@ -145,11 +200,22 @@ export function FileUploader({
           )}
         </div>
 
+        {/* PDF 페이지 합산 경고 */}
+        {isPdfOverLimit && (
+          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-orange-800">
+              PDF 총 {totalPdfPages}페이지 — 현재 등급은 {pdfMaxPages}페이지까지 분석 가능합니다.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {selectedFiles.map((file, index) => {
             const fileWithPreview = filesWithPreview.find(f => f.file === file)
             const preview = fileWithPreview?.preview
             const isPdf = file.type === 'application/pdf'
+            const pageCount = isPdf ? pdfPageCounts.get(`${file.name}-${file.size}`) : undefined
 
             return (
               <Card key={`${file.name}-${index}`} className="p-4">
@@ -180,7 +246,9 @@ export function FileUploader({
                       {(file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {isPdf ? 'PDF 문서' : file.type}
+                      {isPdf ? (
+                        pageCount && pageCount > 0 ? `PDF · ${pageCount}페이지` : 'PDF 문서'
+                      ) : file.type}
                     </p>
                   </div>
 
