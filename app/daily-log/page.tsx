@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon, Share2, ImagePlus, Loader2 } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon, Share2, ImagePlus, Loader2, CheckSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,8 +36,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
-import type { DailyLog, DailyStats, LogCategory, FeedingPlan } from '@/types'
-import { LOG_CATEGORY_CONFIG } from '@/types'
+import type { DailyLog, DailyStats, LogCategory, FeedingPlan, ClipboardLogItem } from '@/types'
+import { LOG_CATEGORY_CONFIG, COPYABLE_CATEGORIES } from '@/types'
+import { SelectionActionBar } from '@/components/daily-log/SelectionActionBar'
+import { ClipboardFloatingBadge } from '@/components/daily-log/ClipboardFloatingBadge'
+import { PasteConfirmDialog } from '@/components/daily-log/PasteConfirmDialog'
 import { formatNumber, formatLocalDate } from '@/lib/utils'
 import { calculateCalories, calculateIntake, calculateMixedCalorieDensity } from '@/lib/calorie'
 import {
@@ -75,6 +78,21 @@ export default function DailyLogPage() {
   const { dailyCategories, imageCategories } = useCardLayout()
   const [currentWeight, setCurrentWeight] = useState<number | null>(null)
   const [activePlan, setActivePlan] = useState<FeedingPlan | null>(null)
+
+  // 복사/붙여넣기 상태
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [clipboardLogs, setClipboardLogs] = useState<ClipboardLogItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('premuto_copy_clipboard')
+        return saved ? JSON.parse(saved) : []
+      } catch { return [] }
+    }
+    return []
+  })
+  const [isPasteDialogOpen, setIsPasteDialogOpen] = useState(false)
+  const [isPasting, setIsPasting] = useState(false)
 
   // 산책 전용 상태
   const [isWalkEndOpen, setIsWalkEndOpen] = useState(false)
@@ -158,6 +176,124 @@ export default function DailyLogPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // clipboardLogs → sessionStorage 동기화
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (clipboardLogs.length > 0) {
+        sessionStorage.setItem('premuto_copy_clipboard', JSON.stringify(clipboardLogs))
+      } else {
+        sessionStorage.removeItem('premuto_copy_clipboard')
+      }
+    }
+  }, [clipboardLogs])
+
+  // 날짜 변경 시 선택 모드 해제
+  useEffect(() => {
+    setIsSelectionMode(false)
+    setSelectedIds(new Set())
+  }, [selectedDate])
+
+  // === 복사/붙여넣기 핸들러 ===
+
+  const selectableLogs = useMemo(() =>
+    logs.filter(l => COPYABLE_CATEGORIES.includes(l.category)),
+    [logs]
+  )
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (selectedIds.size === selectableLogs.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(selectableLogs.map(l => l.id)))
+    }
+  }, [selectedIds.size, selectableLogs])
+
+  const handleCopyLogs = useCallback(() => {
+    const selected = logs.filter(l => selectedIds.has(l.id))
+    const items: ClipboardLogItem[] = selected.map(log => {
+      const d = new Date(log.logged_at)
+      const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+      return {
+        category: log.category,
+        pet_id: log.pet_id,
+        amount: log.amount,
+        leftover_amount: log.leftover_amount ?? null,
+        unit: log.unit,
+        medicine_name: log.medicine_name,
+        snack_name: log.snack_name,
+        calories: log.calories ?? null,
+        input_source: (log.input_source as 'preset' | 'manual') || 'manual',
+        time,
+      }
+    })
+    setClipboardLogs(items)
+    setIsSelectionMode(false)
+    setSelectedIds(new Set())
+    toast({ title: `${items.length}개 기록이 복사되었습니다` })
+  }, [logs, selectedIds, toast])
+
+  const handlePasteLogs = useCallback(async () => {
+    if (clipboardLogs.length === 0) return
+    setIsPasting(true)
+    let successCount = 0
+    let failCount = 0
+
+    for (const item of clipboardLogs) {
+      try {
+        const logged_at = `${selectedDate}T${item.time}:00+09:00`
+        const pet_id = (item.pet_id && pets.some(p => p.id === item.pet_id))
+          ? item.pet_id
+          : currentPet?.id || null
+
+        const body: Record<string, unknown> = {
+          category: item.category,
+          pet_id,
+          logged_at,
+          amount: item.amount,
+          unit: item.unit,
+          input_source: item.input_source,
+        }
+        if (item.leftover_amount != null) body.leftover_amount = item.leftover_amount
+        if (item.medicine_name) body.medicine_name = item.medicine_name
+        if (item.snack_name) body.snack_name = item.snack_name
+        if (item.calories != null) body.calories = item.calories
+
+        const res = await fetch('/api/daily-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+
+        if (res.ok) successCount++
+        else failCount++
+      } catch {
+        failCount++
+      }
+    }
+
+    setIsPasting(false)
+    setIsPasteDialogOpen(false)
+
+    if (failCount === 0) {
+      toast({ title: `${successCount}개 기록이 추가되었습니다` })
+    } else if (successCount > 0) {
+      toast({ title: `${successCount}개 성공, ${failCount}개 실패`, variant: 'destructive' })
+    } else {
+      toast({ title: '기록 추가에 실패했습니다. 다시 시도해주세요.', variant: 'destructive' })
+    }
+
+    fetchData()
+  }, [clipboardLogs, selectedDate, pets, currentPet, toast, fetchData])
 
   const handleDelete = async (id: string) => {
     try {
@@ -645,48 +781,105 @@ export default function DailyLogPage() {
 
             {/* 타임라인 */}
             <div>
-              <h2 className="font-medium mb-3">
-                기록 목록
-                {selectedCategory && (
-                  <span className="text-sm text-muted-foreground ml-2">
-                    ({LOG_CATEGORY_CONFIG[selectedCategory].icon} {LOG_CATEGORY_CONFIG[selectedCategory].label} {filteredLogs.length}건)
-                  </span>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-medium">
+                  기록 목록
+                  {selectedCategory && (
+                    <span className="text-sm text-muted-foreground ml-2">
+                      ({LOG_CATEGORY_CONFIG[selectedCategory].icon} {LOG_CATEGORY_CONFIG[selectedCategory].label} {filteredLogs.length}건)
+                    </span>
+                  )}
+                </h2>
+                {!isSelectionMode && selectableLogs.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsSelectionMode(true)}
+                    className="text-xs"
+                  >
+                    <CheckSquare className="w-4 h-4 mr-1" />
+                    선택
+                  </Button>
                 )}
-              </h2>
-              <Timeline logs={filteredLogs} onDelete={handleDelete} onUpdate={handleUpdate} petId={currentPet?.id} />
+              </div>
+              <Timeline
+                logs={filteredLogs}
+                onDelete={handleDelete}
+                onUpdate={handleUpdate}
+                petId={currentPet?.id}
+                isSelectionMode={isSelectionMode}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+              />
             </div>
           </div>
         )}
       </main>
 
-      {/* 플로팅 버튼 그룹 */}
-      <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3">
-        {/* 산책 버튼 */}
-        <button
-          onClick={handleWalkFABClick}
-          disabled={isWalkSubmitting || !currentPet}
-          className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
-            activeWalk
-              ? 'bg-green-500 text-white animate-pulse'
-              : 'bg-white border-2 border-green-400 text-green-700 hover:bg-green-50'
-          } disabled:opacity-50`}
-        >
-          {isWalkSubmitting ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <span className="text-lg">🐕</span>
-          )}
-        </button>
+      {/* 플로팅 버튼 그룹 (선택 모드에서는 숨김) */}
+      {!isSelectionMode && (
+        <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3">
+          {/* 산책 버튼 */}
+          <button
+            onClick={handleWalkFABClick}
+            disabled={isWalkSubmitting || !currentPet}
+            className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
+              activeWalk
+                ? 'bg-green-500 text-white animate-pulse'
+                : 'bg-white border-2 border-green-400 text-green-700 hover:bg-green-50'
+            } disabled:opacity-50`}
+          >
+            {isWalkSubmitting ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <span className="text-lg">🐕</span>
+            )}
+          </button>
 
-        {/* 빠른 기록 추가 버튼 */}
-        <Button
-          size="lg"
-          className="w-14 h-14 rounded-full shadow-lg"
-          onClick={() => setIsModalOpen(true)}
-        >
-          <Plus className="w-6 h-6" />
-        </Button>
-      </div>
+          {/* 빠른 기록 추가 버튼 */}
+          <Button
+            size="lg"
+            className="w-14 h-14 rounded-full shadow-lg"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus className="w-6 h-6" />
+          </Button>
+        </div>
+      )}
+
+      {/* 선택 모드 액션바 */}
+      {isSelectionMode && (
+        <SelectionActionBar
+          selectedCount={selectedIds.size}
+
+          isAllSelected={selectedIds.size === selectableLogs.length && selectableLogs.length > 0}
+          onToggleAll={handleToggleSelectAll}
+          onCopy={handleCopyLogs}
+          onCancel={() => {
+            setIsSelectionMode(false)
+            setSelectedIds(new Set())
+          }}
+        />
+      )}
+
+      {/* 클립보드 플로팅 배지 (선택 모드가 아닐 때만) */}
+      {!isSelectionMode && (
+        <ClipboardFloatingBadge
+          count={clipboardLogs.length}
+          onPaste={() => setIsPasteDialogOpen(true)}
+          onClear={() => setClipboardLogs([])}
+        />
+      )}
+
+      {/* 붙여넣기 확인 다이얼로그 */}
+      <PasteConfirmDialog
+        open={isPasteDialogOpen}
+        onOpenChange={setIsPasteDialogOpen}
+        items={clipboardLogs}
+        targetDate={selectedDate}
+        onConfirm={handlePasteLogs}
+        isPasting={isPasting}
+      />
 
       {/* 빠른 기록 모달 */}
       <QuickLogModal

@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Trash2, ImageIcon, Edit2, Loader2, X, Camera, Image as ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { DailyLog, MedicinePreset } from '@/types'
-import { LOG_CATEGORY_CONFIG } from '@/types'
+import { LOG_CATEGORY_CONFIG, COPYABLE_CATEGORIES } from '@/types'
+import { Checkbox } from '@/components/ui/checkbox'
 import { compressImage } from '@/lib/image-compressor'
 import { formatNumber } from '@/lib/utils'
 import { TagSelector } from './TagSelector'
@@ -48,6 +49,10 @@ interface TimelineProps {
   onDelete?: (id: string) => void
   onUpdate?: (id: string, data: Partial<DailyLog>) => Promise<void>
   petId?: string
+  // Selection mode props
+  isSelectionMode?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (id: string) => void
 }
 
 function buildTimelineItems(logs: DailyLog[]): TimelineItem[] {
@@ -114,7 +119,7 @@ function buildTimelineItems(logs: DailyLog[]): TimelineItem[] {
   return items
 }
 
-export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
+export function Timeline({ logs, onDelete, onUpdate, petId, isSelectionMode, selectedIds, onToggleSelect }: TimelineProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -537,11 +542,33 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
           const isGroupContinuation = isInWalkGroup && (walkGroupPos === 'middle' || walkGroupPos === 'end')
           const marginClass = idx === 0 ? '' : isGroupContinuation ? 'mt-px' : 'mt-3'
 
+          const isSelectableItem = !item.walkPhase && COPYABLE_CATEGORIES.includes(log.category)
+
           return (
             <div key={itemKey} className={`${marginClass} ${isWalkChild ? 'ml-3' : ''}`}>
+              <div className={isSelectionMode ? 'flex items-center gap-2' : ''}>
+              {isSelectionMode && isSelectableItem && (
+                <Checkbox
+                  checked={selectedIds?.has(log.id) || false}
+                  onCheckedChange={() => onToggleSelect?.(log.id)}
+                  className="ml-1 shrink-0"
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                />
+              )}
+              {isSelectionMode && !isSelectableItem && (
+                <div className="w-4 ml-1 shrink-0" />
+              )}
               <Card
-                className={`overflow-hidden cursor-pointer hover:bg-muted/50 transition-colors ${groupBorderClass}`}
-                onClick={() => handleOpenDetail(log)}
+                className={`overflow-hidden ${isSelectionMode ? 'flex-1' : 'cursor-pointer hover:bg-muted/50'} transition-colors ${groupBorderClass} ${
+                  isSelectionMode && selectedIds?.has(log.id) ? 'ring-2 ring-primary' : ''
+                }`}
+                onClick={() => {
+                  if (isSelectionMode && isSelectableItem) {
+                    onToggleSelect?.(log.id)
+                  } else if (!isSelectionMode) {
+                    handleOpenDetail(log)
+                  }
+                }}
               >
                 <CardContent className="p-0">
                   <div className="flex items-center">
@@ -615,6 +642,7 @@ export function Timeline({ logs, onDelete, onUpdate, petId }: TimelineProps) {
                   </div>
                 </CardContent>
               </Card>
+              </div>
             </div>
           )
         })}
