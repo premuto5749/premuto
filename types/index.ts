@@ -241,6 +241,25 @@ export interface DailyLogInput {
   tags?: Record<string, string | string[]> | null  // 태그 (JSONB)
 }
 
+/** 복사/붙여넣기용 클립보드 항목 (핵심 필드만) */
+export interface ClipboardLogItem {
+  category: LogCategory
+  pet_id: string | null
+  amount: number | null
+  leftover_amount: number | null
+  unit: string | null
+  medicine_name: string | null
+  snack_name: string | null
+  calories: number | null
+  input_source: 'preset' | 'manual'
+  time: string  // "HH:mm" (logged_at에서 추출)
+}
+
+/** 복사 선택 가능 카테고리 (weight, walk, vomit, note 제외) */
+export const COPYABLE_CATEGORIES: LogCategory[] = [
+  'meal', 'water', 'snack', 'medicine', 'poop', 'pee', 'breathing'
+]
+
 export interface DailyStats {
   user_id: string            // 소유자 ID
   pet_id: string | null      // 반려동물 ID
