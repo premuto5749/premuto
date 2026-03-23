@@ -434,7 +434,8 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
             machine_type: group.machine_type,
             pages: testGroups.length,
             processingTime
-          }
+          },
+          ...(groupItems.length === 0 ? { error: `항목 추출 실패: ${file.name} (그룹 ${index + 1})` } : {})
         })
       })
 
@@ -443,7 +444,12 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
         results[results.length - 1].truncated = true
       }
 
-      console.log(`✅ Extracted ${results.length} date group(s) from ${file.name}${wasTruncated ? ' (truncated)' : ''}`)
+      const totalGroupItems = results.reduce((sum, r) => sum + r.items.length, 0)
+      console.log(`✅ Extracted ${results.length} date group(s), ${totalGroupItems} items from ${file.name}${wasTruncated ? ' (truncated)' : ''}`)
+      if (totalGroupItems === 0) {
+        console.error(`⚠️ [${fileId}] 0 items extracted. OCR JSON keys: ${Object.keys(ocrResult).join(', ')}`)
+        console.error(`⚠️ [${fileId}] test_groups count: ${testGroups.length}, first group keys: ${testGroups[0] ? Object.keys(testGroups[0]).join(', ') : 'N/A'}`)
+      }
       return results
     }
 
@@ -462,6 +468,12 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
     }>
     const items = convertItems(rawItems)
 
+    // items도 없고 test_groups도 없는 경우 로깅
+    if (items.length === 0) {
+      console.error(`⚠️ [${fileId}] 0 items extracted (flat format). OCR JSON keys: ${Object.keys(ocrResult).join(', ')}`)
+      console.error(`⚠️ [${fileId}] Raw content (first 300 chars): ${content.substring(0, 300)}`)
+    }
+
     return [{
       filename: file.name,
       items,
@@ -472,7 +484,8 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
         pages: 1,
         processingTime
       },
-      truncated: wasTruncated
+      truncated: wasTruncated,
+      ...(items.length === 0 ? { error: `항목 추출 실패: AI가 검사 항목을 찾지 못했습니다 (${file.name})` } : {})
     }]
   } catch (error) {
     console.error(`❌ OCR processing error for ${file.name}:`, error)
@@ -758,7 +771,8 @@ export async function POST(request: NextRequest) {
             processingTime: r.metadata.processingTime,
             test_date: r.metadata.test_date,
             hospital_name: r.metadata.hospital_name
-          }
+          },
+          ...(r.error ? { error: r.error } : {})
         })),
         warnings
       }
