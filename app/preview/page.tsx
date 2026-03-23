@@ -375,6 +375,7 @@ function PreviewContent() {
         const errorData = await response.json()
         if (errorData.error === 'AI_RATE_LIMIT') {
           setRateLimitError(true)
+          setIsMappingInProgress(false)
           return
         }
         throw new Error(errorData.message || 'AI 매핑 실패')
@@ -574,12 +575,33 @@ function PreviewContent() {
     }
   }
 
-  if (!batchData || allItems.length === 0) {
+  if (!batchData) {
     return (
       <div className="min-h-screen bg-muted">
         <AppHeader title="OCR 결과 확인" showBack backHref="/upload" />
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    )
+  }
+
+  if (allItems.length === 0) {
+    return (
+      <div className="min-h-screen bg-muted">
+        <AppHeader title="OCR 결과 확인" showBack backHref="/upload" />
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 px-4">
+          <AlertCircle className="w-12 h-12 text-orange-500" />
+          <div className="text-center">
+            <p className="text-lg font-medium">검사 항목을 찾지 못했습니다</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              업로드한 파일에서 혈액검사 항목을 인식하지 못했습니다.<br />
+              검사지 이미지가 선명한지 확인하고 다시 시도해주세요.
+            </p>
+          </div>
+          <Button onClick={() => router.push('/upload')} className="mt-2">
+            다시 업로드
+          </Button>
         </div>
       </div>
     )
