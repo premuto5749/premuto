@@ -277,8 +277,8 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
     // 파일별 고유 프롬프트 생성 (파일명 포함)
     const fileSpecificPrompt = `[파일: ${file.name}]\n\n${OCR_PROMPT}\n\n⚠️ 중요: 이 이미지/문서에서만 데이터를 추출하세요. 다른 파일의 내용과 혼동하지 마세요.`
 
-    // Claude API 호출 (max_tokens는 DB 설정값 사용)
-    const message = await getAnthropicClient().messages.create({
+    // Claude API 호출 (streaming 사용 - non-streaming은 이미지 포함 시 SDK 타임아웃 제한)
+    const stream = getAnthropicClient().messages.stream({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: maxTokens,
       messages: [
@@ -294,6 +294,7 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
         },
       ],
     })
+    const message = await stream.finalMessage()
 
     // API 응답 상태 로깅
     console.log(`📡 [${fileId}] Claude API response: stop_reason=${message.stop_reason}, usage=${JSON.stringify(message.usage)}, content_blocks=${message.content.length}`)
