@@ -279,7 +279,7 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
 
     // Claude API 호출 (max_tokens는 DB 설정값 사용)
     const message = await getAnthropicClient().messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: maxTokens,
       messages: [
         {
@@ -295,6 +295,9 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
       ],
     })
 
+    // API 응답 상태 로깅
+    console.log(`📡 [${fileId}] Claude API response: stop_reason=${message.stop_reason}, usage=${JSON.stringify(message.usage)}, content_blocks=${message.content.length}`)
+
     // 토큰 제한으로 응답이 잘렸는지 확인
     const wasTruncated = message.stop_reason === 'max_tokens'
     if (wasTruncated) {
@@ -306,8 +309,11 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
     const content = textContent?.type === 'text' ? textContent.text : null
 
     if (!content) {
+      console.error(`❌ [${fileId}] No text content in response. Content types: ${message.content.map(b => b.type).join(', ')}`)
       throw new Error(`No response from OCR service for file: ${file.name}`)
     }
+
+    console.log(`📝 [${fileId}] Response text length: ${content.length}, first 200 chars: ${content.substring(0, 200)}`)
 
     // JSON 파싱 (복구 로직 포함)
     const ocrResult = cleanAndParseJson(content)
@@ -449,6 +455,13 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
       if (totalGroupItems === 0) {
         console.error(`⚠️ [${fileId}] 0 items extracted. OCR JSON keys: ${Object.keys(ocrResult).join(', ')}`)
         console.error(`⚠️ [${fileId}] test_groups count: ${testGroups.length}, first group keys: ${testGroups[0] ? Object.keys(testGroups[0]).join(', ') : 'N/A'}`)
+        console.error(`⚠️ [${fileId}] Full response: ${content.substring(0, 1000)}`)
+        // 0 items이면 재시도 (Claude가 이미지를 제대로 못 읽었을 수 있음)
+        if (retryCount < MAX_RETRIES) {
+          console.log(`🔄 [${fileId}] Retrying due to 0 items... (${retryCount + 1}/${MAX_RETRIES})`)
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          return processFile(file, fileIndex, maxTokens, retryCount + 1)
+        }
       }
       return results
     }
@@ -468,10 +481,15 @@ async function processFile(file: File, fileIndex: number, maxTokens: number, ret
     }>
     const items = convertItems(rawItems)
 
-    // items도 없고 test_groups도 없는 경우 로깅
+    // items도 없고 test_groups도 없는 경우 로깅 + 재시도
     if (items.length === 0) {
       console.error(`⚠️ [${fileId}] 0 items extracted (flat format). OCR JSON keys: ${Object.keys(ocrResult).join(', ')}`)
-      console.error(`⚠️ [${fileId}] Raw content (first 300 chars): ${content.substring(0, 300)}`)
+      console.error(`⚠️ [${fileId}] Full response: ${content.substring(0, 1000)}`)
+      if (retryCount < MAX_RETRIES) {
+        console.log(`🔄 [${fileId}] Retrying due to 0 items... (${retryCount + 1}/${MAX_RETRIES})`)
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        return processFile(file, fileIndex, maxTokens, retryCount + 1)
+      }
     }
 
     return [{
