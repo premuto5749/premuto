@@ -587,6 +587,9 @@ function PreviewContent() {
   }
 
   if (allItems.length === 0) {
+    const ocrErrors = batchData.results
+      .filter(r => r.error)
+      .map(r => `${r.filename}: ${r.error}`)
     return (
       <div className="min-h-screen bg-muted">
         <AppHeader title="OCR 결과 확인" showBack backHref="/upload" />
@@ -598,6 +601,14 @@ function PreviewContent() {
               업로드한 파일에서 혈액검사 항목을 인식하지 못했습니다.<br />
               검사지 이미지가 선명한지 확인하고 다시 시도해주세요.
             </p>
+            {ocrErrors.length > 0 && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-left">
+                <p className="text-xs font-medium text-red-700 mb-1">오류 상세:</p>
+                {ocrErrors.map((err, i) => (
+                  <p key={i} className="text-xs text-red-600">{err}</p>
+                ))}
+              </div>
+            )}
           </div>
           <Button onClick={() => router.push('/upload')} className="mt-2">
             다시 업로드

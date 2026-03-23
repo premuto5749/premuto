@@ -40,9 +40,10 @@ export interface OcrBatchResponse {
         test_date?: string
         hospital_name?: string
       }
+      error?: string
     }>
     warnings: Array<{
-      type: 'date_mismatch' | 'duplicate_item' | 'parse_error'
+      type: 'date_mismatch' | 'duplicate_item' | 'parse_error' | 'truncated'
       message: string
       files: string[]
     }>
