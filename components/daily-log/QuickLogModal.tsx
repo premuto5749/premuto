@@ -491,7 +491,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {selectedCategory
@@ -874,7 +874,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                 {medicineInputMode === 'preset' && (
                   <div>
                     {medicinePresets.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
                         {medicinePresets.map((preset) => (
                           <button
                             key={preset.id}
