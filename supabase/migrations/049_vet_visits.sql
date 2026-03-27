@@ -40,14 +40,14 @@ CREATE POLICY "vet_visits_delete_own" ON vet_visits
   FOR DELETE TO authenticated
   USING (auth.uid() = user_id);
 
--- Admin SELECT
+-- Admin SELECT (user_roles 테이블 기반)
 CREATE POLICY "vet_visits_admin_select" ON vet_visits
   FOR SELECT TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM user_profiles
-      WHERE user_profiles.user_id = auth.uid()
-      AND user_profiles.is_admin = true
+      SELECT 1 FROM user_roles
+      WHERE user_roles.user_id = auth.uid()
+      AND user_roles.role IN ('admin', 'super_admin')
     )
   );
 
