@@ -313,7 +313,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
         } else if (medicineInputMode === 'manual' && medicineName) {
           // 직접 입력: "약이름 복용량단위" 형식
           fullMedicineName = medicineDosage
-            ? `${medicineName} ${medicineDosage}${medicineDosageUnit}`
+            ? `${medicineName} ${medicineDosage}${medicineDosageUnit === '없음' ? '' : medicineDosageUnit}`
             : medicineName
         }
       }
@@ -773,7 +773,7 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                         <button
                           type="button"
                           onClick={() => {
-                            const units = ['개', '봉', 'g', 'ml']
+                            const units = ['개', '봉', 'g', 'ml', '스푼', '없음']
                             const idx = units.indexOf(snackUnit)
                             setSnackUnit(units[(idx + 1) % units.length])
                           }}
@@ -933,6 +933,8 @@ export function QuickLogModal({ open, onOpenChange, onSuccess, defaultDate, petI
                           <option value="ml">ml</option>
                           <option value="포">포</option>
                           <option value="캡슐">캡슐</option>
+                          <option value="스푼">스푼</option>
+                          <option value="없음">없음</option>
                         </select>
                       </div>
                     </div>
