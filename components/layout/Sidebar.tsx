@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { FileText, LineChart, Trash2, Settings, Menu, X, Cog, Building2 } from 'lucide-react'
+import { FileText, LineChart, Trash2, Settings, Menu, X, Cog, Building2, Stethoscope } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 
 const navigation = [
   { name: '일일 기록', href: '/daily-log', icon: FileText },
   { name: '검사 결과 대시보드', href: '/dashboard', icon: LineChart },
+  { name: '진료 기록', href: '/vet-visits', icon: Stethoscope },
   { name: '병원 연락처', href: '/hospital-contacts', icon: Building2 },
   { name: '검사 기록 관리', href: '/records-management', icon: Trash2 },
   { name: '검사항목 매핑 관리', href: '/mapping-management', icon: Settings },

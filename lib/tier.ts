@@ -15,6 +15,7 @@ export interface TierConfig {
   google_drive_enabled: boolean       // Google Drive 백업 활성화
   ocr_max_tokens: number              // OCR API max_tokens (-1=무제한은 없음)
   pdf_max_pages: number               // PDF 최대 페이지 수 (-1=무제한)
+  monthly_vet_visit_limit: number     // 월간 진료녹음 분석 (-1=무제한)
 }
 
 export type TierConfigMap = Record<TierName, TierConfig>
@@ -34,6 +35,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     google_drive_enabled: false,
     ocr_max_tokens: 8000,
     pdf_max_pages: 3,
+    monthly_vet_visit_limit: 1,
   },
   basic: {
     label: '기본',
@@ -48,6 +50,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     google_drive_enabled: true,
     ocr_max_tokens: 16000,
     pdf_max_pages: 10,
+    monthly_vet_visit_limit: 5,
   },
   premium: {
     label: '프리미엄',
@@ -62,6 +65,7 @@ const DEFAULT_TIER_CONFIG: TierConfigMap = {
     google_drive_enabled: true,
     ocr_max_tokens: 32000,
     pdf_max_pages: -1,
+    monthly_vet_visit_limit: -1,
   },
 }
 
@@ -380,6 +384,8 @@ export async function checkMonthlyUsageLimit(
   let limit: number
   if (action === 'detailed_export') {
     limit = tierConfig.monthly_detailed_export_limit ?? -1
+  } else if (action === 'vet_visit_transcribe') {
+    limit = tierConfig.monthly_vet_visit_limit ?? -1
   } else {
     limit = -1
   }

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon, Share2, ImagePlus, Loader2, CheckSquare } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, ChevronLeft, ChevronRight, Copy, CalendarIcon, Share2, ImagePlus, Loader2, CheckSquare, Stethoscope } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -73,6 +74,7 @@ export default function DailyLogPage() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [isSummaryOverlayOpen, setIsSummaryOverlayOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<LogCategory | null>(null)
+  const [vetVisitCount, setVetVisitCount] = useState(0)
   const { toast } = useToast()
   const { pets, currentPet, setCurrentPet, isLoading: isPetsLoading, refreshPets } = usePet()
   const { dailyCategories, imageCategories } = useCardLayout()
@@ -125,11 +127,12 @@ export default function DailyLogPage() {
 
       // 기록+통계 + 체중 + 급여계획 + 진행중산책 병렬 조회
       // include_stats=true로 기록과 통계를 1회 API 호출로 함께 가져옴
-      const [logsRes, weightRes, planRes, walkRes] = await Promise.all([
+      const [logsRes, weightRes, planRes, walkRes, vetRes] = await Promise.all([
         fetch(`/api/daily-logs?date=${selectedDate}&include_stats=true${petParam}`),
         currentPet ? fetch(`/api/daily-logs?latest_weight=true&pet_id=${currentPet.id}&date=${selectedDate}`) : Promise.resolve(null),
         currentPet ? fetch(`/api/feeding-plans?pet_id=${currentPet.id}&date=${selectedDate}`) : Promise.resolve(null),
         currentPet ? fetch(`/api/daily-logs?active_walk=true&pet_id=${currentPet.id}`) : Promise.resolve(null),
+        currentPet ? fetch(`/api/vet-visits?pet_id=${currentPet.id}&date=${selectedDate}`) : Promise.resolve(null),
       ])
 
       if (logsRes.ok) {
@@ -160,6 +163,13 @@ export default function DailyLogPage() {
         setActiveWalk(walkData.data || null)
       } else {
         setActiveWalk(null)
+      }
+
+      if (vetRes && vetRes.ok) {
+        const vetData = await vetRes.json()
+        setVetVisitCount(vetData.data?.length || 0)
+      } else {
+        setVetVisitCount(0)
       }
     } catch (error) {
       console.error('Failed to fetch data:', error)
@@ -768,6 +778,19 @@ export default function DailyLogPage() {
           </div>
         ) : (
           <div className="space-y-4">
+            {/* 진료 기록 배너 */}
+            {vetVisitCount > 0 && (
+              <Link
+                href={`/vet-visits`}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg text-sm hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors"
+              >
+                <Stethoscope className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-blue-700 dark:text-blue-300">
+                  {vetVisitCount === 1 ? '진료 기록이 있습니다' : `${vetVisitCount}건의 진료 기록이 있습니다`}
+                </span>
+              </Link>
+            )}
+
             {/* 일일 통계 */}
             <DailyStatsCard
               stats={stats}
