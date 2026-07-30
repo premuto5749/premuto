@@ -41,7 +41,7 @@ import { LOG_CATEGORY_CONFIG, COPYABLE_CATEGORIES } from '@/types'
 import { SelectionActionBar } from '@/components/daily-log/SelectionActionBar'
 import { ClipboardFloatingBadge } from '@/components/daily-log/ClipboardFloatingBadge'
 import { PasteConfirmDialog } from '@/components/daily-log/PasteConfirmDialog'
-import { formatNumber, formatLocalDate } from '@/lib/utils'
+import { formatNumber, formatLocalDate, getKSTToday } from '@/lib/utils'
 import { calculateCalories, calculateIntake, calculateMixedCalorieDensity } from '@/lib/calorie'
 import {
   Popover,
@@ -51,13 +51,6 @@ import {
 import { Calendar } from '@/components/ui/calendar'
 import { usePet } from '@/contexts/PetContext'
 import { useCardLayout } from '@/hooks/use-card-layout'
-
-// 한국 시간(KST, UTC+9) 기준 오늘 날짜 반환
-function getKSTToday(): string {
-  // Intl.DateTimeFormat을 사용하여 명시적으로 Asia/Seoul 타임존 적용
-  // 'sv-SE' 로케일은 YYYY-MM-DD 형식을 반환
-  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
-}
 
 export default function DailyLogPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)

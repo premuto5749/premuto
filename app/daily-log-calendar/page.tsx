@@ -10,11 +10,7 @@ import { usePet } from '@/contexts/PetContext'
 import { useCardLayout } from '@/hooks/use-card-layout'
 import type { DailyStats } from '@/types'
 import type { LogCategory } from '@/types'
-
-// 한국 시간(KST, UTC+9) 기준 오늘 날짜 반환
-function getKSTToday(): string {
-  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
-}
+import { getKSTToday } from '@/lib/utils'
 
 export default function DailyLogCalendarPage() {
   const today = getKSTToday()

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import { LOG_CATEGORY_CONFIG } from '@/types'
-import { formatLocalDate } from '@/lib/utils'
+import { getKSTToday } from '@/lib/utils'
 
 interface BreathingTimerModalProps {
   open: boolean
@@ -39,7 +39,7 @@ export function BreathingTimerModal({
   useEffect(() => {
     if (open) {
       const now = new Date()
-      setLogDate(defaultDate || formatLocalDate(now))
+      setLogDate(defaultDate || getKSTToday())
       setLogTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
     }
   }, [open, defaultDate])

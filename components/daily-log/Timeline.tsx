@@ -382,6 +382,13 @@ export function Timeline({ logs, onDelete, onUpdate, petId, isSelectionMode, sel
         if (uploadRes.ok) {
           const uploadResult = await uploadRes.json()
           uploadedPhotoUrls = uploadResult.data?.urls || []
+        } else {
+          const errBody = await uploadRes.json().catch(() => null)
+          const errMsg = errBody?.error || '사진 업로드에 실패했습니다'
+          setIsUploadingPhotos(false)
+          setIsSaving(false)
+          window.alert(errMsg)
+          return
         }
         setIsUploadingPhotos(false)
       }

@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import type { DailyLog, DailyLogInput, DailyStats } from '@/types'
 import { triggerDailyLogDriveBackup } from '@/lib/google-drive-upload'
 import { waitUntil } from '@vercel/functions'
+import { getUserTier, getTierConfig } from '@/lib/tier'
 
 export const dynamic = 'force-dynamic'
 
@@ -323,6 +324,20 @@ export const POST = withAuth(async (request, { supabase, user }) => {
       ? photo_urls.filter((url): url is string => typeof url === 'string' && url.length > 0)
       : []
 
+    if (safePhotoUrls.length > 0) {
+      const [tier, tierConfigMap] = await Promise.all([
+        getUserTier(user.id),
+        getTierConfig(),
+      ])
+      const tierConfig = tierConfigMap[tier] || tierConfigMap.free
+      if (safePhotoUrls.length > tierConfig.daily_log_max_photos) {
+        return NextResponse.json(
+          { error: `사진은 최대 ${tierConfig.daily_log_max_photos}장까지 첨부할 수 있습니다` },
+          { status: 400 }
+        )
+      }
+    }
+
     const insertData: Record<string, unknown> = {
       user_id: user.id,
       pet_id: pet_id || null,
@@ -463,10 +478,16 @@ export const DELETE = withAuth(async (request, { supabase, user }) => {
 })
 
 // PATCH: 기록 수정
+const PATCH_ALLOWED_FIELDS = new Set([
+  'category', 'pet_id', 'logged_at', 'amount', 'leftover_amount',
+  'unit', 'memo', 'photo_urls', 'medicine_name', 'snack_name',
+  'calories', 'input_source', 'walk_end_at', 'walk_id', 'tags',
+])
+
 export const PATCH = withAuth(async (request, { supabase, user }) => {
   try {
     const body = await request.json()
-    const { id, restore, ...updates } = body
+    const { id, restore, ...rawUpdates } = body
 
     if (!id) {
       return NextResponse.json(
@@ -475,11 +496,34 @@ export const PATCH = withAuth(async (request, { supabase, user }) => {
       )
     }
 
-    // photo_urls가 포함된 경우 안전한 JSONB 배열로 변환
+    // 허용된 필드만 추출 (user_id, deleted_at, created_at 등 보호)
+    const updates: Record<string, unknown> = {}
+    for (const key of Object.keys(rawUpdates)) {
+      if (PATCH_ALLOWED_FIELDS.has(key)) {
+        updates[key] = rawUpdates[key]
+      }
+    }
+
+    // photo_urls가 포함된 경우 안전한 JSONB 배열로 변환 + 티어 제한 검증
     if ('photo_urls' in updates) {
       updates.photo_urls = Array.isArray(updates.photo_urls)
-        ? updates.photo_urls.filter((url: unknown): url is string => typeof url === 'string' && (url as string).length > 0)
+        ? (updates.photo_urls as unknown[]).filter((url: unknown): url is string => typeof url === 'string' && (url as string).length > 0)
         : []
+
+      const photoUrls = updates.photo_urls as string[]
+      if (photoUrls.length > 0) {
+        const [tier, tierConfigMap] = await Promise.all([
+          getUserTier(user.id),
+          getTierConfig(),
+        ])
+        const tierConfig = tierConfigMap[tier] || tierConfigMap.free
+        if (photoUrls.length > tierConfig.daily_log_max_photos) {
+          return NextResponse.json(
+            { error: `사진은 최대 ${tierConfig.daily_log_max_photos}장까지 첨부할 수 있습니다` },
+            { status: 400 }
+          )
+        }
+      }
     }
 
     // 복원 요청
