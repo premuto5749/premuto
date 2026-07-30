@@ -16,6 +16,11 @@ export function formatLocalDate(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+/** 한국 시간(KST, UTC+9) 기준 오늘 날짜를 YYYY-MM-DD로 반환 */
+export function getKSTToday(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
+}
+
 /** 숫자를 1000단위 컴마 포맷으로 변환 (소수점 유지) */
 export function formatNumber(value: number): string {
   return value.toLocaleString('ko-KR', { maximumFractionDigits: 10 })

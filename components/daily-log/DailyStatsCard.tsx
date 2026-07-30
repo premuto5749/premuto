@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { DailyStats, LogCategory } from '@/types'
 import { LOG_CATEGORY_CONFIG } from '@/types'
-import { formatNumber, formatLocalDate } from '@/lib/utils'
+import { formatNumber, getKSTToday } from '@/lib/utils'
 
 interface CalorieData {
   intake: number
@@ -49,13 +49,14 @@ export function DailyStatsCard({ stats, date, selectedCategory, onCategoryClick,
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
+    const kstToday = getKSTToday()
+    const yesterdayDate = new Date(kstToday)
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+    const kstYesterday = yesterdayDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 
-    if (dateStr === formatLocalDate(today)) {
+    if (dateStr === kstToday) {
       return '오늘'
-    } else if (dateStr === formatLocalDate(yesterday)) {
+    } else if (dateStr === kstYesterday) {
       return '어제'
     }
 

@@ -3,10 +3,9 @@
 import { useState, useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formatNumber, getKSTToday } from '@/lib/utils'
 import { LOG_CATEGORY_CONFIG } from '@/types'
 import type { DailyStats, LogCategory } from '@/types'
-import { formatNumber } from '@/lib/utils'
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -38,11 +37,6 @@ interface MonthlyStatsCalendarProps {
   onNextMonth: () => void
   onGoToThisMonth: () => void
   visibleCategories?: LogCategory[] // 카드배치 설정 반영 (weight 제외)
-}
-
-// 한국 시간(KST) 기준 오늘 날짜
-function getKSTToday(): string {
-  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
 }
 
 function formatSummaryValue(stats: DailyStats, category: string): string {
