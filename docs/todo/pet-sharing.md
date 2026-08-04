@@ -7,6 +7,10 @@
 
 **결정 사항**: 2단계 권한(owner/member), 이메일 초대, 자동 마이그레이션, API signed URL 방식
 
+**권한 모델: 공동 관리자 (Co-Manager)**
+- **member = 공동 관리자**: 기록 CRUD(추가/수정/삭제), 펫 프로필 수정 등 일상적 관리 작업은 owner와 동일
+- **owner 전용 권한**: 펫 삭제, 공유 관리(초대/제거)만 owner로 제한
+
 ---
 
 ## Phase 1: DB 마이그레이션 (`supabase/migrations/032_pet_sharing.sql`)
@@ -56,11 +60,11 @@ ON CONFLICT (pet_id, user_id) DO NOTHING;
 ### 1-3. RLS 정책 업데이트 (안전한 순서: CREATE 먼저 → DROP 나중에)
 
 **변경 대상 테이블 5개**:
-- `pets` — SELECT: owner OR pet_members / INSERT: owner만 / UPDATE,DELETE: owner만
+- `pets` — SELECT/UPDATE: owner OR pet_members / INSERT: 본인만 / DELETE: owner만
 - `daily_logs` — 모든 CRUD: `user_id = auth.uid()` OR `pet_members` 체크
 - `test_records` — 동일 패턴
 - `test_results` — test_records FK 체인 통해 간접 체크
-- `medicine_presets` — SELECT만 pet_members 체크 (CUD는 user_id 직접 체크 유지)
+- `medicine_presets` — 모든 CRUD: `user_id = auth.uid()` OR `pet_members` 체크
 
 **RLS 패턴** (모든 변경 테이블 공통):
 ```sql
@@ -104,7 +108,7 @@ getAccessiblePetIds(supabase, userId) → string[]
 | `app/api/test-results/merge/route.ts` | 병합 전 pet_id access 체크 |
 | `app/api/export-excel/route.ts` | pet_id 기반 필터링 |
 | `app/api/daily-logs/export-detailed/route.ts` | pet_id 기반 필터링 |
-| `app/api/medicine-presets/route.ts` | GET만 pet_members 체크 (CUD는 user_id 유지) |
+| `app/api/medicine-presets/route.ts` | 모든 CRUD: pet_id 있으면 pet_members 체크, 없으면 user_id 폴백 |
 | `app/api/account-stats/route.ts` | accessible pet IDs 기반 카운팅 |
 
 ### 2-3. Signed URL 변경 (`app/api/daily-logs/route.ts`)
@@ -194,11 +198,14 @@ PetInvitation { id, pet_id, invited_email, status, pet_name?, inviter_email?, ..
 | 작업 | Owner | Member | 비멤버 |
 |------|-------|--------|-------|
 | 펫 프로필 조회 | O | O | X |
-| 펫 프로필 수정 | O | X | X |
-| 일일 기록 추가/수정/조회 | O | O | X |
-| 사진 조회 (signed URL) | O | O | X |
-| 혈액검사 조회 | O | O | X |
-| 공유 관리 | O | X | X |
+| 펫 프로필 수정 | O | O | X |
+| 일일 기록 CRUD (추가/수정/삭제/조회) | O | O | X |
+| 사진 업로드/조회 (signed URL) | O | O | X |
+| 혈액검사 업로드/수정/삭제/조회 | O | O | X |
+| 약 프리셋 CRUD | O | O | X |
+| Excel 내보내기 | O | O | X |
+| 펫 삭제 | O | X | X |
+| 공유 관리 (초대/제거) | O | X | X |
 
 4. **`npm run build`** 성공 확인
 5. **Vercel Preview** 배포 후 수동 E2E 테스트
@@ -226,5 +233,5 @@ PetInvitation { id, pet_id, invited_email, status, pet_name?, inviter_email?, ..
 - `app/api/daily-logs/upload/route.ts` — 접근 체크
 - `app/api/test-results/route.ts` — pet_members 체크
 - `app/api/test-results-batch/route.ts` — 접근 체크
-- `app/api/medicine-presets/route.ts` — GET에 pet_members 체크
+- `app/api/medicine-presets/route.ts` — 모든 CRUD에 pet_members 체크
 - `app/api/account-stats/route.ts` — accessible pet 기반 카운팅

@@ -44,3 +44,12 @@ blog-*.md
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# 도구가 만드는 상태 파일 (2026-08-03)
+.bkit/
+.claude/settings.local.json
+.playwright-mcp/
+docs/.bkit-memory.json
+docs/.pdca-status.json
+docs/.pdca-snapshots/
+.claude/worktrees/
