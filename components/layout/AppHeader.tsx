@@ -51,6 +51,7 @@ export function AppHeader({ title, showBack = false, backHref = '/daily-log' }: 
     { href: '/daily-log', label: '일일 기록', icon: '📝' },
     { href: '/daily-log-calendar', label: '월간 통계', icon: '📅' },
     { href: '/dashboard', label: '검사 결과 대시보드', icon: '📊' },
+    { href: '/vet-visits', label: '진료 기록', icon: '🩺' },
     { href: '/hospital-contacts', label: '병원 연락처', icon: '🏥' },
     { href: '/lost-animals', label: '유실 동물 안내', icon: '🐕' },
     { href: '/calorie-calculator', label: '사료량 계산기', icon: '🧮' },
