@@ -18,6 +18,7 @@ import { TrendChart } from '@/components/dashboard/TrendChart'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { ViewOptions, type SortType } from '@/components/dashboard/ViewOptions'
 import { formatLocalDate } from '@/lib/utils'
+import { usePet } from '@/contexts/PetContext'
 
 interface TestResult {
   id: string
@@ -89,14 +90,17 @@ function DashboardContent() {
   const [showExportConfirm, setShowExportConfirm] = useState(false)
   const [exportRemaining, setExportRemaining] = useState(0)
   const { toast } = useToast()
+  const { currentPet } = usePet()
 
   useEffect(() => {
     fetchTestRecords()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPet?.id])
 
   const fetchTestRecords = async () => {
     try {
-      const response = await fetch('/api/test-results')
+      const petParam = currentPet ? `?petId=${currentPet.id}` : ''
+      const response = await fetch(`/api/test-results${petParam}`)
       const result = await response.json()
 
       if (!response.ok) {

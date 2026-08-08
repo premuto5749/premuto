@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import { formatLocalDate } from '@/lib/utils'
+import { usePet } from '@/contexts/PetContext'
 import type { OcrBatchResponse, OcrResult, Hospital } from '@/types'
 
 // 이상여부 배지 컴포넌트
@@ -80,6 +81,7 @@ interface DateGroup {
 
 function PreviewContent() {
   const router = useRouter()
+  const { currentPet } = usePet()
   const [batchData, setBatchData] = useState<OcrBatchResponse['data'] | null>(null)
   const [allItems, setAllItems] = useState<EditableItem[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -521,7 +523,8 @@ function PreviewContent() {
             hospital_name: group.hospital,
             ocr_batch_id: batchData.batch_id,
             uploaded_files: uploadedFiles,
-            results: allResults
+            results: allResults,
+            pet_id: currentPet?.id
           })
         })
 
