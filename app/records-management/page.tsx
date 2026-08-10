@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useToast } from '@/hooks/use-toast'
+import { usePet } from '@/contexts/PetContext'
 import type { Hospital } from '@/types'
 
 interface TestRecord {
@@ -92,16 +93,19 @@ function RecordsManagementContent() {
   const [conflictResolutions, setConflictResolutions] = useState<Map<string, boolean>>(new Map())
 
   const { toast } = useToast()
+  const { currentPet } = usePet()
 
   useEffect(() => {
     fetchRecords()
     fetchHospitals()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPet?.id])
 
   const fetchRecords = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/test-results')
+      const petParam = currentPet ? `?petId=${currentPet.id}` : ''
+      const response = await fetch(`/api/test-results${petParam}`)
       const result = await response.json()
 
       if (result.success && result.data) {
