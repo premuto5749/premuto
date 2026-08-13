@@ -1,0 +1,65 @@
+-- 051_close_anon_data_exposure.sql
+--
+-- 비로그인(anon) 공개키로 일일 건강기록이 조회되던 문제를 막는다.
+--
+-- 발견 경위: 2026-08-12 mimoharu.com 접속 장애(공유 Supabase 의 PostgREST 먹통)를
+-- 조사하다 app_settings 권한거부 로그를 추적하던 중 발견했다.
+--
+-- 노출 실측 (수정 전, NEXT_PUBLIC_SUPABASE_ANON_KEY 만으로):
+--   daily_logs   4,834행 전체 조회 가능 (실사용자 23명)
+--   daily_stats    420행 조회 가능 (user_id, pet_id, log_date, 식사량 포함)
+-- 공개키는 브라우저 번들에 포함되므로 사이트 방문자 누구나 꺼낼 수 있었다.
+--
+-- Supabase advisor 는 이 문제를 보안 항목으로 잡지 못했다. RLS 활성 여부와 정책
+-- 존재 여부만 검사하고 정책이 실제로 막는지는 보지 않기 때문이다. 다만 성능 항목
+-- multiple_permissive_policies 에 범인 정책명과 role=anon, action=DELETE/INSERT 가
+-- 그대로 적혀 있었다.
+--
+-- 재실행 안전(idempotent). 프로덕션에는 2026-08-13 Supabase MCP apply_migration
+-- (close_anon_exposure_daily_logs_and_stats)으로 선적용했고, 이 파일은 그 기록이다.
+
+-- ---------------------------------------------------------------------------
+-- 1) daily_logs: 모든 역할에 전권을 주던 잔재 정책 제거
+-- ---------------------------------------------------------------------------
+-- RLS 허용(PERMISSIVE) 정책들은 OR 로 합쳐진다. 아래 정책 하나가 qual=true 라서
+-- 올바른 정책 5개(auth.uid() = user_id)를 전부 무력화하고 있었다.
+--   Users can view own daily_logs      SELECT  auth.uid() = user_id AND deleted_at IS NULL
+--   Users can view own deleted daily_logs SELECT auth.uid() = user_id AND deleted_at IS NOT NULL
+--   daily_logs_select                  SELECT  auth.uid() = user_id AND deleted_at IS NULL
+--   Users can insert/update/delete own daily_logs  각각 auth.uid() = user_id
+-- 위 5개가 이미 존재하므로 잔재만 지우면 정상화된다. 새 정책 추가는 필요 없다.
+--
+-- 앱 영향 없음: app/api/daily-logs/route.ts 는 사진 Signed URL 생성에만
+-- service client 를 쓰고 데이터 조회/쓰기는 withAuth 가 준 사용자 클라이언트로
+-- 하면서 코드에서 .eq('user_id', user.id) 로도 거른다. 정책과 결과가 일치한다.
+DROP POLICY IF EXISTS "Allow all access to daily_logs" ON public.daily_logs;
+
+-- ---------------------------------------------------------------------------
+-- 2) daily_stats: 뷰를 조회자 권한으로 실행시켜 기저 테이블 RLS 를 상속
+-- ---------------------------------------------------------------------------
+-- Postgres 뷰는 기본적으로 소유자(postgres) 권한으로 실행돼 기저 테이블의 RLS 를
+-- 우회한다. 그래서 daily_logs 를 막아도 이 뷰로 우회 조회가 가능했다.
+-- security_invoker=on 이면 조회한 역할의 권한으로 실행돼 RLS 가 적용된다.
+--
+-- 뷰 정의가 `FROM daily_logs WHERE deleted_at IS NULL` 이라 위 정책과 정확히
+-- 일치하고, authenticated 는 daily_logs 에 SELECT 권한이 있으므로 로그인
+-- 사용자 화면은 그대로 동작한다.
+ALTER VIEW public.daily_stats SET (security_invoker = on);
+
+-- ---------------------------------------------------------------------------
+-- 적용 후 검증 (실측)
+-- ---------------------------------------------------------------------------
+--   비로그인 공개키: daily_logs 4,834 → 0행 / daily_stats 420 → 0행
+--   로그인 사용자(58f34878…): daily_logs 953행 = 관리자 권한으로 본 보유량과 일치
+--                             (활성 896 + 삭제 57), 타인 3,881행은 차단
+--   과차단·미차단 없음
+--
+-- 남은 후속 과제 (이 마이그레이션 범위 밖):
+--   items_by_exam_type          SECURITY DEFINER 뷰. 개인정보 없음(검사항목 마스터)
+--   shortform_capcut_templates  RLS 미활성. automation 코드 확인 후 잠글 것
+--   shortform_capcut_generated  RLS 미활성. 현재 0행
+--   graphic_styles              RLS 미활성. automation 코드 확인 후 잠글 것
+--   app_settings                반대 방향 문제 — anon/authenticated 에 SELECT 권한이
+--                               없어 lib/site-settings.ts·lib/tier.ts 가 조용히
+--                               기본값으로 폴백 중. 공개 노출 범위 결정 필요
+--   sort_order_configs          "Allow all access" (ALL, public). 전역 설정 4행
